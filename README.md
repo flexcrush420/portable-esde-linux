@@ -210,7 +210,7 @@ Tested on **Linux Mint** and **Ubuntu**. Should work on any distro with bash 4.0
 - [RetroArch](https://www.retroarch.com/) and the [libretro](https://www.libretro.com/) core authors
 - [pkgforge-dev](https://github.com/pkgforge-dev) — community AppImage builds for Dolphin and melonDS
 - All the emulator teams whose work powers this bundle
-
+- [Team Pixel Nostalgia](https://pixelnostalgia.github.io/) — [ES-DE - Convert RGS ROMpacks for use with ES-DE](https://www.youtube.com/watch?v=ee0j1yGnqwA)
 ---
 
 ## Legal
