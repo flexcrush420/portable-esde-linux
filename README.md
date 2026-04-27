@@ -34,6 +34,9 @@
 | **Eden** | Nintendo Switch (Yuzu lineage) |
 | **xemu** | Original Xbox |
 | **Xenia Canary** | Xbox 360 |
+| **shadPS4** | PlayStation 4 |
+| **86Box** | Windows 9x / retro PC (Win95, Win98, DOS) |
+| **3dSen** | NES in 3D *(commercial — buy on Steam/itch.io, auto-detected if installed)* |
 
 All configured for fullscreen, portable paths, and your chosen internal resolution out of the box.
 
@@ -96,6 +99,7 @@ ES-DE-Portable/
 ├── ROMs/
 │   ├── nes/ snes/ gb/ gba/     ← Add your ROMs here
 │   ├── dreamcast/ ps2/ gc/     ← One folder per system
+│   ├── ps4/ windows9x/         ← Newer systems
 │   └── bios/                   ← BIOS files go here
 ├── downloaded_media/           ← Scraped artwork and videos
 └── Saves/                      ← Save files and states
@@ -112,11 +116,13 @@ BIOS files are required for many systems and must be sourced from hardware you o
 | PlayStation 1 | `scph5501.bin` (and other regional variants) |
 | PlayStation 2 | PCSX2 BIOS files |
 | PlayStation 3 | PS3 firmware (`PS3UPDAT.PUP`) via RPCS3 |
+| PlayStation 4 | Firmware modules via shadPS4 (dumped from your PS4) |
 | Sega Saturn | `saturn_bios.bin` |
 | Sega Dreamcast | `dc_boot.bin`, `dc_flash.bin` |
 | Nintendo DS | `bios7.bin`, `bios9.bin`, firmware |
 | PC Engine CD | `syscard3.pce` |
 | Neo Geo | `neogeo.zip` |
+| Windows 9x | Windows installation ISO (your own licensed copy) via 86Box |
 
 ---
 
@@ -193,8 +199,11 @@ Additional themes can be installed anytime via ES-DE's built-in Theme Downloader
 Some emulators require one-time setup that can't be scripted due to legal/firmware constraints:
 
 - **RPCS3** — requires PlayStation 3 firmware installed via `File → Install Firmware` on first launch
+- **shadPS4** — requires PS4 firmware modules placed in `Emulators/config/shadps4/sys_modules/` dumped from your own PS4
 - **xemu** — requires an Xbox HDD image and MCPX/BIOS files configured on first launch
+- **86Box** — requires a Windows installation ISO and ROM set to create virtual machines
 - **Azahar / Ryubing / Eden** — require Switch firmware and `prod.keys` / `title.keys` dumped from your own hardware
+- **3dSen** — commercial application, purchase on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen)
 
 ---
 
@@ -211,6 +220,7 @@ Tested on **Linux Mint** and **Ubuntu**. Should work on any distro with bash 4.0
 - [pkgforge-dev](https://github.com/pkgforge-dev) — community AppImage builds for Dolphin and melonDS
 - All the emulator teams whose work powers this bundle
 - [Team Pixel Nostalgia](https://pixelnostalgia.github.io/) — [ES-DE - Convert RGS ROMpacks for use with ES-DE](https://www.youtube.com/watch?v=ee0j1yGnqwA)
+
 ---
 
 ## Legal
