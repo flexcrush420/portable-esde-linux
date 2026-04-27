@@ -41,6 +41,7 @@
 | | | |
 | **86Box** | Windows 9x / retro PC | Win95, Win98, DOS |
 | **3dSen** | NES in 3D | Commercial — buy on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen), auto-detected if installed |
+| **Visual Pinball** |  |
 
 All configured for fullscreen, portable paths, and your chosen internal resolution out of the box.
 
