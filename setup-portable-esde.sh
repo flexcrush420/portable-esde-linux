@@ -462,6 +462,7 @@ ROM_DIRS=(
     virtualboy wii wiiu wonderswan wonderswancolor x68000
     xbox xbox360 zmachine zx81 zxspectrum
     triforce j2me openbor pcarcade type-x
+    ps4 windows9x windows3x
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -552,6 +553,20 @@ emu('FLYCAST', [fp('flycast*.AppImage')], ['flycast']),
 emu('RYUBING', [fp('Ryubing*.AppImage'), fp('ryubing*')], ['Ryubing']),
 '',
 emu('EDEN', [fp('Eden*.AppImage'), fp('eden*.AppImage')], ['eden']),
+'',
+emu('SHADPS4',
+    [fp('shadps4-portable.sh'), fp('shadps4')],
+    ['shadps4']),
+'',
+emu('86BOX',
+    [fp('86box-portable.sh'), fp('86Box*.AppImage'), fp('86box*.AppImage')],
+    ['86Box', '86box']),
+'',
+# 3dSen is a commercial app (buy on Steam/itch.io) — find rules for if user has it
+emu('3DSEN',
+    [fp('3dSen*.AppImage'), '~/.local/share/Steam/steamapps/common/3dSen/3dSen',
+     '~/.local/share/applications/3dSen'],
+    ['3dSen']),
 '',
 emu('XEMU', [fp('xemu*.AppImage'),
     '/var/lib/flatpak/exports/bin/app.xemu.xemu'], ['xemu']),
@@ -869,6 +884,27 @@ BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Eden*.AppImage' -o -name 'eden*.AppI
 exec "$BIN" "$@"
 EDENWRAP
 chmod +x "$EMUS/eden-portable.sh"
+
+# shadPS4 (PS4) — uses --portable flag to keep config next to binary
+cat > "$EMUS/shadps4-portable.sh" << 'SHADWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+mkdir -p "$SCRIPT_DIR/config/shadps4"
+export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
+export XDG_DATA_HOME="$SCRIPT_DIR/data"
+exec "$SCRIPT_DIR/shadps4" "$@"
+SHADWRAP
+chmod +x "$EMUS/shadps4-portable.sh"
+
+# 86Box (Windows 9x / retro PC) — uses --vmpath for portable config
+cat > "$EMUS/86box-portable.sh" << 'BOXWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+mkdir -p "$SCRIPT_DIR/config/86box"
+BOX=$(find "$SCRIPT_DIR" -maxdepth 1 -name '86Box*.AppImage' -o -name '86box*.AppImage' | head -1)
+exec "$BOX" --vmpath "$SCRIPT_DIR/config/86box" "$@"
+BOXWRAP
+chmod +x "$EMUS/86box-portable.sh"
 
 ok "XDG portable wrappers written"
 
@@ -1219,7 +1255,50 @@ fi
 echo "   ── Eden (Nintendo Switch) ──"
 github_appimage "eden-emulator/Releases" \
     "Eden-Linux.*x86_64.*\.AppImage$" \
-    "$EMUS/Eden-latest.AppImage" || ((DOWNLOAD_ERRORS++)) || true
+    "$EMUS/Eden-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+echo ""
+
+echo "   ── shadPS4 (PlayStation 4) ──"
+if compgen -G "$EMUS/shadps4*" > /dev/null 2>&1 || [[ -f "$EMUS/shadps4" ]]; then
+    ok "shadPS4 already exists, skipping"
+else
+    # shadPS4 ships as tar.gz for Linux, not AppImage
+    SHADPS4_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -iP "linux.*x86.?64.*\.tar\.(gz|xz)$|x86.?64.*linux.*\.tar\.(gz|xz)$" \
+        | grep -iv "debug\|symbols" \
+        | head -1) || true
+    if [[ -n "$SHADPS4_URL" ]]; then
+        info "Downloading shadPS4 ..."
+        SHADPS4_TMPDIR=$(mktemp -d)
+        EXT="${SHADPS4_URL##*.}"
+        if [[ "$EXT" == "gz" ]]; then
+            curl -#fL "$SHADPS4_URL" | tar -xz -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+        else
+            curl -#fL "$SHADPS4_URL" | tar -xJ -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+        fi
+        # Find the main shadPS4 executable
+        SHADPS4_BIN=$(find "$SHADPS4_TMPDIR" -type f \( -name "shadps4" -o -name "shadps4-qt" \) 2>/dev/null | head -1)
+        if [[ -n "$SHADPS4_BIN" ]]; then
+            mv "$SHADPS4_BIN" "$EMUS/shadps4"
+            chmod +x "$EMUS/shadps4"
+            ok "shadPS4 downloaded"
+        else
+            fail "Could not find shadPS4 binary inside archive"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+        rm -rf "$SHADPS4_TMPDIR"
+    else
+        warn "shadPS4 download URL not found — check https://github.com/shadps4-emu/shadPS4/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+echo ""
+
+echo "   ── 86Box (Windows 9x / retro PC) ──"
+github_appimage "86Box/86Box" \
+    "86Box.*x86_64.*\.AppImage$" \
+    "$EMUS/86Box-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 echo ""
 
 #=============================================================================
@@ -1911,7 +1990,41 @@ check_and_update "xemu (Xbox)" "xemu*.AppImage" \
 check_and_update "Eden (Switch)" "Eden*.AppImage" \
     "$(github_latest_url eden-emulator/Releases 'Eden-Linux.*x86_64.*\.AppImage$')" "Eden-latest"
 
-# ── RetroArch Cores ──
+check_and_update "86Box (Win9x/PC)" "86Box*.AppImage" \
+    "$(github_latest_url 86Box/86Box '86Box.*x86_64.*\.AppImage$')" "86Box-latest"
+
+# shadPS4 — ships as tar.gz, just offer re-download
+SHADPS4_CURRENT=$(find "$EMUS" -maxdepth 1 -name 'shadps4' -type f 2>/dev/null | head -1)
+if [[ -n "$SHADPS4_CURRENT" ]]; then
+    printf "   %-32s" "shadPS4 (PS4)"
+    echo -e " ${CYAN}[tar.gz release — re-download to update]${NC}"
+    read -rp "      Re-download latest? [y/N]: " SHAD_CONFIRM
+    if [[ "${SHAD_CONFIRM,,}" == "y" ]]; then
+        SHAD_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "linux.*x86.?64.*\.tar\.(gz|xz)$" \
+            | grep -iv "debug\|symbols" | head -1) || true
+        if [[ -n "$SHAD_URL" ]]; then
+            SHAD_TMP=$(mktemp -d)
+            EXT="${SHAD_URL##*.}"
+            [[ "$EXT" == "gz" ]] \
+                && curl -#fL "$SHAD_URL" | tar -xz -C "$SHAD_TMP" 2>/dev/null || true \
+                || curl -#fL "$SHAD_URL" | tar -xJ -C "$SHAD_TMP" 2>/dev/null || true
+            SHAD_BIN=$(find "$SHAD_TMP" -type f \( -name "shadps4" -o -name "shadps4-qt" \) | head -1)
+            if [[ -n "$SHAD_BIN" ]]; then
+                mv "$SHAD_BIN" "$EMUS/shadps4"
+                chmod +x "$EMUS/shadps4"
+                ok "shadPS4 updated"
+            else
+                warn "Binary not found in archive"
+            fi
+            rm -rf "$SHAD_TMP"
+        else
+            warn "Could not find download URL"
+        fi
+    fi
+    echo ""
+fi
 echo ""
 echo -e "${CYAN}RetroArch Cores:${NC}"
 read -rp "   Update all cores from buildbot.libretro.com? [y/N]: " CORES_CONFIRM
