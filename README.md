@@ -28,12 +28,11 @@
 | **RPCS3** | PlayStation 3 | |
 | **shadPS4** | PlayStation 4 | |
 | **PPSSPP** | PlayStation Portable | |
-| **— Nintendo Handheld —** | | |
+| **— Nintendo —** | | |
 | **melonDS** | Nintendo DS | |
 | **Azahar** | Nintendo 3DS | |
 | **Ryubing** | Nintendo Switch | Ryujinx lineage |
 | **Eden** | Nintendo Switch | Yuzu lineage |
-| **— Nintendo Home —** | | |
 | **Dolphin** | GameCube / Wii | |
 | **Cemu** | Wii U | |
 | **— Microsoft —** | | |
