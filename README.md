@@ -22,23 +22,23 @@
 |---|---|---|
 | **ES-DE 3.4.1** | Frontend | Portable mode — no system installation |
 | **RetroArch** | 40+ systems | NES, SNES, Genesis, GB/GBC/GBA, N64, Saturn, Dreamcast, Arcade & more |
-| | ***— Sony —*** | |
+| | | |
 | **DuckStation** | PlayStation 1 | |
 | **PCSX2** | PlayStation 2 | |
 | **RPCS3** | PlayStation 3 | |
 | **shadPS4** | PlayStation 4 | |
 | **PPSSPP** | PlayStation Portable | |
-| | ***— Nintendo —*** | |
+| | | |
 | **melonDS** | Nintendo DS | |
 | **Azahar** | Nintendo 3DS | |
 | **Ryubing** | Nintendo Switch | Ryujinx lineage |
 | **Eden** | Nintendo Switch | Yuzu lineage |
 | **Dolphin** | GameCube / Wii | |
 | **Cemu** | Wii U | |
-| | ***— Microsoft —*** | |
+| | | |
 | **xemu** | Original Xbox | |
 | **Xenia Canary** | Xbox 360 | |
-| | ***— PC —*** | |
+| | | |
 | **86Box** | Windows 9x / retro PC | Win95, Win98, DOS |
 | **3dSen** | NES in 3D | Commercial — buy on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen), auto-detected if installed |
 
