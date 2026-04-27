@@ -1378,10 +1378,74 @@ else
     fi
 fi
 
+echo "   ── Ryubing (Nintendo Switch) ──"
+# Ryubing is hosted on a self-managed Forgejo instance, not GitHub
+# Downloads from git.ryujinx.app via their GitHub mirror releases
+if compgen -G "$EMUS/ryujinx*.AppImage" > /dev/null 2>&1; then
+    ok "Ryubing already exists, skipping"
+else
+    info "Downloading Ryubing ..."
+    # Try GitHub mirror first
+    RYUBING_URL=$(curl -sfL "https://api.github.com/repos/Ryubing/Ryujinx/releases?per_page=5" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -P "x64\.AppImage$" \
+        | head -1) || true
+    # Fallback: direct download from ryujinx.app
+    if [[ -z "$RYUBING_URL" ]]; then
+        RYUBING_URL=$(curl -sfL "https://git.ryujinx.app/api/v1/repos/ryubing/ryujinx/releases?limit=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -P "x64\.AppImage$" \
+            | head -1) || true
+    fi
+    if [[ -n "$RYUBING_URL" ]]; then
+        RYUBING_FNAME=$(basename "$RYUBING_URL")
+        if curl -#fL -o "$EMUS/$RYUBING_FNAME" "$RYUBING_URL"; then
+            chmod +x "$EMUS/$RYUBING_FNAME"
+            ok "Ryubing downloaded: $RYUBING_FNAME"
+        else
+            fail "Ryubing download failed"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            rm -f "$EMUS/$RYUBING_FNAME"
+        fi
+    else
+        warn "Ryubing URL not found — download manually from https://git.ryujinx.app/ryubing/ryujinx"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+echo ""
+
 echo "   ── Eden (Nintendo Switch) ──"
-github_appimage "eden-emulator/Releases" \
-    "Eden-Linux.*x86_64.*\.AppImage$" \
-    "$EMUS/Eden-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+# Eden is hosted at git.eden-emu.dev — try GitHub mirror then direct
+if compgen -G "$EMUS/Eden*.AppImage" > /dev/null 2>&1; then
+    ok "Eden already exists, skipping"
+else
+    info "Downloading Eden ..."
+    EDEN_URL=$(curl -sfL "https://api.github.com/repos/eden-emulator/Releases/releases?per_page=5" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -iP "linux.*x86_64.*\.AppImage$|Eden.*Linux.*\.AppImage$" \
+        | head -1) || true
+    # Fallback: try direct from git.eden-emu.dev
+    if [[ -z "$EDEN_URL" ]]; then
+        EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "linux.*x86_64.*\.AppImage$" \
+            | head -1) || true
+    fi
+    if [[ -n "$EDEN_URL" ]]; then
+        EDEN_FNAME=$(basename "$EDEN_URL")
+        if curl -#fL -o "$EMUS/$EDEN_FNAME" "$EDEN_URL"; then
+            chmod +x "$EMUS/$EDEN_FNAME"
+            ok "Eden downloaded: $EDEN_FNAME"
+        else
+            fail "Eden download failed"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            rm -f "$EMUS/$EDEN_FNAME"
+        fi
+    else
+        warn "Eden URL not found — download manually from https://git.eden-emu.dev/eden-emu/eden"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
 echo ""
 
 echo "   ── shadPS4 (PlayStation 4) ──"
@@ -1614,7 +1678,7 @@ else
         # Skip non-BIOS subdirs (thebezelproject, config, output)
         BIOS_SKIP=(thebezelproject config output bizhawk)
         if [[ -d "$RETROBAT_PATH/bios" ]]; then
-            echo -n "   BIOS files → ROMs/bios/              [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            echo -n "   BIOS files → ROMs/bios/              [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
             mkdir -p "$ROMS/bios"
             if [[ "$RETROBAT_MOVE" == "yes" ]]; then
                 find "$RETROBAT_PATH/bios" -maxdepth 1 -type f -exec mv -n {} "$ROMS/bios/" \; 2>/dev/null || true
@@ -1633,30 +1697,30 @@ else
 
                 case "$BIOS_NAME" in
                     duckstation)
-                        echo -n "   BIOS/duckstation → .config/duckstation/ [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        echo -n "   BIOS/duckstation → .config/duckstation/ [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         mkdir -p "$BASE/.config/duckstation"
                         cp -rn "$BIOS_SUBDIR/." "$BASE/.config/duckstation/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     pcsx2)
-                        echo -n "   BIOS/pcsx2 → .config/PCSX2/bios/       [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        echo -n "   BIOS/pcsx2 → .config/PCSX2/bios/       [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         mkdir -p "$BASE/.config/PCSX2/bios"
                         cp -rn "$BIOS_SUBDIR/." "$BASE/.config/PCSX2/bios/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     melonds)
-                        echo -n "   BIOS/melonds → ROMs/bios/               [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        echo -n "   BIOS/melonds → ROMs/bios/               [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     retroarch)
-                        echo -n "   BIOS/retroarch → .config/retroarch/system/ [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        echo -n "   BIOS/retroarch → .config/retroarch/system/ [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         mkdir -p "$BASE/.config/retroarch/system"
                         cp -rn "$BIOS_SUBDIR/." "$BASE/.config/retroarch/system/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     mame)
-                        echo -n "   BIOS/mame → ROMs/bios/                  [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        echo -n "   BIOS/mame → ROMs/bios/                  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     mednafen)
-                        echo -n "   BIOS/mednafen → ROMs/bios/              [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        echo -n "   BIOS/mednafen → ROMs/bios/              [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     *)
@@ -1737,7 +1801,7 @@ else
         # ── Cheats ──
         # RetroArch .cht files work directly — copy to retroarch cheats dir
         if [[ -d "$RETROBAT_PATH/cheats" ]]; then
-            echo -n "   Cheats → .config/retroarch/cheats/   [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            echo -n "   Cheats → .config/retroarch/cheats/   [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
             mkdir -p "$BASE/.config/retroarch/cheats"
             cp -rn "$RETROBAT_PATH/cheats/." "$BASE/.config/retroarch/cheats/" 2>/dev/null || true
             echo -e " ${GREEN}done${NC}"
@@ -1745,7 +1809,7 @@ else
 
         # ── Screenshots ──
         if [[ -d "$RETROBAT_PATH/screenshots" ]]; then
-            echo -n "   Screenshots → Saves/screenshots/      [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            echo -n "   Screenshots → Saves/screenshots/      [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
             mkdir -p "$BASE/Saves/screenshots"
             cp -rn "$RETROBAT_PATH/screenshots/." "$BASE/Saves/screenshots/" 2>/dev/null || true
             echo -e " ${GREEN}done${NC}"
@@ -1755,7 +1819,7 @@ else
         # Custom game collections from RetroBat's emulationstation
         ES_COLL="$RETROBAT_PATH/emulationstation/.emulationstation/collections"
         if [[ -d "$ES_COLL" ]]; then
-            echo -n "   Collections → ES-DE/collections/      [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            echo -n "   Collections → ES-DE/collections/      [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
             mkdir -p "$ESDE_DATA/collections"
             cp -rn "$ES_COLL/." "$ESDE_DATA/collections/" 2>/dev/null || true
             echo -e " ${GREEN}done${NC}"
@@ -1792,7 +1856,7 @@ else
                     DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
                     if [[ -d "$SRC" ]]; then
                         mkdir -p "$DST"
-                        TRANSFER_LABEL="${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}"
+                        TRANSFER_LABEL="$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")"
                         [[ "$RB_TYPE" == "videos" ]] \
                             && echo "      videos → videos            [$TRANSFER_LABEL — large sets take time...]" \
                             || echo -n "      $(printf '%-14s' "$RB_TYPE") → $(printf '%-14s' "$ESDE_TYPE") [$TRANSFER_LABEL...]"
@@ -1898,7 +1962,7 @@ GLFIX
                 [[ "$ESDE_SYS" == "$FS" || "$RB_SYS" == "$FS" ]] && IS_FLAT=true && break
             done
 
-            TRANSFER_LABEL="${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}"
+            TRANSFER_LABEL="$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")"
             echo -n "      ROMs                              [$TRANSFER_LABEL...]"
             COPIED=0
 
@@ -2476,161 +2540,7 @@ CORE_COUNT=0
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║  Setup complete!                                         ║"
 echo "╠════════════════════════════════════════════════════════════╣"
-echo "║                                                          ║"#!/usr/bin/env bash
-#=============================================================================
-#  ____            _        _     _        _____ ____        ____  _____
-# |  _ \ ___  _ __| |_ __ _| |__ | | ___  | ____/ ___|      |  _ \| ____|
-# | |_) / _ \| '__| __/ _` | '_ \| |/ _ \ |  _| \___ \ _____| | | |  _|
-# |  __/ (_) | |  | || (_| | |_) | |  __/ | |___ ___) |_____| |_| | |___
-# |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
-#
-#  All-in-One Portable ES-DE Setup for Linux
-#  https://github.com/flexcrush420/portable-esde-linux
-#
-#  Creates a fully self-contained ES-DE retro gaming bundle:
-#    ✓ ES-DE frontend in portable mode
-#    ✓ RetroArch + essential cores for every bundled system
-#    ✓ Standalone emulators (PCSX2, RPCS3, Dolphin, etc.)
-#    ✓ Pre-configured es_find_rules.xml with relative paths
-#    ✓ Directory structure for ROMs, BIOS, saves, and media
-#
-#  Just add your ROMs and BIOS files, then ./launch.sh
-#
-#  Usage:  chmod +x setup-portable-esde.sh && ./setup-portable-esde.sh
-#  Re-run: safely skips already-downloaded files
-#=============================================================================
-set -euo pipefail
-
-VERSION="1.0.0"
-ESDE_VERSION="3.4.1"
-
-# ── Colors ──
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-
-ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
-warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
-fail() { echo -e "   ${RED}✗${NC} $1"; }
-info() { echo -e "   ${CYAN}→${NC} $1"; }
-
-#=============================================================================
-# INTERACTIVE INSTALL PATH
-#=============================================================================#!/usr/bin/env bash
-#=============================================================================
-#  ____            _        _     _        _____ ____        ____  _____
-# |  _ \ ___  _ __| |_ __ _| |__ | | ___  | ____/ ___|      |  _ \| ____|
-# | |_) / _ \| '__| __/ _` | '_ \| |/ _ \ |  _| \___ \ _____| | | |  _|
-# |  __/ (_) | |  | || (_| | |_) | |  __/ | |___ ___) |_____| |_| | |___
-# |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
-#
-#  All-in-One Portable ES-DE Setup for Linux
-#  https://github.com/flexcrush420/portable-esde-linux
-#
-#  Creates a fully self-contained ES-DE retro gaming bundle:
-#    ✓ ES-DE frontend in portable mode
-#    ✓ RetroArch + essential cores for every bundled system
-#    ✓ Standalone emulators (PCSX2, RPCS3, Dolphin, etc.)
-#    ✓ Pre-configured es_find_rules.xml with relative paths
-#    ✓ Directory structure for ROMs, BIOS, saves, and media
-#
-#  Just add your ROMs and BIOS files, then ./launch.sh
-#
-#  Usage:  chmod +x setup-portable-esde.sh && ./setup-portable-esde.sh
-#  Re-run: safely skips already-downloaded files
-#=============================================================================
-set -euo pipefail
-
-VERSION="1.0.0"
-ESDE_VERSION="3.4.1"
-
-# ── Colors ──
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
-
-ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
-warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
-fail() { echo -e "   ${RED}✗${NC} $1"; }
-info() { echo -e "   ${CYAN}→${NC} $1"; }
-
-#=============================================================================
-# INTERACTIVE INSTALL PATH
-#=============================================================================
-echo ""
-echo -e "${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║  Portable ES-DE Setup v${VERSION} (ES-DE ${ESDE_VERSION})          ║${NC}"
-echo -e "${BOLD}║  A complete retro gaming bundle for Linux             ║${NC}"
-echo -e "${BOLD}╚════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-DEFAULT_PATH="$(pwd)/ES-DE-Portable"
-
-echo -e "Where would you like to install the portable ES-DE bundle?"
-echo -e "  Default: ${CYAN}${DEFAULT_PATH}${NC}"
-echo ""
-read -rp "Install path (press Enter for default): " USER_PATH
-
-BASE="${USER_PATH:-$DEFAULT_PATH}"
-
-# Expand ~ if used
-BASE="${BASE/#\~/$HOME}"
-
-# Make absolute
-BASE="$(realpath -m "$BASE")"
-
-echo ""
-echo -e "Installing to: ${BOLD}${BASE}${NC}"
-echo ""
-
-# Check if directory exists and has content
-if [[ -d "$BASE" ]] && [[ -n "$(ls -A "$BASE" 2>/dev/null)" ]]; then
-    echo -e "${YELLOW}Directory already exists and is not empty.${NC}"
-    echo "  Existing files will be preserved. Only missing items will be added."
-    echo ""
-    read -rp "Continue? (Y/n): " CONTINUE
-    [[ "${CONTINUE,,}" == "n" ]] && echo "Aborted." && exit 0
-    echo ""
-fi
-
-EMUS="$BASE/Emulators"
-
-echo ""
-echo -e "${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║  Portable ES-DE Setup v${VERSION} (ES-DE ${ESDE_VERSION})          ║${NC}"
-echo -e "${BOLD}║  A complete retro gaming bundle for Linux             ║${NC}"
-echo -e "${BOLD}╚════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
-DEFAULT_PATH="$(pwd)/ES-DE-Portable"
-
-echo -e "Where would you like to install the portable ES-DE bundle?"
-echo -e "  Default: ${CYAN}${DEFAULT_PATH}${NC}"
-echo ""
-read -rp "Install path (press Enter for default): " USER_PATH
-
-BASE="${USER_PATH:-$DEFAULT_PATH}"
-
-# Expand ~ if used
-BASE="${BASE/#\~/$HOME}"
-
-# Make absolute
-BASE="$(realpath -m "$BASE")"
-
-echo ""
-echo -e "Installing to: ${BOLD}${BASE}${NC}"
-echo ""
-
-# Check if directory exists and has content
-if [[ -d "$BASE" ]] && [[ -n "$(ls -A "$BASE" 2>/dev/null)" ]]; then
-    echo -e "${YELLOW}Directory already exists and is not empty.${NC}"
-    echo "  Existing files will be preserved. Only missing items will be added."
-    echo ""
-    read -rp "Continue? (Y/n): " CONTINUE
-    [[ "${CONTINUE,,}" == "n" ]] && echo "Aborted." && exit 0
-    echo ""
-fi
-
-EMUS="$BASE/Emulators"
-
+echo "║                                                          ║"
 echo -e "║  ${GREEN}$APPIMAGE_COUNT AppImages${NC} downloaded                            ║"
 echo -e "║  ${GREEN}$CORE_COUNT RetroArch cores${NC} installed                        ║"
 
