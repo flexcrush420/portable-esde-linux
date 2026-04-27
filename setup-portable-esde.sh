@@ -134,7 +134,8 @@ fi
 
 # ── RetroBat import prompt ──
 RETROBAT_PATHS=()
-RETROBAT_COPY_ROMS=""
+RETROBAT_REAL_PATHS=()
+RETROBAT_SYNTH_DIRS=()
 echo "Import existing RetroBat collection(s)?"
 echo "  Accepts either a full RetroBat folder (containing a 'roms' subfolder)"
 echo "  or a standalone ROM pack folder (e.g. a single system folder like 'dreamcast/')."
@@ -158,16 +159,29 @@ while true; do
         RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")
         echo -e "   ${GREEN}✓${NC} Added (full RetroBat install): $RETROBAT_INPUT"
     else
-        # Standalone ROM pack folder — wrap in a synthetic roms/ structure
+        # Standalone folder — could be a collection (contains system subdirs)
+        # or a single system folder (IS the system dir itself)
+        SUBDIR_COUNT=$(find "$RETROBAT_INPUT" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l)
         SYNTH_PARENT=$(mktemp -d)
-        ln -s "$RETROBAT_INPUT" "$SYNTH_PARENT/roms"
+        if [[ $SUBDIR_COUNT -gt 0 ]]; then
+            # Has subdirectories — treat as collection, wrap normally
+            ln -s "$RETROBAT_INPUT" "$SYNTH_PARENT/roms"
+            echo -e "   ${GREEN}✓${NC} Added (ROM collection folder): $RETROBAT_INPUT"
+        else
+            # No subdirectories — this IS a system folder, infer system name from dirname
+            SYS_NAME=$(basename "$RETROBAT_INPUT")
+            mkdir -p "$SYNTH_PARENT/roms/$SYS_NAME"
+            # Symlink contents into a named system subfolder
+            while IFS= read -r -d '' ITEM; do
+                ln -s "$ITEM" "$SYNTH_PARENT/roms/$SYS_NAME/$(basename "$ITEM")" 2>/dev/null || true
+            done < <(find "$RETROBAT_INPUT" -maxdepth 1 -mindepth 1 -print0)
+            echo -e "   ${GREEN}✓${NC} Added (single system folder '$SYS_NAME'): $RETROBAT_INPUT"
+        fi
         RETROBAT_PATHS+=("$SYNTH_PARENT")
-        RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")  # real path for cut mode
+        RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")
         RETROBAT_SYNTH_DIRS+=("$SYNTH_PARENT")
-        echo -e "   ${GREEN}✓${NC} Added (ROM pack folder): $RETROBAT_INPUT"
     fi
 done
-RETROBAT_SYNTH_DIRS=("${RETROBAT_SYNTH_DIRS[@]}")
 
 if [[ ${#RETROBAT_PATHS[@]} -gt 0 ]]; then
     echo ""
@@ -464,17 +478,18 @@ mkdir -p "$BASE/Saves/states"
 
 ROM_DIRS=(
     3do amiga amigacd32 amstradcpc arcade atari2600 atari5200 atari7800
-    atarijaguar atarilynx atarist c64 channelf colecovision daphne
-    dos dreamcast famicom fba fds gamegear gb gba gbc gc genesis
-    intellivision jaguar lynx mastersystem megacd megadrive msx
-    msx2 n3ds n64 nds neogeo neogeocd nes ngp ngpc odyssey2
+    atarijaguar atarijaguarcd atarilynx atarist c64 channelf colecovision
+    cps1 cps2 cps3 daphne dos dreamcast famicom fds gamegear
+    gb gba gbc gc genesis intellivision mastersystem megacd megadrive
+    msx msx2 n3ds n64 nds neogeo neogeocd nes ngp ngpc odyssey2
     pc pcengine pcenginecd pcfx pico8 pokemini ports ps2 ps3
     psp psx saturn sc-3000 scummvm sega32x segacd sg-1000 snes
-    supergrafx tg-cd tg16 ti99 uzebox vectrex vic20 videopac
+    supergrafx switch tg-cd tg16 ti99 uzebox vectrex vic20 videopac
     virtualboy wii wiiu wonderswan wonderswancolor x68000
     xbox xbox360 zmachine zx81 zxspectrum
     triforce j2me openbor pcarcade type-x
     ps4 windows9x windows3x
+    sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -591,6 +606,10 @@ emu('GEARGRAFX', [fp('Geargrafx*.AppImage')], ['geargrafx']),
 '',
 emu('MESEN', [fp('Mesen*.AppImage')], ['Mesen']),
 '',
+emu('VPINBALL',
+    [fp('VPinballX_BGFX'), fp('VPinballX_GL'), fp('vpinball-portable.sh')],
+    ['VPinballX_BGFX', 'VPinballX_GL']),
+'',
 '</ruleList>']
 
 os.makedirs(os.path.dirname(out_path), exist_ok=True)
@@ -688,13 +707,125 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <theme>gamegear</theme>
   </system>
 
+
+  <s>
+    <n>ps3psn</n>
+    <fullname>PlayStation 3 (PSN / Digital)</fullname>
+    <path>%ROMPATH%/ps3psn</path>
+    <extension>.pkg .PKG .psn .PSN</extension>
+    <command label="RPCS3">%EMULATOR_RPCS3% %ROM%</command>
+    <platform>ps3</platform>
+    <theme>ps3</theme>
+  </s>
+
+  <s>
+    <n>xbla</n>
+    <fullname>Xbox Live Arcade</fullname>
+    <path>%ROMPATH%/xbla</path>
+    <extension>.xex .XEX .iso .ISO .xcp .XCP .zip .ZIP</extension>
+    <command label="Xenia Canary">%EMULATOR_XENIA% %ROM%</command>
+    <platform>xbox360</platform>
+    <theme>xbox360</theme>
+  </s>
+
+  <s>
+    <n>sfc</n>
+    <fullname>Super Famicom</fullname>
+    <path>%ROMPATH%/sfc</path>
+    <extension>.sfc .smc .fig .swc .bs .st .zip .7z .SFC .SMC .ZIP .7Z</extension>
+    <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
+    <platform>snes</platform>
+    <theme>sfc</theme>
+  </s>
+
+  <s>
+    <n>n64dd</n>
+    <fullname>Nintendo 64DD</fullname>
+    <path>%ROMPATH%/n64dd</path>
+    <extension>.ndd .zip .7z .NDD .ZIP .7Z</extension>
+    <command label="Mupen64Plus-Next">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mupen64plus_next_libretro.so %ROM%</command>
+    <platform>n64</platform>
+    <theme>n64dd</theme>
+  </s>
+
+  <s>
+    <n>wiiware</n>
+    <fullname>WiiWare</fullname>
+    <path>%ROMPATH%/wiiware</path>
+    <extension>.wad .WAD .zip .ZIP</extension>
+    <command label="Dolphin">%EMULATOR_DOLPHIN% %ROM%</command>
+    <platform>wii</platform>
+    <theme>wii</theme>
+  </s>
+
+  <s>
+    <n>megadrivejp</n>
+    <fullname>Sega Mega Drive (Japan)</fullname>
+    <path>%ROMPATH%/megadrivejp</path>
+    <extension>.md .bin .smd .gen .zip .7z .MD .BIN .ZIP .7Z</extension>
+    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
+    <platform>megadrive</platform>
+    <theme>megadrivejp</theme>
+  </s>
+
+  <s>
+    <n>saturnjp</n>
+    <fullname>Sega Saturn (Japan)</fullname>
+    <path>%ROMPATH%/saturnjp</path>
+    <extension>.bin .cue .iso .mdf .chd .zip .7z .BIN .CUE .ISO .ZIP .7Z</extension>
+    <command label="Kronos">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/kronos_libretro.so %ROM%</command>
+    <platform>saturn</platform>
+    <theme>saturnjp</theme>
+  </s>
+
+  <s>
+    <n>amiga500</n>
+    <fullname>Commodore Amiga 500</fullname>
+    <path>%ROMPATH%/amiga500</path>
+    <extension>.adf .adz .dms .fdi .ipf .hdf .hdz .lha .zip .7z .ADF .ZIP .7Z</extension>
+    <command label="PUAE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/puae_libretro.so %ROM%</command>
+    <platform>amiga</platform>
+    <theme>amiga</theme>
+  </s>
+
+  <s>
+    <n>amiga1200</n>
+    <fullname>Commodore Amiga 1200</fullname>
+    <path>%ROMPATH%/amiga1200</path>
+    <extension>.adf .adz .dms .fdi .ipf .hdf .hdz .lha .zip .7z .ADF .ZIP .7Z</extension>
+    <command label="PUAE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/puae_libretro.so %ROM%</command>
+    <platform>amiga</platform>
+    <theme>amiga1200</theme>
+  </s>
+
+  <s>
+    <n>videopacplus</n>
+    <fullname>Philips Videopac+ G7400</fullname>
+    <path>%ROMPATH%/videopacplus</path>
+    <extension>.bin .zip .7z .BIN .ZIP .7Z</extension>
+    <command label="O2EM">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/o2em_libretro.so %ROM%</command>
+    <platform>videopac</platform>
+    <theme>videopac</theme>
+  </s>
+
+  <s>
+    <n>vpinball</n>
+    <fullname>Visual Pinball</fullname>
+    <path>%ROMPATH%/vpinball</path>
+    <extension>.vpx .VPX</extension>
+    <command label="VPinballX">%EMULATOR_VPINBALL% -play %ROM%</command>
+    <platform>vpinball</platform>
+    <theme>vpinball</theme>
+  </s>
+
 </systemList>
 CUSTOMSYSTEMS
-ok "custom es_systems.xml written (hack systems: snesh, nesh, gbh, gbch, gbah, genh, n64h, ggh)"
+ok "custom es_systems.xml written (hack systems + ps3psn + xbla)"
 
-# Add these hack system ROM directories to the bundle
-for HACK_SYS in snesh nesh gbh gbch gbah genh n64h ggh; do
-    mkdir -p "$ROMS/$HACK_SYS"
+# Add ROM directories for all custom systems
+for CUSTOM_SYS in snesh nesh gbh gbch gbah genh n64h ggh ps3psn xbla \
+    sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball; do
+    mkdir -p "$ROMS/$CUSTOM_SYS"
 done
 
 #=============================================================================
@@ -726,6 +857,7 @@ screenshot_directory = "${BASE}/Saves/screenshots"
 log_dir = "${BASE}/Saves/logs"
 core_updater_buildbot_url = "https://buildbot.libretro.com/nightly/linux/x86_64/latest/"
 core_updater_buildbot_assets_url = "https://buildbot.libretro.com/assets/"
+cheat_database_path = "${BASE}/.config/retroarch/cheats"
 
 # ── Video ──
 video_fullscreen = "true"
@@ -768,72 +900,38 @@ ok "retroarch.cfg written → $BASE/.config/retroarch/retroarch.cfg"
 mkdir -p "${BASE}/Saves/screenshots"
 mkdir -p "${BASE}/Saves/logs"
 
-# ── Write RetroArch wrapper so it always uses our portable config ──
-info "Writing RetroArch portable wrapper..."
-cat > "$EMUS/retroarch-portable.sh" << 'RAWRAPPER'
-#!/usr/bin/env bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RA=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'RetroArch*.AppImage' | head -1)
-exec "$RA" --config "$SCRIPT_DIR/retroarch.cfg" "$@"
-RAWRAPPER
-chmod +x "$EMUS/retroarch-portable.sh"
-
-# ── Dolphin — supports --config-path to redirect all config/data ──
-cat > "$EMUS/dolphin-portable.sh" << 'DOLPHINWRAP'
-#!/usr/bin/env bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DOLPHIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dolphin*.AppImage' -o -name 'Dolphin*.AppImage' | head -1)
-mkdir -p "$SCRIPT_DIR/config/dolphin-emu"
-exec "$DOLPHIN" --user="$SCRIPT_DIR/config/dolphin-emu" "$@"
-DOLPHINWRAP
-chmod +x "$EMUS/dolphin-portable.sh"
-
-# ── DuckStation — supports --settings-dir ──
-cat > "$EMUS/duckstation-portable.sh" << 'DUCKWRAP'
-#!/usr/bin/env bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DUCK=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'DuckStation*.AppImage' -o -name 'duckstation*.AppImage' | head -1)
-mkdir -p "$SCRIPT_DIR/config/duckstation"
-exec "$DUCK" --settings-dir "$SCRIPT_DIR/config/duckstation" "$@"
-DUCKWRAP
-chmod +x "$EMUS/duckstation-portable.sh"
-
-# ── PCSX2 — supports --inipath ──
-cat > "$EMUS/pcsx2-portable.sh" << 'PCSX2WRAP'
-#!/usr/bin/env bash
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PCSX2=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'pcsx2*.AppImage' -o -name 'PCSX2*.AppImage' | head -1)
-mkdir -p "$SCRIPT_DIR/config/pcsx2"
-exec "$PCSX2" --inipath "$SCRIPT_DIR/config/pcsx2" "$@"
-PCSX2WRAP
-chmod +x "$EMUS/pcsx2-portable.sh"
-
-ok "Portable emulator wrappers written"
+ok "Portable emulator wrappers written (HOME=$BASE handles config routing)"
 
 # ── XDG-based wrappers for emulators without specific portable flags ──
 # Redirects XDG_CONFIG_HOME + XDG_DATA_HOME so all config/data stays
 # inside the bundle instead of ~/.config/ and ~/.local/share/
 info "Writing XDG portable wrappers..."
 
-# RPCS3
+# XDG wrappers — all redirect to $BASE/.config/ and $BASE/.local/share/
+# This is consistent with HOME=$BASE set in launch.sh, so config location
+# is the same whether emulator is launched from ES-DE or directly.
+
+# RPCS3 — XDG wrapper ensures it uses $BASE/.config/rpcs3/ for dev_hdd0 etc.
 cat > "$EMUS/rpcs3-portable.sh" << 'RPCS3WRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config" "$SCRIPT_DIR/data"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'rpcs3*.AppImage' -o -name 'RPCS3*.AppImage' | head -1)
 exec "$BIN" "$@"
 RPCS3WRAP
 chmod +x "$EMUS/rpcs3-portable.sh"
 
-# PPSSPP — has dedicated --memstick flag for its data dir
+# PPSSPP — memstick flag, pointing to $BASE/.config/ppsspp/
+# (PSP saves imported here, emulator reads from here)
 cat > "$EMUS/ppsspp-portable.sh" << 'PPSSPPWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config/ppsspp"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+mkdir -p "$BASE_DIR/.config/ppsspp"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'PPSSPP*.AppImage' -o -name 'ppsspp*.AppImage' | head -1)
-exec "$BIN" --memstick "$SCRIPT_DIR/config/ppsspp" "$@"
+exec "$BIN" --memstick "$BASE_DIR/.config/ppsspp" "$@"
 PPSSPPWRAP
 chmod +x "$EMUS/ppsspp-portable.sh"
 
@@ -841,9 +939,9 @@ chmod +x "$EMUS/ppsspp-portable.sh"
 cat > "$EMUS/melonds-portable.sh" << 'MELONDSWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config" "$SCRIPT_DIR/data"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'melonDS*.AppImage' | head -1)
 exec "$BIN" "$@"
 MELONDSWRAP
@@ -853,9 +951,9 @@ chmod +x "$EMUS/melonds-portable.sh"
 cat > "$EMUS/azahar-portable.sh" << 'AZAHARWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config" "$SCRIPT_DIR/data"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'azahar*.AppImage' -o -name 'Azahar*.AppImage' | head -1)
 exec "$BIN" "$@"
 AZAHARWRAP
@@ -865,60 +963,76 @@ chmod +x "$EMUS/azahar-portable.sh"
 cat > "$EMUS/cemu-portable.sh" << 'CEMUWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config" "$SCRIPT_DIR/data"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Cemu*.AppImage' -o -name 'cemu*.AppImage' | head -1)
 exec "$BIN" "$@"
 CEMUWRAP
 chmod +x "$EMUS/cemu-portable.sh"
 
-# xemu
+# xemu — eeprom.bin and hdd image found in $BASE/.config/xemu/
 cat > "$EMUS/xemu-portable.sh" << 'XEMUWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config" "$SCRIPT_DIR/data"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'xemu*.AppImage' | head -1)
 exec "$BIN" "$@"
 XEMUWRAP
 chmod +x "$EMUS/xemu-portable.sh"
 
-# Eden (Switch)
+# Eden (Switch) — NAND/keys read from $BASE/.local/share/eden/
 cat > "$EMUS/eden-portable.sh" << 'EDENWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config" "$SCRIPT_DIR/data"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Eden*.AppImage' -o -name 'eden*.AppImage' | head -1)
 exec "$BIN" "$@"
 EDENWRAP
 chmod +x "$EMUS/eden-portable.sh"
 
-# shadPS4 (PS4) — uses --portable flag to keep config next to binary
+# shadPS4 — config in $BASE/.config/shadps4/
 cat > "$EMUS/shadps4-portable.sh" << 'SHADWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config/shadps4"
-export XDG_CONFIG_HOME="$SCRIPT_DIR/config"
-export XDG_DATA_HOME="$SCRIPT_DIR/data"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
 exec "$SCRIPT_DIR/shadps4" "$@"
 SHADWRAP
 chmod +x "$EMUS/shadps4-portable.sh"
 
-# 86Box (Windows 9x / retro PC) — uses --vmpath for portable config
+# 86Box — vmpath for VM configs (separate from XDG)
 cat > "$EMUS/86box-portable.sh" << 'BOXWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-mkdir -p "$SCRIPT_DIR/config/86box"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+mkdir -p "$BASE_DIR/.config/86box"
 BOX=$(find "$SCRIPT_DIR" -maxdepth 1 -name '86Box*.AppImage' -o -name '86box*.AppImage' | head -1)
-exec "$BOX" --vmpath "$SCRIPT_DIR/config/86box" "$@"
+exec "$BOX" --vmpath "$BASE_DIR/.config/86box" "$@"
 BOXWRAP
 chmod +x "$EMUS/86box-portable.sh"
 
-ok "XDG portable wrappers written"
+# VPinball — uses XDG_DATA_HOME for tables/config
+cat > "$EMUS/vpinball-portable.sh" << 'VPINWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+# Prefer BGFX (modern renderer), fall back to GL
+BIN="$SCRIPT_DIR/VPinballX_BGFX"
+[[ ! -f "$BIN" ]] && BIN="$SCRIPT_DIR/VPinballX_GL"
+[[ ! -f "$BIN" ]] && BIN="$SCRIPT_DIR/VPinballX"
+exec "$BIN" "$@"
+VPINWRAP
+chmod +x "$EMUS/vpinball-portable.sh"
+
+ok "XDG portable wrappers written (all pointing to \$BASE/.config/ and \$BASE/.local/share/)"
 
 # ── Pre-write emulator configs for native fullscreen + chosen resolution ──
 info "Writing emulator default configs (resolution: $RES_LABEL)..."
@@ -1313,6 +1427,46 @@ github_appimage "86Box/86Box" \
     "$EMUS/86Box-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 echo ""
 
+echo "   ── VPinball (Visual Pinball) ──"
+if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+    ok "VPinball already exists, skipping"
+else
+    VPINBALL_URL=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=5" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -iP "linux.*x64.*\.zip$|VPinballX.*linux.*x64.*\.zip$" \
+        | grep -iv "debug\|symbols" \
+        | head -1) || true
+    if [[ -n "$VPINBALL_URL" ]]; then
+        info "Downloading VPinball ..."
+        VPINBALL_TMP=$(mktemp -d)
+        if curl -#fL -o "$VPINBALL_TMP/vpinball.zip" "$VPINBALL_URL"; then
+            unzip -qo "$VPINBALL_TMP/vpinball.zip" -d "$VPINBALL_TMP/extract" 2>/dev/null || true
+            # Find and copy the main binaries
+            for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
+                FOUND=$(find "$VPINBALL_TMP/extract" -name "$BIN" -type f 2>/dev/null | head -1)
+                if [[ -n "$FOUND" ]]; then
+                    cp "$FOUND" "$EMUS/$BIN"
+                    chmod +x "$EMUS/$BIN"
+                fi
+            done
+            # Copy supporting files (scripts, shaders, etc.)
+            for SUBDIR in scripts shaders assets; do
+                FOUND_DIR=$(find "$VPINBALL_TMP/extract" -name "$SUBDIR" -type d 2>/dev/null | head -1)
+                [[ -n "$FOUND_DIR" ]] && cp -r "$FOUND_DIR" "$EMUS/" 2>/dev/null || true
+            done
+            ok "VPinball downloaded"
+        else
+            fail "VPinball download failed"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+        rm -rf "$VPINBALL_TMP"
+    else
+        warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+echo ""
+
 #=============================================================================
 # STEP 11: DOWNLOAD DEFAULT THEME + WRITE ES_SETTINGS.XML
 #=============================================================================
@@ -1407,25 +1561,24 @@ else
     # Hack systems (snesh, nesh, gbh, gbch, gbah, genh, n64h, ggh) are defined
     # as their own ES-DE systems via custom_systems/es_systems.xml.
     declare -A SYS_MAP=(
-        # ── SNES / Super Famicom ──
-        [sfc]=snes              [snesna]=snes
-        [snes-msu]=snes         [sufami]=snes
+        # ── SNES (sfc/megadrivejp/saturnjp/amiga500/amiga1200/videopacplus/
+        #    n64dd/wiiware now have own custom systems — no mapping needed) ──
+        [snesna]=snes           [snes-msu]=snes         [sufami]=snes
         # ── NES ──
         [nes_aladdin]=nes       [nes_hd]=nes            [nes-msu]=nes
-        # ── Mega Drive / Genesis ──
-        [nomad]=genesis         [megadrivejp]=megadrive
-        [megadrive-msu]=megadrive [msu-md]=megadrive
-        # ── Game Boy family ──
+        # ── Mega Drive ──
+        [nomad]=genesis         [megadrive-msu]=megadrive [msu-md]=megadrive
+        # ── Game Boy ──
         [gb2players]=gb         [gba2players]=gba       [gbc2players]=gbc
-        # ── N64 / GameCube / Wii ──
-        [n64dd]=n64             [gamecube]=gc           [wiiware]=wii
-        # ── Nintendo DS / 3DS ──
+        # ── GameCube / Wii ──
+        [gamecube]=gc
+        # ── 3DS ──
         [3ds]=n3ds
         # ── Atari ──
         [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd [lynx]=atarilynx
         # ── Sega ──
         [sg1000]=sg-1000        [sc3000]=sg-1000         [markiii]=mastersystem
-        [dreamcast-jp]=dreamcast [saturn-jp]=saturn
+        [dreamcast-jp]=dreamcast [saturn-jp]=saturnjp
         # ── NEC ──
         [tgcd]=tg-cd
         # ── SNK ──
@@ -1435,15 +1588,14 @@ else
         # ── Bandai ──
         [wswan]=wonderswan      [wswanc]=wonderswancolor
         # ── Commodore ──
-        [c20]=vic20             [cplus4]=plus4
-        [amiga500]=amiga        [amiga1200]=amiga        [amiga4000]=amiga
+        [c20]=vic20             [cplus4]=plus4          [amiga4000]=amiga
         # ── MSX ──
         [msx1]=msx              [msx2+]=msx2
-        # ── Misc ──
-        [videopacplus]=videopac
-        # ── Arcade hardware with no dedicated ES-DE system ──
+        # ── Arcade ──
         [fbneo]=arcade          [cave]=arcade
         [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
+        # ── xbla maps to xbla (own custom system) — no mapping needed ──
+        # ── ps3psn maps to ps3psn (own custom system) — no mapping needed ──
     )
 
     # Folders that exist in roms/ but are NOT game systems — skip them
@@ -1456,16 +1608,160 @@ else
         info "Importing from: $RETROBAT_REAL_PATH"
         echo ""
 
-        # Copy/cut BIOS files
+        # ── BIOS files ──
+        # Copy flat BIOS files to ROMs/bios/
+        # Route emulator-specific subdirs to their correct config locations
+        # Skip non-BIOS subdirs (thebezelproject, config, output)
+        BIOS_SKIP=(thebezelproject config output bizhawk)
         if [[ -d "$RETROBAT_PATH/bios" ]]; then
             echo -n "   BIOS files → ROMs/bios/              [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            mkdir -p "$ROMS/bios"
             if [[ "$RETROBAT_MOVE" == "yes" ]]; then
                 find "$RETROBAT_PATH/bios" -maxdepth 1 -type f -exec mv -n {} "$ROMS/bios/" \; 2>/dev/null || true
             else
-                cp -rn "$RETROBAT_PATH/bios/." "$ROMS/bios/" 2>/dev/null || true
+                find "$RETROBAT_PATH/bios" -maxdepth 1 -type f -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true
             fi
             echo -e " ${GREEN}done${NC}"
+
+            # Route emulator BIOS subdirs to correct config locations
+            for BIOS_SUBDIR in "$RETROBAT_PATH/bios"/*/; do
+                [[ -d "$BIOS_SUBDIR" ]] || continue
+                BIOS_NAME=$(basename "$BIOS_SUBDIR")
+                SKIP=false
+                for S in "${BIOS_SKIP[@]}"; do [[ "$BIOS_NAME" == "$S" ]] && SKIP=true; done
+                $SKIP && continue
+
+                case "$BIOS_NAME" in
+                    duckstation)
+                        echo -n "   BIOS/duckstation → .config/duckstation/ [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        mkdir -p "$BASE/.config/duckstation"
+                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/duckstation/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    pcsx2)
+                        echo -n "   BIOS/pcsx2 → .config/PCSX2/bios/       [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        mkdir -p "$BASE/.config/PCSX2/bios"
+                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/PCSX2/bios/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    melonds)
+                        echo -n "   BIOS/melonds → ROMs/bios/               [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    retroarch)
+                        echo -n "   BIOS/retroarch → .config/retroarch/system/ [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        mkdir -p "$BASE/.config/retroarch/system"
+                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/retroarch/system/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    mame)
+                        echo -n "   BIOS/mame → ROMs/bios/                  [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    mednafen)
+                        echo -n "   BIOS/mednafen → ROMs/bios/              [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    *)
+                        # Unknown subdir — copy flat files to ROMs/bios/ as safe fallback
+                        find "$BIOS_SUBDIR" -maxdepth 1 -type f -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true ;;
+                esac
+            done
         fi
+
+        # ── Saves ──
+        # Map RetroBat saves → ES-DE Saves/files/ with same SYS_MAP logic
+        # Special cases: dolphin, rpcs3, switch, xbox keep their structure
+        if [[ -d "$RETROBAT_PATH/saves" ]]; then
+            echo ""
+            info "Importing saves..."
+
+            # Special-case saves that need specific destinations
+            declare -A SAVE_SPECIAL=(
+                [dolphin]=".config/dolphin-emu"
+                [gamecube]=".config/dolphin-emu"
+                [rpcs3]=".config/rpcs3"
+                [ps3]=".config/rpcs3"
+                [ps3psn]=".config/rpcs3"
+                [xbla]="Saves/files/xbla"
+                [switch]=".local/share"
+                [xbox]=".config/xemu"
+                [psp]=".config/ppsspp"
+            )
+
+            declare -A SAVE_MERGE=(
+                # These still merge since they share hardware/emulator with parent
+                [snesna]=snes           [snes-msu]=snes         [sufami]=snes
+                [gb2players]=gb         [gbc2players]=gbc        [gba2players]=gba
+                [dreamcast-jp]=dreamcast
+                [megadrive-msu]=megadrive [msu-md]=megadrive
+                [win98]=windows9x       [3ds]=n3ds
+                [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd
+                [lynx]=atarilynx        [wswan]=wonderswan      [wswanc]=wonderswancolor
+                [tg-16]=tg16            [cdi]=cdimono1
+                [c20]=vic20             [cplus4]=plus4          [amiga4000]=amiga
+                [msx1]=msx              [msx2+]=msx2            [neogeomvs]=neogeo
+                [gw]=gameandwatch       [o2em]=odyssey2         [mesen]=nes
+                # Systems with own ES-DE entry — saves go to their own folder
+                # (sfc, n64dd, wiiware, megadrivejp, saturnjp, amiga500, amiga1200,
+                #  videopacplus, vpinball all handled by default SYS_MAP fallback)
+            )
+
+            for SAVE_DIR in "$RETROBAT_PATH/saves"/*/; do
+                [[ -d "$SAVE_DIR" ]] || continue
+                RB_SYS=$(basename "$SAVE_DIR")
+
+                # Determine destination
+                if [[ -n "${SAVE_SPECIAL[$RB_SYS]:-}" ]]; then
+                    SAVE_DEST="$BASE/${SAVE_SPECIAL[$RB_SYS]}"
+                elif [[ -n "${SAVE_MERGE[$RB_SYS]:-}" ]]; then
+                    SAVE_DEST="$BASE/Saves/files/${SAVE_MERGE[$RB_SYS]}"
+                else
+                    ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
+                    SAVE_DEST="$BASE/Saves/files/$ESDE_SYS"
+                fi
+
+                # Check if there's anything worth copying
+                FILE_COUNT=$(find "$SAVE_DIR" -type f 2>/dev/null | wc -l)
+                [[ $FILE_COUNT -eq 0 ]] && continue
+
+                printf "      %-20s → %s\n" "$RB_SYS" "${SAVE_DEST#$BASE/}"
+                mkdir -p "$SAVE_DEST"
+                if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+                    cp -rn "$SAVE_DIR/." "$SAVE_DEST/" 2>/dev/null || true
+                    rm -rf "$SAVE_DIR" 2>/dev/null || true
+                else
+                    cp -rn "$SAVE_DIR/." "$SAVE_DEST/" 2>/dev/null || true
+                fi
+            done
+            ok "Saves imported"
+        fi
+
+        # ── Cheats ──
+        # RetroArch .cht files work directly — copy to retroarch cheats dir
+        if [[ -d "$RETROBAT_PATH/cheats" ]]; then
+            echo -n "   Cheats → .config/retroarch/cheats/   [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            mkdir -p "$BASE/.config/retroarch/cheats"
+            cp -rn "$RETROBAT_PATH/cheats/." "$BASE/.config/retroarch/cheats/" 2>/dev/null || true
+            echo -e " ${GREEN}done${NC}"
+        fi
+
+        # ── Screenshots ──
+        if [[ -d "$RETROBAT_PATH/screenshots" ]]; then
+            echo -n "   Screenshots → Saves/screenshots/      [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            mkdir -p "$BASE/Saves/screenshots"
+            cp -rn "$RETROBAT_PATH/screenshots/." "$BASE/Saves/screenshots/" 2>/dev/null || true
+            echo -e " ${GREEN}done${NC}"
+        fi
+
+        # ── Collections ──
+        # Custom game collections from RetroBat's emulationstation
+        ES_COLL="$RETROBAT_PATH/emulationstation/.emulationstation/collections"
+        if [[ -d "$ES_COLL" ]]; then
+            echo -n "   Collections → ES-DE/collections/      [${RETROBAT_MOVE:+cutting}${RETROBAT_MOVE:-copying}...]"
+            mkdir -p "$ESDE_DATA/collections"
+            cp -rn "$ES_COLL/." "$ESDE_DATA/collections/" 2>/dev/null || true
+            echo -e " ${GREEN}done${NC}"
+        fi
+
+        echo ""
 
         # Process each system
         for SYS_DIR in "$RETROBAT_PATH/roms"/*/; do
@@ -2180,7 +2476,161 @@ CORE_COUNT=0
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║  Setup complete!                                         ║"
 echo "╠════════════════════════════════════════════════════════════╣"
-echo "║                                                          ║"
+echo "║                                                          ║"#!/usr/bin/env bash
+#=============================================================================
+#  ____            _        _     _        _____ ____        ____  _____
+# |  _ \ ___  _ __| |_ __ _| |__ | | ___  | ____/ ___|      |  _ \| ____|
+# | |_) / _ \| '__| __/ _` | '_ \| |/ _ \ |  _| \___ \ _____| | | |  _|
+# |  __/ (_) | |  | || (_| | |_) | |  __/ | |___ ___) |_____| |_| | |___
+# |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
+#
+#  All-in-One Portable ES-DE Setup for Linux
+#  https://github.com/flexcrush420/portable-esde-linux
+#
+#  Creates a fully self-contained ES-DE retro gaming bundle:
+#    ✓ ES-DE frontend in portable mode
+#    ✓ RetroArch + essential cores for every bundled system
+#    ✓ Standalone emulators (PCSX2, RPCS3, Dolphin, etc.)
+#    ✓ Pre-configured es_find_rules.xml with relative paths
+#    ✓ Directory structure for ROMs, BIOS, saves, and media
+#
+#  Just add your ROMs and BIOS files, then ./launch.sh
+#
+#  Usage:  chmod +x setup-portable-esde.sh && ./setup-portable-esde.sh
+#  Re-run: safely skips already-downloaded files
+#=============================================================================
+set -euo pipefail
+
+VERSION="1.0.0"
+ESDE_VERSION="3.4.1"
+
+# ── Colors ──
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+
+ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
+warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
+fail() { echo -e "   ${RED}✗${NC} $1"; }
+info() { echo -e "   ${CYAN}→${NC} $1"; }
+
+#=============================================================================
+# INTERACTIVE INSTALL PATH
+#=============================================================================#!/usr/bin/env bash
+#=============================================================================
+#  ____            _        _     _        _____ ____        ____  _____
+# |  _ \ ___  _ __| |_ __ _| |__ | | ___  | ____/ ___|      |  _ \| ____|
+# | |_) / _ \| '__| __/ _` | '_ \| |/ _ \ |  _| \___ \ _____| | | |  _|
+# |  __/ (_) | |  | || (_| | |_) | |  __/ | |___ ___) |_____| |_| | |___
+# |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
+#
+#  All-in-One Portable ES-DE Setup for Linux
+#  https://github.com/flexcrush420/portable-esde-linux
+#
+#  Creates a fully self-contained ES-DE retro gaming bundle:
+#    ✓ ES-DE frontend in portable mode
+#    ✓ RetroArch + essential cores for every bundled system
+#    ✓ Standalone emulators (PCSX2, RPCS3, Dolphin, etc.)
+#    ✓ Pre-configured es_find_rules.xml with relative paths
+#    ✓ Directory structure for ROMs, BIOS, saves, and media
+#
+#  Just add your ROMs and BIOS files, then ./launch.sh
+#
+#  Usage:  chmod +x setup-portable-esde.sh && ./setup-portable-esde.sh
+#  Re-run: safely skips already-downloaded files
+#=============================================================================
+set -euo pipefail
+
+VERSION="1.0.0"
+ESDE_VERSION="3.4.1"
+
+# ── Colors ──
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+
+ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
+warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
+fail() { echo -e "   ${RED}✗${NC} $1"; }
+info() { echo -e "   ${CYAN}→${NC} $1"; }
+
+#=============================================================================
+# INTERACTIVE INSTALL PATH
+#=============================================================================
+echo ""
+echo -e "${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}║  Portable ES-DE Setup v${VERSION} (ES-DE ${ESDE_VERSION})          ║${NC}"
+echo -e "${BOLD}║  A complete retro gaming bundle for Linux             ║${NC}"
+echo -e "${BOLD}╚════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+DEFAULT_PATH="$(pwd)/ES-DE-Portable"
+
+echo -e "Where would you like to install the portable ES-DE bundle?"
+echo -e "  Default: ${CYAN}${DEFAULT_PATH}${NC}"
+echo ""
+read -rp "Install path (press Enter for default): " USER_PATH
+
+BASE="${USER_PATH:-$DEFAULT_PATH}"
+
+# Expand ~ if used
+BASE="${BASE/#\~/$HOME}"
+
+# Make absolute
+BASE="$(realpath -m "$BASE")"
+
+echo ""
+echo -e "Installing to: ${BOLD}${BASE}${NC}"
+echo ""
+
+# Check if directory exists and has content
+if [[ -d "$BASE" ]] && [[ -n "$(ls -A "$BASE" 2>/dev/null)" ]]; then
+    echo -e "${YELLOW}Directory already exists and is not empty.${NC}"
+    echo "  Existing files will be preserved. Only missing items will be added."
+    echo ""
+    read -rp "Continue? (Y/n): " CONTINUE
+    [[ "${CONTINUE,,}" == "n" ]] && echo "Aborted." && exit 0
+    echo ""
+fi
+
+EMUS="$BASE/Emulators"
+
+echo ""
+echo -e "${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
+echo -e "${BOLD}║  Portable ES-DE Setup v${VERSION} (ES-DE ${ESDE_VERSION})          ║${NC}"
+echo -e "${BOLD}║  A complete retro gaming bundle for Linux             ║${NC}"
+echo -e "${BOLD}╚════════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+DEFAULT_PATH="$(pwd)/ES-DE-Portable"
+
+echo -e "Where would you like to install the portable ES-DE bundle?"
+echo -e "  Default: ${CYAN}${DEFAULT_PATH}${NC}"
+echo ""
+read -rp "Install path (press Enter for default): " USER_PATH
+
+BASE="${USER_PATH:-$DEFAULT_PATH}"
+
+# Expand ~ if used
+BASE="${BASE/#\~/$HOME}"
+
+# Make absolute
+BASE="$(realpath -m "$BASE")"
+
+echo ""
+echo -e "Installing to: ${BOLD}${BASE}${NC}"
+echo ""
+
+# Check if directory exists and has content
+if [[ -d "$BASE" ]] && [[ -n "$(ls -A "$BASE" 2>/dev/null)" ]]; then
+    echo -e "${YELLOW}Directory already exists and is not empty.${NC}"
+    echo "  Existing files will be preserved. Only missing items will be added."
+    echo ""
+    read -rp "Continue? (Y/n): " CONTINUE
+    [[ "${CONTINUE,,}" == "n" ]] && echo "Aborted." && exit 0
+    echo ""
+fi
+
+EMUS="$BASE/Emulators"
+
 echo -e "║  ${GREEN}$APPIMAGE_COUNT AppImages${NC} downloaded                            ║"
 echo -e "║  ${GREEN}$CORE_COUNT RetroArch cores${NC} installed                        ║"
 
