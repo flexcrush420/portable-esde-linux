@@ -135,8 +135,9 @@ fi
 # ── RetroBat import prompt ──
 RETROBAT_PATHS=()
 RETROBAT_COPY_ROMS=""
-echo "Import existing RetroBat collection(s)? (copies media, gamelists, optionally ROMs)"
-echo "  Enter the path to any RetroBat folder containing a 'roms' subfolder."
+echo "Import existing RetroBat collection(s)?"
+echo "  Accepts either a full RetroBat folder (containing a 'roms' subfolder)"
+echo "  or a standalone ROM pack folder (e.g. a single system folder like 'dreamcast/')."
 echo "  You can add as many as you like. Leave blank when done."
 echo ""
 
@@ -149,13 +150,24 @@ while true; do
     RETROBAT_INPUT="${RETROBAT_INPUT/#\~/$HOME}"
     RETROBAT_INPUT="$(realpath -m "$RETROBAT_INPUT")"
 
-    if [[ -d "$RETROBAT_INPUT/roms" ]]; then
+    if [[ ! -d "$RETROBAT_INPUT" ]]; then
+        echo -e "   ${YELLOW}⚠${NC} Directory not found: $RETROBAT_INPUT — skipping"
+    elif [[ -d "$RETROBAT_INPUT/roms" ]]; then
+        # Full RetroBat install — roms subfolder exists
         RETROBAT_PATHS+=("$RETROBAT_INPUT")
-        echo -e "   ${GREEN}✓${NC} Added: $RETROBAT_INPUT"
+        RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")
+        echo -e "   ${GREEN}✓${NC} Added (full RetroBat install): $RETROBAT_INPUT"
     else
-        echo -e "   ${YELLOW}⚠${NC} No 'roms' folder found at $RETROBAT_INPUT — skipping"
+        # Standalone ROM pack folder — wrap in a synthetic roms/ structure
+        SYNTH_PARENT=$(mktemp -d)
+        ln -s "$RETROBAT_INPUT" "$SYNTH_PARENT/roms"
+        RETROBAT_PATHS+=("$SYNTH_PARENT")
+        RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")  # real path for cut mode
+        RETROBAT_SYNTH_DIRS+=("$SYNTH_PARENT")
+        echo -e "   ${GREEN}✓${NC} Added (ROM pack folder): $RETROBAT_INPUT"
     fi
 done
+RETROBAT_SYNTH_DIRS=("${RETROBAT_SYNTH_DIRS[@]}")
 
 if [[ ${#RETROBAT_PATHS[@]} -gt 0 ]]; then
     echo ""
@@ -1392,40 +1404,56 @@ else
     )
 
     # System name mapping: ONLY where RetroBat name ≠ ES-DE name.
-    # Hack systems (snesh, nesh, gbh, gbch, gbah, genh, n64h, ggh) are now
-    # defined as their own ES-DE systems via custom_systems/es_systems.xml —
-    # no mapping needed, they land in their own dedicated folders.
+    # Hack systems (snesh, nesh, gbh, gbch, gbah, genh, n64h, ggh) are defined
+    # as their own ES-DE systems via custom_systems/es_systems.xml.
     declare -A SYS_MAP=(
-        # SNES / Super Famicom (regional name difference, not a hack system)
-        [sfc]=snes
-        [snesna]=snes       # North America regional variant
-        # NES regional
-        [nes_aladdin]=nes   # Aladdin Deck Enhancer
-        # Mega Drive / Genesis
-        [nomad]=genesis     # Sega Nomad (handheld Genesis)
-        [megadrivejp]=megadrive
-        # N64
-        [n64dd]=n64         # N64 Disk Drive
-        # Sega name differences (hyphen, Japanese names)
-        [sg1000]=sg-1000    # ES-DE uses hyphen
-        [sc3000]=sg-1000    # SC-3000 shares SG-1000 hardware
-        [markiii]=mastersystem
-        # Amiga
-        [amiga4000]=amiga
-        # Other genuine renames
-        [msx1]=msx
+        # ── SNES / Super Famicom ──
+        [sfc]=snes              [snesna]=snes
+        [snes-msu]=snes         [sufami]=snes
+        # ── NES ──
+        [nes_aladdin]=nes       [nes_hd]=nes            [nes-msu]=nes
+        # ── Mega Drive / Genesis ──
+        [nomad]=genesis         [megadrivejp]=megadrive
+        [megadrive-msu]=megadrive [msu-md]=megadrive
+        # ── Game Boy family ──
+        [gb2players]=gb         [gba2players]=gba       [gbc2players]=gbc
+        # ── N64 / GameCube / Wii ──
+        [n64dd]=n64             [gamecube]=gc           [wiiware]=wii
+        # ── Nintendo DS / 3DS ──
+        [3ds]=n3ds
+        # ── Atari ──
+        [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd [lynx]=atarilynx
+        # ── Sega ──
+        [sg1000]=sg-1000        [sc3000]=sg-1000         [markiii]=mastersystem
+        [dreamcast-jp]=dreamcast [saturn-jp]=saturn
+        # ── NEC ──
+        [tgcd]=tg-cd
+        # ── SNK ──
+        [neogeomvs]=neogeo
+        # ── Philips ──
+        [cdi]=cdimono1
+        # ── Bandai ──
+        [wswan]=wonderswan      [wswanc]=wonderswancolor
+        # ── Commodore ──
+        [c20]=vic20             [cplus4]=plus4
+        [amiga500]=amiga        [amiga1200]=amiga        [amiga4000]=amiga
+        # ── MSX ──
+        [msx1]=msx              [msx2+]=msx2
+        # ── Misc ──
         [videopacplus]=videopac
-        # Arcade hardware with no dedicated ES-DE system → arcade
-        [fbneo]=arcade
-        [cave]=arcade
-        [gaelco]=arcade
-        [igspgm]=arcade
-        [aleck64]=arcade
+        # ── Arcade hardware with no dedicated ES-DE system ──
+        [fbneo]=arcade          [cave]=arcade
+        [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
     )
 
-    for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
+    # Folders that exist in roms/ but are NOT game systems — skip them
+    declare -A SKIP_SYSTEMS=( [media]=1 )
+
+    for IDX in "${!RETROBAT_PATHS[@]}"; do
+        RETROBAT_PATH="${RETROBAT_PATHS[$IDX]}"
+        RETROBAT_REAL_PATH="${RETROBAT_REAL_PATHS[$IDX]:-$RETROBAT_PATH}"
         echo ""
-        info "Importing from: $RETROBAT_PATH"
+        info "Importing from: $RETROBAT_REAL_PATH"
         echo ""
 
         # Copy/cut BIOS files
@@ -1443,6 +1471,9 @@ else
         for SYS_DIR in "$RETROBAT_PATH/roms"/*/; do
             [[ -d "$SYS_DIR" ]] || continue
             RB_SYS=$(basename "$SYS_DIR")
+
+            # Skip non-system folders
+            [[ -n "${SKIP_SYSTEMS[$RB_SYS]:-}" ]] && continue
             ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
             ESDE_ROM_DIR="$ROMS/$ESDE_SYS"
             ESDE_MEDIA_DIR="$BASE/downloaded_media/$ESDE_SYS"
@@ -1564,7 +1595,7 @@ GLFIX
             # ROMs — detect category-folder systems and flatten, or preserve disc-game folders
             # Category systems (C64, Amiga, etc.) organise ROMs in subfolders like 1-hit/, 2-best/
             # Disc systems (PS2, PS3, GC, etc.) have per-game folders that must be preserved
-            FLAT_ROM_SYSTEMS=(c64 amiga amigacd32 msx msx2 msx1 vic20 atarist
+            FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist
                               zxspectrum zx81 dos atari800 pc)
             IS_FLAT=false
             for FS in "${FLAT_ROM_SYSTEMS[@]}"; do
@@ -1623,6 +1654,28 @@ GLFIX
     done
 
     ok "Import complete: $IMPORT_SYSTEMS systems, $IMPORT_MEDIA media types, $IMPORT_ROMS ROM items"
+
+    # Cut mode — delete source files from real paths (not synthetic symlink parents)
+    if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+        for IDX in "${!RETROBAT_REAL_PATHS[@]}"; do
+            REAL="${RETROBAT_REAL_PATHS[$IDX]}"
+            SYNTH="${RETROBAT_PATHS[$IDX]}"
+            if [[ "$SYNTH" == "$REAL" ]]; then
+                # Full RetroBat install — remove roms/ and bios/ subfolders
+                rm -rf "$REAL/roms" "$REAL/bios" 2>/dev/null || true
+                ok "Removed: $REAL/roms and bios"
+            else
+                # Standalone ROM pack — remove the entire folder (it was the roms dir)
+                rm -rf "$REAL" 2>/dev/null || true
+                ok "Removed: $REAL"
+            fi
+        done
+    fi
+
+    # Clean up synthetic temp directories
+    for SYNTH_DIR in "${RETROBAT_SYNTH_DIRS[@]:-}"; do
+        [[ -d "$SYNTH_DIR" ]] && rm -rf "$SYNTH_DIR"
+    done
     echo ""
 fi
 
