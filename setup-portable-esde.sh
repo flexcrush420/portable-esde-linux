@@ -1415,20 +1415,25 @@ fi
 echo ""
 
 echo "   ── Eden (Nintendo Switch) ──"
-# Eden is hosted at git.eden-emu.dev — try GitHub mirror then direct
+# Eden is hosted on git.eden-emu.dev (Gitea instance, not GitHub)
+# Stable releases: git.eden-emu.dev/eden-emu/eden
+# Nightly builds:  git.eden-emu.dev/eden-ci/nightly
 if compgen -G "$EMUS/Eden*.AppImage" > /dev/null 2>&1; then
     ok "Eden already exists, skipping"
 else
     info "Downloading Eden ..."
-    EDEN_URL=$(curl -sfL "https://api.github.com/repos/eden-emulator/Releases/releases?per_page=5" \
+    # Try stable release first via Gitea API
+    EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=5&token=" \
         | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "linux.*x86_64.*\.AppImage$|Eden.*Linux.*\.AppImage$" \
+        | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
+        | grep -iv "arm\|zsync\|deb\|room" \
         | head -1) || true
-    # Fallback: try direct from git.eden-emu.dev
+    # Fallback: nightly builds
     if [[ -z "$EDEN_URL" ]]; then
-        EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=5" \
+        EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases?limit=3" \
             | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-            | grep -iP "linux.*x86_64.*\.AppImage$" \
+            | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
+            | grep -iv "arm\|zsync\|deb\|room" \
             | head -1) || true
     fi
     if [[ -n "$EDEN_URL" ]]; then
@@ -1442,7 +1447,7 @@ else
             rm -f "$EMUS/$EDEN_FNAME"
         fi
     else
-        warn "Eden URL not found — download manually from https://git.eden-emu.dev/eden-emu/eden"
+        warn "Eden URL not found — download manually from https://git.eden-emu.dev/eden-emu/eden/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
 fi
