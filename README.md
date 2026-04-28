@@ -144,7 +144,7 @@ If you have an existing RetroBat collection on Windows (dual-boot or a mounted d
 
 The importer:
 - Maps all RetroBat media types to ES-DE's folder structure
-- Cleans gamelists (strips incompatible tags, flattens paths for category-organised systems like C64)
+- Cleans gamelists (strips incompatible tags, flattens paths for category-organised systems)
 - Handles system name differences between RetroBat and ES-DE (e.g. `snesh` → own hack system, `sfc` → `snes`)
 - Supports multiple collections in one pass
 - Offers cut mode (moves files without doubling disk usage) or copy mode
