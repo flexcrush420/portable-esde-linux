@@ -905,319 +905,386 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
 
   <!-- Built-in system overrides — portable emulators/cores take priority -->
 
-  <s><n>nes</n><fullname>Nintendo Entertainment System</fullname>
+  <system>
+    <name>nes</name>
+    <fullname>Nintendo Entertainment System</fullname>
     <path>%ROMPATH%/nes</path>
     <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
     <command label="Mesen">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mesen_libretro.so %ROM%</command>
     <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
-    <platform>nes</platform><theme>nes</theme></s>
+    <platform>nes</platform>
+    <theme>nes</theme>
+  </system>
 
-  <s><n>famicom</n><fullname>Nintendo Famicom</fullname>
+  <system>
+    <name>famicom</name>
+    <fullname>Nintendo Famicom</fullname>
     <path>%ROMPATH%/famicom</path>
     <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
     <command label="Mesen">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mesen_libretro.so %ROM%</command>
     <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
-    <platform>nes</platform><theme>famicom</theme></s>
+    <platform>nes</platform>
+    <theme>famicom</theme>
+  </system>
 
-  <s><n>gc</n><fullname>Nintendo GameCube</fullname>
+  <system>
+    <name>gc</name>
+    <fullname>Nintendo GameCube</fullname>
     <path>%ROMPATH%/gc</path>
     <extension>.iso .ISO .gcm .GCM .gcz .GCZ .chd .CHD .rvz .RVZ .wbfs .WBFS .ciso .CISO .zip .ZIP</extension>
     <command label="Dolphin">%EMULATOR_DOLPHIN% %ROM%</command>
-    <platform>gc</platform><theme>gc</theme></s>
+    <platform>gc</platform>
+    <theme>gc</theme>
+  </system>
 
-  <s><n>wii</n><fullname>Nintendo Wii</fullname>
+  <system>
+    <name>wii</name>
+    <fullname>Nintendo Wii</fullname>
     <path>%ROMPATH%/wii</path>
     <extension>.iso .ISO .gcm .GCM .gcz .GCZ .chd .CHD .rvz .RVZ .wbfs .WBFS .ciso .CISO .wad .WAD .zip .ZIP</extension>
     <command label="Dolphin">%EMULATOR_DOLPHIN% %ROM%</command>
-    <platform>wii</platform><theme>wii</theme></s>
+    <platform>wii</platform>
+    <theme>wii</theme>
+  </system>
 
-  <s><n>nds</n><fullname>Nintendo DS</fullname>
+  <system>
+    <name>nds</name>
+    <fullname>Nintendo DS</fullname>
     <path>%ROMPATH%/nds</path>
     <extension>.nds .NDS .zip .ZIP .7z .7Z</extension>
     <command label="melonDS">%EMULATOR_MELONDS% %ROM%</command>
-    <platform>nds</platform><theme>nds</theme></s>
+    <platform>nds</platform>
+    <theme>nds</theme>
+  </system>
 
-  <s><n>ps2</n><fullname>Sony PlayStation 2</fullname>
+  <system>
+    <name>ps2</name>
+    <fullname>Sony PlayStation 2</fullname>
     <path>%ROMPATH%/ps2</path>
     <extension>.iso .ISO .bin .BIN .chd .CHD .cso .CSO .mdf .MDF .gz .GZ .img .IMG .zip .ZIP</extension>
     <command label="PCSX2">%EMULATOR_PCSX2% %ROM%</command>
-    <platform>ps2</platform><theme>ps2</theme></s>
+    <platform>ps2</platform>
+    <theme>ps2</theme>
+  </system>
 
-  <s><n>psx</n><fullname>Sony PlayStation</fullname>
+  <system>
+    <name>psx</name>
+    <fullname>Sony PlayStation</fullname>
     <path>%ROMPATH%/psx</path>
     <extension>.bin .BIN .cue .CUE .iso .ISO .img .IMG .chd .CHD .pbp .PBP .toc .TOC .mdf .MDF .m3u .M3U .zip .ZIP</extension>
     <command label="DuckStation">%EMULATOR_DUCKSTATION% %ROM%</command>
     <command label="Mednafen PSX HW">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_psx_hw_libretro.so %ROM%</command>
     <command label="Mednafen PSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_psx_libretro.so %ROM%</command>
-    <platform>psx</platform><theme>psx</theme></s>
+    <platform>psx</platform>
+    <theme>psx</theme>
+  </system>
 
-  <s><n>dos</n><fullname>DOS</fullname>
+  <system>
+    <name>dos</name>
+    <fullname>DOS</fullname>
     <path>%ROMPATH%/dos</path>
     <extension>.exe .EXE .com .COM .bat .BAT .conf .CONF .zip .ZIP</extension>
     <command label="DOSBox-X">%EMULATOR_DOSBOX_X% %ROM%</command>
     <command label="DOSBox Pure">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dosbox_pure_libretro.so %ROM%</command>
-    <platform>dos</platform><theme>dos</theme></s>
+    <platform>dos</platform>
+    <theme>dos</theme>
+  </system>
 
-  <s><n>win98</n><fullname>Microsoft Windows 9x</fullname>
+  <system>
+    <name>win98</name>
+    <fullname>Microsoft Windows 9x</fullname>
     <path>%ROMPATH%/win98</path>
     <extension>.exe .EXE .bat .BAT .conf .CONF .zip .ZIP</extension>
     <command label="86Box">%EMULATOR_86BOX% %ROM%</command>
-    <platform>pc</platform><theme>win98</theme></s>
+    <platform>pc</platform>
+    <theme>win98</theme>
+  </system>
 
-  <s><n>windows</n><fullname>Microsoft Windows</fullname>
+  <system>
+    <name>windows</name>
+    <fullname>Microsoft Windows</fullname>
     <path>%ROMPATH%/windows</path>
     <extension>.exe .EXE .bat .BAT .lnk .LNK .zip .ZIP</extension>
     <command label="86Box">%EMULATOR_86BOX% %ROM%</command>
-    <platform>pc</platform><theme>windows</theme></s>
+    <platform>pc</platform>
+    <theme>windows</theme>
+  </system>
 
-  <s><n>samcoupe</n><fullname>MGT SAM Coupé</fullname>
+  <system>
+    <name>samcoupe</name>
+    <fullname>MGT SAM Coupé</fullname>
     <path>%ROMPATH%/samcoupe</path>
     <extension>.mgt .MGT .sad .SAD .dsk .DSK .sdf .SDF .zip .ZIP</extension>
     <command label="SimCoupe">%EMULATOR_SIMCOUPE% %ROM%</command>
-    <platform>samcoupe</platform><theme>samcoupe</theme></s>
+    <platform>samcoupe</platform>
+    <theme>samcoupe</theme>
+  </system>
 
-  <s><n>cps1</n><fullname>Capcom Play System I</fullname>
+  <system>
+    <name>cps1</name>
+    <fullname>Capcom Play System I</fullname>
     <path>%ROMPATH%/cps1</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>cps1</theme></s>
+    <platform>arcade</platform>
+    <theme>cps1</theme>
+  </system>
 
-  <s><n>cps2</n><fullname>Capcom Play System II</fullname>
+  <system>
+    <name>cps2</name>
+    <fullname>Capcom Play System II</fullname>
     <path>%ROMPATH%/cps2</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>cps2</theme></s>
+    <platform>arcade</platform>
+    <theme>cps2</theme>
+  </system>
 
-  <s><n>cps3</n><fullname>Capcom Play System III</fullname>
+  <system>
+    <name>cps3</name>
+    <fullname>Capcom Play System III</fullname>
     <path>%ROMPATH%/cps3</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>cps3</theme></s>
+    <platform>arcade</platform>
+    <theme>cps3</theme>
+  </system>
 
-  <s><n>atomiswave</n><fullname>Sammy Atomiswave</fullname>
+  <system>
+    <name>atomiswave</name>
+    <fullname>Sammy Atomiswave</fullname>
     <path>%ROMPATH%/atomiswave</path><extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
     <command label="Flycast">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/flycast_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>atomiswave</theme></s>
+    <platform>arcade</platform>
+    <theme>atomiswave</theme>
+  </system>
 
-  <s><n>naomi</n><fullname>Sega NAOMI</fullname>
+  <system>
+    <name>naomi</name>
+    <fullname>Sega NAOMI</fullname>
     <path>%ROMPATH%/naomi</path><extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
     <command label="Flycast">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/flycast_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>naomi</theme></s>
+    <platform>arcade</platform>
+    <theme>naomi</theme>
+  </system>
 
-  <s><n>naomi2</n><fullname>Sega NAOMI 2</fullname>
+  <system>
+    <name>naomi2</name>
+    <fullname>Sega NAOMI 2</fullname>
     <path>%ROMPATH%/naomi2</path><extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
     <command label="Flycast">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/flycast_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>naomi2</theme></s>
+    <platform>arcade</platform>
+    <theme>naomi2</theme>
+  </system>
 
-  <s><n>model2</n><fullname>Sega Model 2</fullname>
+  <system>
+    <name>model2</name>
+    <fullname>Sega Model 2</fullname>
     <path>%ROMPATH%/model2</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>model2</theme></s>
+    <platform>arcade</platform>
+    <theme>model2</theme>
+  </system>
 
-  <s><n>model3</n><fullname>Sega Model 3</fullname>
+  <system>
+    <name>model3</name>
+    <fullname>Sega Model 3</fullname>
     <path>%ROMPATH%/model3</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="Supermodel">%EMULATOR_SUPERMODEL% -fullscreen %ROM%</command>
-    <platform>arcade</platform><theme>model3</theme></s>
+    <platform>arcade</platform>
+    <theme>model3</theme>
+  </system>
 
-  <s><n>flash</n><fullname>Adobe Flash</fullname>
+  <system>
+    <name>flash</name>
+    <fullname>Adobe Flash</fullname>
     <path>%ROMPATH%/flash</path><extension>.swf .SWF .zip .ZIP</extension>
     <command label="Ruffle">%EMULATOR_RUFFLE% %ROM%</command>
-    <platform>flash</platform><theme>flash</theme></s>
+    <platform>flash</platform>
+    <theme>flash</theme>
+  </system>
 
-  <s><n>pico8</n><fullname>PICO-8</fullname>
+  <system>
+    <name>pico8</name>
+    <fullname>PICO-8</fullname>
     <path>%ROMPATH%/pico8</path><extension>.png .PNG .p8 .P8</extension>
     <command label="fake-08">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fake08_libretro.so %ROM%</command>
-    <platform>pico8</platform><theme>pico8</theme></s>
+    <platform>pico8</platform>
+    <theme>pico8</theme>
+  </system>
 
-  <s><n>solarus</n><fullname>Solarus</fullname>
+  <system>
+    <name>solarus</name>
+    <fullname>Solarus</fullname>
     <path>%ROMPATH%/solarus</path><extension>.solarus .SOLARUS .zip .ZIP</extension>
     <command label="Solarus">%EMULATOR_SOLARUS% %ROM%</command>
-    <platform>solarus</platform><theme>solarus</theme></s>
+    <platform>solarus</platform>
+    <theme>solarus</theme>
+  </system>
 
-  <s><n>neogeocd</n><fullname>SNK Neo Geo CD</fullname>
+  <system>
+    <name>neogeocd</name>
+    <fullname>SNK Neo Geo CD</fullname>
     <path>%ROMPATH%/neogeocd</path>
     <extension>.chd .CHD .cue .CUE .iso .ISO .zip .ZIP</extension>
     <command label="NeoCD">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/neocd_libretro.so %ROM%</command>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
-    <platform>neogeocd</platform><theme>neogeocd</theme></s>
+    <platform>neogeocd</platform>
+    <theme>neogeocd</theme>
+  </system>
 
-  <s><n>supergrafx</n><fullname>NEC SuperGrafx</fullname>
+  <system>
+    <name>supergrafx</name>
+    <fullname>NEC SuperGrafx</fullname>
     <path>%ROMPATH%/supergrafx</path>
     <extension>.pce .PCE .sgx .SGX .zip .ZIP .7z .7Z</extension>
     <command label="Mednafen SuperGrafx">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_supergrafx_libretro.so %ROM%</command>
     <command label="Mednafen PCE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_pce_libretro.so %ROM%</command>
-    <platform>pcengine</platform><theme>supergrafx</theme></s>
+    <platform>pcengine</platform>
+    <theme>supergrafx</theme>
+  </system>
 
-  <s><n>sgb</n><fullname>Nintendo Super Game Boy</fullname>
+  <system>
+    <name>sgb</name>
+    <fullname>Nintendo Super Game Boy</fullname>
     <path>%ROMPATH%/sgb</path>
     <extension>.gb .GB .gbc .GBC .zip .ZIP .7z .7Z</extension>
     <command label="Mesen-S">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mesen-s_libretro.so %ROM%</command>
-    <platform>gb</platform><theme>sgb</theme></s>
+    <platform>gb</platform>
+    <theme>sgb</theme>
+  </system>
 
-  <s><n>spectravideo</n><fullname>Spectravideo</fullname>
+  <system>
+    <name>spectravideo</name>
+    <fullname>Spectravideo</fullname>
     <path>%ROMPATH%/spectravideo</path>
     <extension>.rom .ROM .cas .CAS .zip .ZIP .7z .7Z</extension>
     <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
-    <platform>spectravideo</platform><theme>spectravideo</theme></s>
+    <platform>spectravideo</platform>
+    <theme>spectravideo</theme>
+  </system>
 
-  <s><n>colecovision</n><fullname>ColecoVision</fullname>
+  <system>
+    <name>colecovision</name>
+    <fullname>ColecoVision</fullname>
     <path>%ROMPATH%/colecovision</path>
     <extension>.col .COL .rom .ROM .zip .ZIP .7z .7Z</extension>
     <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
-    <platform>colecovision</platform><theme>colecovision</theme></s>
+    <platform>colecovision</platform>
+    <theme>colecovision</theme>
+  </system>
 
-  <s><n>ti99</n><fullname>Texas Instruments TI-99/4A</fullname>
+  <system>
+    <name>ti99</name>
+    <fullname>Texas Instruments TI-99/4A</fullname>
     <path>%ROMPATH%/ti99</path>
     <extension>.rpk .RPK .zip .ZIP .7z .7Z</extension>
     <command label="MAME (RetroArch)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>ti99</platform><theme>ti99</theme></s>
+    <platform>ti99</platform>
+    <theme>ti99</theme>
+  </system>
 
-  <s><n>msx</n><fullname>MSX</fullname>
+  <system>
+    <name>msx</name>
+    <fullname>MSX</fullname>
     <path>%ROMPATH%/msx</path>
     <extension>.rom .ROM .mx1 .MX1 .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
     <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
-    <platform>msx</platform><theme>msx</theme></s>
+    <platform>msx</platform>
+    <theme>msx</theme>
+  </system>
 
-  <s><n>msx2</n><fullname>MSX2</fullname>
+  <system>
+    <name>msx2</name>
+    <fullname>MSX2</fullname>
     <path>%ROMPATH%/msx2</path>
     <extension>.rom .ROM .mx2 .MX2 .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
     <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
-    <platform>msx</platform><theme>msx2</theme></s>
+    <platform>msx</platform>
+    <theme>msx2</theme>
+  </system>
 
-  <s><n>msxturbor</n><fullname>MSX Turbo R</fullname>
+  <system>
+    <name>msxturbor</name>
+    <fullname>MSX Turbo R</fullname>
     <path>%ROMPATH%/msxturbor</path>
     <extension>.rom .ROM .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
     <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
-    <platform>msx</platform><theme>msx</theme></s>
+    <platform>msx</platform>
+    <theme>msx</theme>
+  </system>
 
-  <s><n>c64</n><fullname>Commodore 64</fullname>
+  <system>
+    <name>c64</name>
+    <fullname>Commodore 64</fullname>
     <path>%ROMPATH%/c64</path>
     <extension>.d64 .D64 .t64 .T64 .g64 .G64 .prg .PRG .crt .CRT .tap .TAP .x64 .X64 .zip .ZIP .7z .7Z</extension>
     <command label="VICE x64sc">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_x64sc_libretro.so %ROM%</command>
     <command label="VICE x64">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_x64_libretro.so %ROM%</command>
-    <platform>c64</platform><theme>c64</theme></s>
+    <platform>c64</platform>
+    <theme>c64</theme>
+  </system>
 
-  <s><n>plus4</n><fullname>Commodore Plus/4</fullname>
+  <system>
+    <name>plus4</name>
+    <fullname>Commodore Plus/4</fullname>
     <path>%ROMPATH%/plus4</path>
     <extension>.d64 .D64 .t64 .T64 .prg .PRG .tap .TAP .zip .ZIP .7z .7Z</extension>
     <command label="VICE xplus4">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_xplus4_libretro.so %ROM%</command>
-    <platform>c64</platform><theme>plus4</theme></s>
+    <platform>c64</platform>
+    <theme>plus4</theme>
+  </system>
 
-  <s><n>x68000</n><fullname>Sharp X68000</fullname>
+  <system>
+    <name>x68000</name>
+    <fullname>Sharp X68000</fullname>
     <path>%ROMPATH%/x68000</path>
     <extension>.dim .DIM .img .IMG .d88 .D88 .88d .88D .hdm .HDM .xdf .XDF .hdf .HDF .zip .ZIP .7z .7Z</extension>
     <command label="PX68k">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/px68k_libretro.so %ROM%</command>
-    <platform>x68000</platform><theme>x68000</theme></s>
+    <platform>x68000</platform>
+    <theme>x68000</theme>
+  </system>
 
-  <s><n>x1</n><fullname>Sharp X1</fullname>
+  <system>
+    <name>x1</name>
+    <fullname>Sharp X1</fullname>
     <path>%ROMPATH%/x1</path>
     <extension>.dx1 .DX1 .zip .ZIP .2d .2D .2hd .2HD .tfd .TFD .d88 .D88 .88d .88D .hdm .HDM .xdf .XDF .hdf .HDF .cmd .CMD</extension>
     <command label="X1">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/x1_libretro.so %ROM%</command>
-    <platform>x1</platform><theme>x1</theme></s>
+    <platform>x1</platform>
+    <theme>x1</theme>
+  </system>
 
-  <s><n>pc98</n><fullname>NEC PC-9800</fullname>
+  <system>
+    <name>pc98</name>
+    <fullname>NEC PC-9800</fullname>
     <path>%ROMPATH%/pc98</path>
     <extension>.d98 .D98 .zip .ZIP .fdi .FDI .fdd .FDD .2hd .2HD .tfd .TFD .d88 .D88 .88d .88D .hdm .HDM .xdf .XDF .hdf .HDF .hdi .HDI .nhd .NHD .hdd .HDD</extension>
     <command label="Neko Project II kai">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/np2kai_libretro.so %ROM%</command>
-    <platform>pc98</platform><theme>pc98</theme></s>
+    <platform>pc98</platform>
+    <theme>pc98</theme>
+  </system>
 
-  <s><n>megadrive</n><fullname>Sega Mega Drive</fullname>
+  <system>
+    <name>megadrive</name>
+    <fullname>Sega Mega Drive</fullname>
     <path>%ROMPATH%/megadrive</path>
     <extension>.md .MD .bin .BIN .smd .SMD .gen .GEN .68k .68K .chd .CHD .zip .ZIP .7z .7Z</extension>
     <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
     <command label="PicoDrive">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/picodrive_libretro.so %ROM%</command>
-    <platform>megadrive</platform><theme>megadrive</theme></s>
+    <platform>megadrive</platform>
+    <theme>megadrive</theme>
+  </system>
 
-  <s><n>snes</n><fullname>Super Nintendo Entertainment System</fullname>
+  <system>
+    <name>snes</name>
+    <fullname>Super Nintendo Entertainment System</fullname>
     <path>%ROMPATH%/snes</path>
     <extension>.sfc .SFC .smc .SMC .fig .FIG .swc .SWC .bs .BS .st .ST .zip .ZIP .7z .7Z</extension>
     <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
-    <platform>snes</platform><theme>snes</theme></s>
-
-  <!-- MAME core overrides — ES-DE built-ins use standalone MAME, we use mame_libretro -->
-  <s><n>archimedes</n><fullname>Acorn Archimedes</fullname>
-    <path>%ROMPATH%/archimedes</path>
-    <extension>.adf .ADF .adl .ADL .img .IMG .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>archimedes</platform><theme>archimedes</theme></s>
-
-  <s><n>adam</n><fullname>Coleco ADAM</fullname>
-    <path>%ROMPATH%/adam</path>
-    <extension>.ddp .DDP .wav .WAV .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>adam</platform><theme>adam</theme></s>
-
-  <s><n>dragon32</n><fullname>Dragon 32</fullname>
-    <path>%ROMPATH%/dragon32</path>
-    <extension>.cas .CAS .wav .WAV .bas .BAS .bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>dragon32</platform><theme>dragon32</theme></s>
-
-  <s><n>fm7</n><fullname>Fujitsu FM-7</fullname>
-    <path>%ROMPATH%/fm7</path>
-    <extension>.d77 .D77 .d88 .D88 .t77 .T77 .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>fm7</platform><theme>fm7</theme></s>
-
-  <s><n>gamecom</n><fullname>Tiger Electronics Game.com</fullname>
-    <path>%ROMPATH%/gamecom</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>gamecom</platform><theme>gamecom</theme></s>
-
-  <s><n>gameandwatch</n><fullname>Nintendo Game and Watch</fullname>
-    <path>%ROMPATH%/gameandwatch</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>gameandwatch</platform><theme>gameandwatch</theme></s>
-
-  <s><n>gamate</n><fullname>Bit Corporation Gamate</fullname>
-    <path>%ROMPATH%/gamate</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>gamate</platform><theme>gamate</theme></s>
-
-  <s><n>pv1000</n><fullname>Casio PV-1000</fullname>
-    <path>%ROMPATH%/pv1000</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>pv1000</platform><theme>pv1000</theme></s>
-
-  <s><n>scv</n><fullname>Epoch Super Cassette Vision</fullname>
-    <path>%ROMPATH%/scv</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>scv</platform><theme>scv</theme></s>
-
-  <s><n>supracan</n><fullname>Funtech Super A'Can</fullname>
-    <path>%ROMPATH%/supracan</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>supracan</platform><theme>supracan</theme></s>
-
-  <s><n>gmaster</n><fullname>Hartung Game Master</fullname>
-    <path>%ROMPATH%/gmaster</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>gmaster</platform><theme>gmaster</theme></s>
-
-  <s><n>lcdgames</n><fullname>LCD Handheld Games</fullname>
-    <path>%ROMPATH%/lcdgames</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>lcdgames</platform><theme>lcdgames</theme></s>
-
-  <s><n>vsmile</n><fullname>VTech V.Smile</fullname>
-    <path>%ROMPATH%/vsmile</path>
-    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>vsmile</platform><theme>vsmile</theme></s>
-
-  <s><n>model2</n><fullname>Sega Model 2</fullname>
-    <path>%ROMPATH%/model2</path>
-    <extension>.zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
-    <platform>arcade</platform><theme>model2</theme></s>
+    <platform>snes</platform>
+    <theme>snes</theme>
+  </system>
 
 </systemList>
 CUSTOMSYSTEMS
