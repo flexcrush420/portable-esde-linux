@@ -15,12 +15,12 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 | Component | System | Notes |
 |---|---|---|
 | **ES-DE 3.4.1** | Frontend | Portable mode — no system installation |
-| **RetroArch** | 40+ systems | NES, SNES, Genesis, GB/GBC/GBA, N64, Saturn, Dreamcast, Arcade & more |
+| **RetroArch** | 60+ systems | NES (Mesen), SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME & more |
 | | | |
-| **DuckStation** | PlayStation 1 | |
+| **DuckStation** | PlayStation 1 | Alt to Mednafen PSX core |
 | **PCSX2** | PlayStation 2 | |
 | **RPCS3** | PlayStation 3 | |
-| **shadPS4** | PlayStation 4 | |
+| **shadPS4** | PlayStation 4 | Requires Vulkan 1.3+ |
 | **PPSSPP** | PlayStation Portable | |
 | | | |
 | **melonDS** | Nintendo DS | |
@@ -33,9 +33,15 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 | **xemu** | Original Xbox | |
 | **Xenia Canary** | Xbox 360 | |
 | | | |
-| **86Box** | Windows 9x / retro PC | Win95, Win98, DOS |
+| **DOSBox-X** | DOS games | |
+| **86Box** | Win98 / Windows 9x / retro PC | Configure with your own Windows ISO |
+| **Ruffle** | Adobe Flash | |
+| **SimCoupe** | MGT SAM Coupé | |
+| **Solarus** | Solarus engine games | |
+| **Supermodel** | Sega Model 3 | |
+| **VPinball** | Visual Pinball | BGFX + GL builds |
 | **3dSen** | NES in 3D | Commercial — buy on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen), auto-detected if installed |
-| **Visual Pinball** |  |
+| **PICO-8** | PICO-8 | Commercial — purchase at [lexaloffle.com](https://lexaloffle.com/pico-8.php), place binary in `Emulators/`. Free `fake08` core used as fallback. |
 
 All configured for fullscreen, portable paths, and your chosen internal resolution out of the box.
 
@@ -92,13 +98,13 @@ ES-DE-Portable/
 │   └── themes/                 ← Downloaded theme
 ├── Emulators/
 │   ├── RetroArch*.AppImage
-│   ├── retroarch-cores/        ← 40+ .so core files
+│   ├── retroarch-cores/        ← 60+ .so core files
 │   ├── PCSX2*.AppImage
 │   └── ...                     ← All other emulators
 ├── ROMs/
 │   ├── nes/ snes/ gb/ gba/     ← Add your ROMs here
 │   ├── dreamcast/ ps2/ gc/     ← One folder per system
-│   ├── ps4/ windows9x/         ← Newer systems
+│   ├── ps4/ win98/             ← Newer systems
 │   └── bios/                   ← BIOS files go here
 ├── downloaded_media/           ← Scraped artwork and videos
 └── Saves/                      ← Save files and states
@@ -121,7 +127,7 @@ BIOS files are required for many systems and must be sourced from hardware you o
 | Nintendo DS | `bios7.bin`, `bios9.bin`, firmware |
 | PC Engine CD | `syscard3.pce` |
 | Neo Geo | `neogeo.zip` |
-| Windows 9x | Windows installation ISO (your own licensed copy) via 86Box |
+| Win98 / retro PC | Windows installation ISO (your own licensed copy) via 86Box |
 
 ---
 
@@ -171,7 +177,7 @@ Run the included update script anytime to check for newer versions:
 ./update.sh
 ```
 
-It checks every emulator against its latest GitHub release, shows you what's changed, and asks before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All 40+ RetroArch cores can also be updated in one go from buildbot.libretro.com.
+It checks every emulator against its latest GitHub release, shows you what's changed, and asks before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All 60+ RetroArch cores can also be updated in one go from buildbot.libretro.com.
 
 To update ES-DE itself, the update script will prompt you to re-download from es-de.org when a new version is detected.
 
@@ -203,6 +209,7 @@ Some emulators require one-time setup that can't be scripted due to legal/firmwa
 - **86Box** — requires a Windows installation ISO and ROM set to create virtual machines
 - **Azahar / Ryubing / Eden** — require Switch firmware and `prod.keys` / `title.keys` dumped from your own hardware
 - **3dSen** — commercial application, purchase on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen)
+- **PICO-8** — commercial application, purchase at [lexaloffle.com](https://lexaloffle.com/pico-8.php)
 
 ---
 
