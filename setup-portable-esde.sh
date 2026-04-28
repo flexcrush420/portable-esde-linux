@@ -430,11 +430,10 @@ download_cores() {
         # Nintendo
         [mesen]="NES / Famicom (high accuracy)"
         [mesen-s]="Super Game Boy (Mesen-S)"
-        [gw_libretro]="Game & Watch (alt to MAME)"
+        [gw]="Game & Watch (alt to MAME)"
 
         # Sega
         [kronos]="Saturn / Saturn JP (high accuracy)"
-        [model2]="Sega Model 2"
 
         # Sony
         [mednafen_psx]="PS1 (high accuracy)"
@@ -453,12 +452,12 @@ download_cores() {
         [vice_xplus4]="Commodore Plus/4"
 
         # Misc missing cores
-        [arduboy]="Arduboy"
+        [arduous]="Arduboy"
         [atari800]="Atari 800 / 5200 / XEGS"
         [bluemsx]="MSX / MSX2 / Turbo R / Spectravideo / Colecovision"
         [sameduck]="Mega Duck"
         [easyrpg]="EasyRPG"
-        [arcadia]="Arcadia 2001"
+        [amiarcadia]="Arcadia 2001"
         [lowresnx]="LowRes NX"
         [lutro]="Lutro"
         [neocd]="Neo Geo CD"
@@ -466,7 +465,6 @@ download_cores() {
         [jollycv]="Creativision"
         [wasm4]="WASM-4"
         [potator]="Watara Supervision"
-        [fake08]="PICO-8 (free/open alternative)"
     )
 
     local total=${#CORES[@]}
@@ -506,7 +504,7 @@ download_cores() {
 # STEP 1: DIRECTORY STRUCTURE
 #=============================================================================
 STEP=1
-TOTAL_STEPS=16
+TOTAL_STEPS=17
 
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Creating directory structure..."
 
@@ -648,21 +646,19 @@ emu('AZAHAR', [fp('azahar*.AppImage'), fp('Azahar*.AppImage')], ['azahar']),
 '',
 emu('GEARGRAFX', [fp('Geargrafx*.AppImage')], ['geargrafx']),
 '',
-emu('MESEN', [fp('Mesen*.AppImage'), fp('Mesen2*.AppImage')], ['Mesen']),
+# MESEN: handled via mesen_libretro core in RetroArch — no standalone needed
 '',
 emu('DOSBOX_X', [fp('dosbox-x-portable.sh'), fp('dosbox-x*.AppImage'), fp('dosbox-x')], ['dosbox-x']),
 '',
 emu('SIMCOUPE', [fp('simcoupe-portable.sh'), fp('SimCoupe*.AppImage'), fp('simcoupe')], ['simcoupe', 'SimCoupe']),
 '',
-emu('SUPERMODEL', [fp('supermodel-portable.sh'), fp('Supermodel*.AppImage'), fp('supermodel')], ['supermodel']),
+emu('SUPERMODEL', [fp('supermodel-portable.sh'), fp('supermodel*.AppImage'), fp('Supermodel*.AppImage'), fp('supermodel')], ['supermodel']),
 '',
 emu('SOLARUS', [fp('solarus-run*.AppImage'), fp('solarus-portable.sh'), fp('solarus-run')], ['solarus-run']),
 '',
 emu('RUFFLE', [fp('ruffle-portable.sh'), fp('ruffle*.AppImage'), fp('ruffle')], ['ruffle']),
 '',
 emu('EKA2L1', [fp('eka2l1-portable.sh'), fp('eka2l1*.AppImage'), fp('eka2l1')], ['eka2l1']),
-'',
-emu('FAKE08', [fp('fake08*.AppImage')], ['fake08']),
 '',
 emu('VPINBALL',
     [fp('VPinballX_BGFX'), fp('VPinballX_GL'), fp('vpinball-portable.sh')],
@@ -912,14 +908,14 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
   <s><n>nes</n><fullname>Nintendo Entertainment System</fullname>
     <path>%ROMPATH%/nes</path>
     <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
-    <command label="Mesen">%EMULATOR_MESEN% %ROM%</command>
+    <command label="Mesen">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mesen_libretro.so %ROM%</command>
     <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
     <platform>nes</platform><theme>nes</theme></s>
 
   <s><n>famicom</n><fullname>Nintendo Famicom</fullname>
     <path>%ROMPATH%/famicom</path>
     <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
-    <command label="Mesen">%EMULATOR_MESEN% %ROM%</command>
+    <command label="Mesen">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mesen_libretro.so %ROM%</command>
     <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
     <platform>nes</platform><theme>famicom</theme></s>
 
@@ -961,6 +957,18 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <command label="DOSBox-X">%EMULATOR_DOSBOX_X% %ROM%</command>
     <command label="DOSBox Pure">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dosbox_pure_libretro.so %ROM%</command>
     <platform>dos</platform><theme>dos</theme></s>
+
+  <s><n>win98</n><fullname>Microsoft Windows 9x</fullname>
+    <path>%ROMPATH%/win98</path>
+    <extension>.exe .EXE .bat .BAT .conf .CONF .zip .ZIP</extension>
+    <command label="86Box">%EMULATOR_86BOX% %ROM%</command>
+    <platform>pc</platform><theme>win98</theme></s>
+
+  <s><n>windows</n><fullname>Microsoft Windows</fullname>
+    <path>%ROMPATH%/windows</path>
+    <extension>.exe .EXE .bat .BAT .lnk .LNK .zip .ZIP</extension>
+    <command label="86Box">%EMULATOR_86BOX% %ROM%</command>
+    <platform>pc</platform><theme>windows</theme></s>
 
   <s><n>samcoupe</n><fullname>MGT SAM Coupé</fullname>
     <path>%ROMPATH%/samcoupe</path>
@@ -1018,8 +1026,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
 
   <s><n>pico8</n><fullname>PICO-8</fullname>
     <path>%ROMPATH%/pico8</path><extension>.png .PNG .p8 .P8</extension>
-    <command label="PICO-8 (commercial)">%EMULATOR_PICO8% -run %ROM%</command>
-    <command label="fake-08 (free)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fake08_libretro.so %ROM%</command>
+    <command label="fake-08">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fake08_libretro.so %ROM%</command>
     <platform>pico8</platform><theme>pico8</theme></s>
 
   <s><n>solarus</n><fullname>Solarus</fullname>
@@ -1506,46 +1513,242 @@ BIOSREADME
 cat > "$BASE/README.md" << 'MAINREADME'
 # Portable ES-DE for Linux
 
-A fully self-contained retro gaming bundle. No system-level installation needed.
+A fully self-contained retro gaming bundle. Unzip and run — no installation needed.
 
-## Quick Start
+## What is this?
+
+**RetroBat** on Windows gives you a portable, plug-and-play retro gaming setup in a single folder. Nothing like it existed for Linux — until now.
+
+`setup-portable-esde.sh` is a single script that builds a complete portable [ES-DE](https://es-de.org/) retro gaming bundle on any Linux machine. Fully portable: works on any machine, survives OS reinstallations, and runs from any external drive.
+
+---
+
+## What you get
+
+| Component | System | Notes |
+|---|---|---|
+| **ES-DE 3.4.1** | Frontend | Portable mode — no system installation |
+| **RetroArch** | 60+ systems | NES (Mesen), SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME & more |
+| | | |
+| **DuckStation** | PlayStation 1 | Alt to Mednafen PSX core |
+| **PCSX2** | PlayStation 2 | |
+| **RPCS3** | PlayStation 3 | |
+| **shadPS4** | PlayStation 4 | Requires Vulkan 1.3+ |
+| **PPSSPP** | PlayStation Portable | |
+| | | |
+| **melonDS** | Nintendo DS | |
+| **Azahar** | Nintendo 3DS | |
+| **Ryubing** | Nintendo Switch | Ryujinx lineage |
+| **Eden** | Nintendo Switch | Yuzu lineage |
+| **Dolphin** | GameCube / Wii | |
+| **Cemu** | Wii U | |
+| | | |
+| **xemu** | Original Xbox | |
+| **Xenia Canary** | Xbox 360 | |
+| | | |
+| **DOSBox-X** | DOS games | |
+| **86Box** | Win98 / Windows 9x / retro PC | Configure with your own Windows ISO |
+| **Ruffle** | Adobe Flash | |
+| **SimCoupe** | MGT SAM Coupé | |
+| **Solarus** | Solarus engine games | |
+| **Supermodel** | Sega Model 3 | Community AppImage via pkgforge-dev |
+| **VPinball** | Visual Pinball | BGFX + GL builds |
+| **3dSen** | NES in 3D | Commercial — buy on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen), auto-detected if installed |
+| **fake-08** | PICO-8 | Free open-source PICO-8 compatible core via RetroArch |
+
+All configured for fullscreen, portable paths, and your chosen internal resolution out of the box.
+
+---
+
+## Quick start
 
 ```bash
-# First time — run the setup script to download everything:
+curl -LO https://raw.githubusercontent.com/flexcrush420/portable-esde-linux/main/setup-portable-esde.sh
 chmod +x setup-portable-esde.sh
 ./setup-portable-esde.sh
-
-# Add your ROMs to ROMs/<system>/
-# Add BIOS files to ROMs/bios/ (see ROMs/bios/README-BIOS.md)
-
-# Play:
-./launch.sh
 ```
 
-## What's included
+The script will ask you:
+- **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
+- **Which theme** to use (Epic Noir Next, Carbon, Iconic, Canvas, or ES-DE default)
+- **Internal resolution** (Native / 1080p / 1440p / 4K)
+- **Whether to import a RetroBat collection** (optional)
+- **Whether to create a desktop shortcut**
 
-**Frontend:** ES-DE (portable mode via portable.txt)
+Then it downloads everything, configures it all, and you're done. Add your ROMs to `ROMs/<system>/`, add BIOS files to `ROMs/bios/`, and launch with `./launch.sh`.
 
-**Standalone emulators (auto-downloaded):**
-- RetroArch + 40+ cores (NES, SNES, Genesis, GB/A, N64, Arcade, etc.)
-- PCSX2 (PS2) · RPCS3 (PS3) · DuckStation (PS1)
-- Dolphin (GameCube/Wii) · Cemu (Wii U)
-- PPSSPP (PSP) · melonDS (DS) · Azahar (3DS)
-- xemu (Xbox) · Xenia Canary (Xbox 360)
+---
 
-**Pre-configured:** `es_find_rules.xml` with relative paths via `%ESPATH%`
+## Requirements
 
-## Updating emulators
+| Requirement | Notes |
+|---|---|
+| **Linux** | Any modern distro — Ubuntu, Mint, Arch, Fedora, openSUSE, Pop!_OS etc. |
+| **bash 4.0+** | Standard on all distros |
+| **curl** | For downloads |
+| **python3** | For gamelist processing |
+| **unzip** | For theme extraction |
+| **~15GB free space** | For emulators + cores (ROMs not included) |
 
-Replace AppImage files — glob patterns handle version numbers.
-Re-run the setup script to download new versions (existing files are skipped).
+> **Note:** Some AppImages require `libfuse2`. ES-DE 3.4.1 uses the newer uruntime format and may not need it, but other emulators might. Install with `sudo apt install libfuse2` on Ubuntu/Mint, `sudo dnf install fuse-libs` on Fedora, or `sudo pacman -S fuse2` on Arch.
 
-## FUSE note
+---
 
-Some AppImages need libfuse2:
-- Ubuntu/Debian: `sudo apt install libfuse2`
-- Fedora: `sudo dnf install fuse-libs`
-- Arch: `sudo pacman -S fuse2`
+## Directory structure
+
+After running the script:
+
+```
+ES-DE-Portable/
+├── ES-DE_x64.AppImage          ← ES-DE frontend
+├── launch.sh                   ← Run this to play
+├── update.sh                   ← Update emulators and cores
+├── convert-retrobat.sh         ← Import RetroBat collections anytime
+├── ES-DE/
+│   ├── custom_systems/         ← Hack system definitions (snesh, nesh, etc.)
+│   ├── settings/               ← ES-DE configuration
+│   ├── gamelists/              ← Game metadata
+│   └── themes/                 ← Downloaded theme
+├── Emulators/
+│   ├── RetroArch*.AppImage
+│   ├── retroarch-cores/        ← 60+ .so core files
+│   ├── PCSX2*.AppImage
+│   └── ...                     ← All other emulators
+├── ROMs/
+│   ├── nes/ snes/ gb/ gba/     ← Add your ROMs here
+│   ├── dreamcast/ ps2/ gc/     ← One folder per system
+│   ├── ps4/ win98/             ← Newer systems
+│   └── bios/                   ← BIOS files go here
+├── downloaded_media/           ← Scraped artwork and videos
+└── Saves/                      ← Save files and states
+```
+
+---
+
+## BIOS files
+
+BIOS files are required for many systems and must be sourced from hardware you own. Place them in `ROMs/bios/`. Common requirements:
+
+| System | File(s) |
+|---|---|
+| PlayStation 1 | `scph5501.bin` (and other regional variants) |
+| PlayStation 2 | PCSX2 BIOS files |
+| PlayStation 3 | PS3 firmware (`PS3UPDAT.PUP`) via RPCS3 |
+| PlayStation 4 | Firmware modules via shadPS4 (dumped from your PS4) |
+| Sega Saturn | `saturn_bios.bin` |
+| Sega Dreamcast | `dc_boot.bin`, `dc_flash.bin` |
+| Nintendo DS | `bios7.bin`, `bios9.bin`, firmware |
+| PC Engine CD | `syscard3.pce` |
+| Neo Geo | `neogeo.zip` |
+| Win98 / retro PC | Windows installation ISO (your own licensed copy) via 86Box |
+
+---
+
+## Importing from RetroBat
+
+If you have an existing RetroBat collection on Windows (dual-boot or a mounted drive), the script can import it automatically — media, gamelists, and ROMs:
+
+```bash
+# During initial setup — answer yes to the RetroBat prompt
+./setup-portable-esde.sh
+
+# Or anytime after setup using the included converter
+./convert-retrobat.sh
+```
+
+The importer:
+- Maps all RetroBat media types to ES-DE's folder structure
+- Cleans gamelists (strips incompatible tags, flattens paths for category-organised systems like C64)
+- Handles system name differences between RetroBat and ES-DE (e.g. `snesh` → own hack system, `sfc` → `snes`)
+- Supports multiple collections in one pass
+- Offers cut mode (moves files without doubling disk usage) or copy mode
+
+---
+
+## Hack ROM systems
+
+Hacked and homebrewed ROMs get their own dedicated sidebar entries rather than being mixed in with official ROMs:
+
+| ES-DE System | Full Name |
+|---|---|
+| `snesh` | Super Nintendo (Hacks & Homebrew) |
+| `nesh` | Nintendo Entertainment System (Hacks & Homebrew) |
+| `gbh` | Game Boy (Hacks & Homebrew) |
+| `gbch` | Game Boy Color (Hacks & Homebrew) |
+| `gbah` | Game Boy Advance (Hacks & Homebrew) |
+| `genh` | Sega Genesis (Hacks & Homebrew) |
+| `n64h` | Nintendo 64 (Hacks & Homebrew) |
+| `ggh` | Game Gear (Hacks & Homebrew) |
+
+---
+
+## Updating
+
+Run the included update script anytime to check for newer versions:
+
+```bash
+./update.sh
+```
+
+It checks every emulator against its latest GitHub release, shows you what's changed, and asks before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All 60+ RetroArch cores can also be updated in one go from buildbot.libretro.com.
+
+To update ES-DE itself, the update script will prompt you to re-download from es-de.org when a new version is detected.
+
+---
+
+## Themes
+
+The following themes are available during setup:
+
+| Theme | Description |
+|---|---|
+| [Epic Noir Next](https://github.com/anthonycaccese/epic-noir-next-es-de) | Dark cinematic — great for night gaming |
+| [Carbon](https://github.com/lilbud/carbon-es-de) | Classic clean look (RetroPie heritage) |
+| [Iconic](https://github.com/Siddy212/iconic-es-de) | Modern with iconic game character artwork |
+| [Canvas](https://github.com/Siddy212/canvas-es-de) | Modern with easy wallpaper customization |
+| Slate | ES-DE's built-in default — no download needed |
+
+Additional themes can be installed anytime via ES-DE's built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader).
+
+---
+
+## First-run notes for specific emulators
+
+Some emulators require one-time setup that can't be scripted due to legal/firmware constraints:
+
+- **RPCS3** — requires PlayStation 3 firmware installed via `File → Install Firmware` on first launch
+- **shadPS4** — requires PS4 firmware modules placed in `Emulators/config/shadps4/sys_modules/` dumped from your own PS4
+- **xemu** — requires an Xbox HDD image and MCPX/BIOS files configured on first launch
+- **86Box** — requires a Windows installation ISO and ROM set to create virtual machines
+- **Azahar / Ryubing / Eden** — require Switch firmware and `prod.keys` / `title.keys` dumped from your own hardware
+- **3dSen** — commercial application, purchase on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen)
+
+---
+
+## Compatibility
+
+Tested on **Linux Mint** and **Ubuntu**. Should work on any distro with bash 4.0+, curl, python3, and unzip.
+
+---
+
+## Credits
+
+- [ES-DE](https://es-de.org/) — the frontend that makes this possible
+- [RetroArch](https://www.retroarch.com/) and the [libretro](https://www.libretro.com/) core authors
+- [pkgforge-dev](https://github.com/pkgforge-dev) — community AppImage builds for Dolphin and melonDS
+- All the emulator teams whose work powers this bundle
+- [Team Pixel Nostalgia](https://pixelnostalgia.github.io/) — [ES-DE - Convert RGS ROMpacks for use with ES-DE](https://www.youtube.com/watch?v=ee0j1yGnqwA)
+
+---
+
+## Legal
+
+This script downloads open-source emulator software. It does not include, distribute, or facilitate downloading of any copyrighted game ROMs, BIOS files, or firmware. You are responsible for ensuring you have the legal right to use any game software you run with this bundle.
+
+---
+
+*Made with ❤️ for the Linux retro gaming community*
+
 MAINREADME
 
 ok "READMEs written"
@@ -1829,27 +2032,30 @@ else
     # Real filename format: VPinballX_BGFX-10.8.1-3788-2151290-linux-x64-Release.zip
     VPINBALL_TMP=$(mktemp -d)
     VPINBALL_GOT=0
+    VPINBALL_COUNT_FILE=$(mktemp)
+    echo 0 > "$VPINBALL_COUNT_FILE"
 
-    # Fetch all linux zip URLs from the latest release in one API call
-    VPINBALL_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"         | grep -iv "debug\|symbols") || true
+    # Fetch BGFX and GL zip URLs from the latest release only
+    VPINBALL_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=1"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"         | grep -iv "debug\|symbols") || true
 
     if [[ -z "$VPINBALL_URLS" ]]; then
         warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     else
-        # Download each zip (BGFX preferred, GL for fallback) — both share the same
-        # support dirs so extracting both is harmless and ensures we get all files
+        # while loop runs in a subshell — use a temp file to pass count back
         while IFS= read -r VPURL; do
             [[ -z "$VPURL" ]] && continue
             VPZIP=$(basename "$VPURL")
             info "Downloading $VPZIP ..."
             if curl -#fL -o "$VPINBALL_TMP/$VPZIP" "$VPURL"; then
                 unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP/extract" 2>/dev/null || true
-                VPINBALL_GOT=$((VPINBALL_GOT + 1))
+                echo $(( $(cat "$VPINBALL_COUNT_FILE") + 1 )) > "$VPINBALL_COUNT_FILE"
             else
                 warn "Failed to download $VPZIP"
             fi
         done <<< "$VPINBALL_URLS"
+        VPINBALL_GOT=$(cat "$VPINBALL_COUNT_FILE")
+        rm -f "$VPINBALL_COUNT_FILE"
 
         if [[ $VPINBALL_GOT -gt 0 ]]; then
             # Copy binaries — find at any depth since zip may have a top-level subdir
@@ -1865,10 +2071,10 @@ else
             # The zip may extract flat (files at root) or into a subdir — handle both
             EXTRACT_ROOT="$VPINBALL_TMP/extract"
             # If there's a single top-level subdir, descend into it
-            SUBDIRS=$(find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
-            SUBDIR_COUNT=$(echo "$SUBDIRS" | grep -c . 2>/dev/null || echo 0)
+            SUBDIR_COUNT=$(find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
+            SUBDIR_COUNT=$(( SUBDIR_COUNT + 0 ))
             if [[ $SUBDIR_COUNT -eq 1 ]]; then
-                EXTRACT_ROOT="$SUBDIRS"
+                EXTRACT_ROOT=$(find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d | head -1)
             fi
             # Now copy all subdirs from the effective root to Emulators/
             find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d | while read -r D; do
@@ -1889,40 +2095,24 @@ echo ""
 #=============================================================================
 # STEP 10b: DOWNLOAD ADDITIONAL STANDALONE EMULATORS
 #=============================================================================
+STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading additional standalone emulators..."
 
-# ── Mesen (NES/Famicom — best accuracy) ──
-echo "   ── Mesen ──"
-if compgen -G "$EMUS/Mesen*.AppImage" > /dev/null 2>&1; then
-    ok "Mesen already exists, skipping"
-else
-    MESEN_URL=$(curl -sfL "https://api.github.com/repos/SourMesen/Mesen2/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*\.AppImage$|Mesen.*linux.*\.AppImage$"         | grep -iv "debug\|symbols" | head -1) || true
-    if [[ -n "$MESEN_URL" ]]; then
-        info "Downloading Mesen..."
-        if curl -#fL -o "$EMUS/Mesen-latest.AppImage" "$MESEN_URL"; then
-            chmod +x "$EMUS/Mesen-latest.AppImage"
-            ok "Mesen downloaded"
-        else
-            fail "Mesen download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-        fi
-    else
-        warn "Mesen URL not found — check https://github.com/SourMesen/Mesen2/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-    fi
-fi
-
 # ── DOSBox-X (best DOS emulation) ──
+# Official upstream ships RPM/Flatpak only; use pkgforge-dev community AppImage
 echo "   ── DOSBox-X ──"
-if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1 || [[ -f "$EMUS/dosbox-x" ]]; then
+if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1; then
     ok "DOSBox-X already exists, skipping"
 else
-    DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/joncampbell123/dosbox-x/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.AppImage$|dosbox-x.*linux.*\.AppImage$"         | grep -iv "debug\|arm" | head -1) || true
+    DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/DOSBox-X-AppImage/releases?per_page=3" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -iP "\.AppImage$" \
+        | grep -iv "arm\|aarch" | head -1) || true
     if [[ -n "$DOSBOXX_URL" ]]; then
         info "Downloading DOSBox-X..."
         FNAME=$(basename "$DOSBOXX_URL")
         if curl -#fL -o "$EMUS/$FNAME" "$DOSBOXX_URL"; then
             chmod +x "$EMUS/$FNAME"
-            # Write portable wrapper
             cat > "$EMUS/dosbox-x-portable.sh" << 'DBXWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -1930,7 +2120,6 @@ BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x*.AppImage' | head -1)
-[[ -z "$BIN" ]] && BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x' | head -1)
 exec "$BIN" "$@"
 DBXWRAP
             chmod +x "$EMUS/dosbox-x-portable.sh"
@@ -1939,11 +2128,10 @@ DBXWRAP
             fail "DOSBox-X download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
     else
-        warn "DOSBox-X URL not found — check https://github.com/joncampbell123/dosbox-x/releases"
+        warn "DOSBox-X not found — check https://github.com/pkgforge-dev/DOSBox-X-AppImage/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
 fi
-
 # ── Ruffle (Adobe Flash) ──
 echo "   ── Ruffle ──"
 if compgen -G "$EMUS/ruffle*" > /dev/null 2>&1; then
@@ -1982,116 +2170,116 @@ RUFFLEWRAP
 fi
 
 # ── Solarus ──
+# Solarus moved to GitLab — AppImage served via direct URL from solarus-games.org
 echo "   ── Solarus ──"
 if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
     ok "Solarus already exists, skipping"
 else
-    SOLARUS_URL=$(curl -sfL "https://api.github.com/repos/solarus-games/solarus/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "\.AppImage$" | grep -iv "debug\|arm" | head -1) || true
-    if [[ -n "$SOLARUS_URL" ]]; then
-        info "Downloading Solarus..."
-        FNAME=$(basename "$SOLARUS_URL")
-        if curl -#fL -o "$EMUS/$FNAME" "$SOLARUS_URL"; then
-            chmod +x "$EMUS/$FNAME"
+    # Known stable direct URL — update version number when new releases come out
+    SOLARUS_URL="https://gitlab.com/api/v4/projects/solarus-games%2Fsolarus/packages/generic/solarus/2.0.4/solarus-launcher-v2.0.4-linux-x64.tar.gz"
+    info "Downloading Solarus..."
+    # Solarus ships as a tar.gz containing a standalone binary
+    SOLARUS_TMP=$(mktemp -d)
+    if curl -#fL "$SOLARUS_URL" | tar -xz -C "$SOLARUS_TMP" 2>/dev/null; then
+        SOLARUS_BIN=$(find "$SOLARUS_TMP" -type f -name "solarus*" ! -name "*.so*" 2>/dev/null | head -1)
+        if [[ -n "$SOLARUS_BIN" ]]; then
+            cp "$SOLARUS_BIN" "$EMUS/solarus-run"
+            chmod +x "$EMUS/solarus-run"
+            # Copy any bundled data dirs
+            find "$SOLARUS_TMP" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
+                cp -rn "$D" "$EMUS/" 2>/dev/null || true
+            done
             cat > "$EMUS/solarus-portable.sh" << 'SOLARUSWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
-BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'solarus*.AppImage' | head -1)
-exec "$BIN" "$@"
+exec "$SCRIPT_DIR/solarus-run" "$@"
 SOLARUSWRAP
             chmod +x "$EMUS/solarus-portable.sh"
             ok "Solarus downloaded"
         else
-            fail "Solarus download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fail "Solarus binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
     else
-        warn "Solarus URL not found — check https://github.com/solarus-games/solarus/releases"
+        warn "Solarus download failed — check https://www.solarus-games.org/download/"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
+    rm -rf "$SOLARUS_TMP"
 fi
 
 # ── SimCoupe (MGT SAM Coupé) ──
+# No AppImage exists — downloads tar.gz from simonowen.com official site
 echo "   ── SimCoupe ──"
-if compgen -G "$EMUS/SimCoupe*" > /dev/null 2>&1 || [[ -f "$EMUS/simcoupe" ]]; then
+if [[ -f "$EMUS/simcoupe" ]]; then
     ok "SimCoupe already exists, skipping"
 else
-    SIMCOUPE_URL=$(curl -sfL "https://api.github.com/repos/simonowen/simcoupe/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.AppImage$|\.AppImage$"         | grep -iv "debug\|arm" | head -1) || true
-    if [[ -n "$SIMCOUPE_URL" ]]; then
-        info "Downloading SimCoupe..."
-        FNAME=$(basename "$SIMCOUPE_URL")
-        if curl -#fL -o "$EMUS/$FNAME" "$SIMCOUPE_URL"; then
-            chmod +x "$EMUS/$FNAME"
+    # Version-pinned direct URL — check https://simonowen.com/simcoupe/ for updates
+    SIMCOUPE_URL="https://github.com/simonowen/simcoupe/releases/download/v1.2.15/simcoupe_1.2.15_linux_amd64.tar.gz"
+    info "Downloading SimCoupe..."
+    SIMCOUPE_TMP=$(mktemp -d)
+    if curl -#fL "$SIMCOUPE_URL" | tar -xz -C "$SIMCOUPE_TMP" 2>/dev/null; then
+        SIMCOUPE_BIN=$(find "$SIMCOUPE_TMP" -name "simcoupe" -type f 2>/dev/null | head -1)
+        if [[ -n "$SIMCOUPE_BIN" ]]; then
+            cp "$SIMCOUPE_BIN" "$EMUS/simcoupe"
+            chmod +x "$EMUS/simcoupe"
             cat > "$EMUS/simcoupe-portable.sh" << 'SIMWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
-BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'SimCoupe*.AppImage' -o -name 'simcoupe' 2>/dev/null | head -1)
-exec "$BIN" "$@"
+exec "$SCRIPT_DIR/simcoupe" "$@"
 SIMWRAP
             chmod +x "$EMUS/simcoupe-portable.sh"
             ok "SimCoupe downloaded"
         else
-            fail "SimCoupe download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fail "SimCoupe binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
     else
-        warn "SimCoupe URL not found — check https://github.com/simonowen/simcoupe/releases"
+        warn "SimCoupe download failed — check https://simonowen.com/simcoupe/"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
+    rm -rf "$SIMCOUPE_TMP"
 fi
 
 # ── Supermodel (Sega Model 3) ──
+# ── Supermodel (Sega Model 3) ──
+# Community AppImage from pkgforge-dev
 echo "   ── Supermodel ──"
-if compgen -G "$EMUS/supermodel*" > /dev/null 2>&1; then
+if compgen -G "$EMUS/supermodel*.AppImage" > /dev/null 2>&1 || [[ -f "$EMUS/supermodel" ]]; then
     ok "Supermodel already exists, skipping"
 else
-    # Supermodel has no GitHub releases — use nightly builds from supermodel3.com
-    SUPERMODEL_URL="https://www.supermodel3.com/Files/Supermodel_0.3a_Linux_x64.tar.gz"
-    info "Downloading Supermodel (Sega Model 3)..."
-    SUPERMODEL_TMP=$(mktemp -d)
-    if curl -#fL "$SUPERMODEL_URL" | tar -xz -C "$SUPERMODEL_TMP" 2>/dev/null; then
-        SUPERMODEL_BIN=$(find "$SUPERMODEL_TMP" -name "supermodel" -type f | head -1)
-        if [[ -n "$SUPERMODEL_BIN" ]]; then
-            cp "$SUPERMODEL_BIN" "$EMUS/supermodel"
-            chmod +x "$EMUS/supermodel"
-            # Copy any required data files alongside
-            find "$SUPERMODEL_TMP" -maxdepth 2 -type d | while read -r D; do
-                DNAME=$(basename "$D")
-                [[ "$DNAME" == "." ]] && continue
-                cp -rn "$D" "$EMUS/" 2>/dev/null || true
-            done
+    SUPERMODEL_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/Supermodel-AppImage/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "\.AppImage$"         | grep -iv "arm\|aarch" | head -1) || true
+    if [[ -n "$SUPERMODEL_URL" ]]; then
+        info "Downloading Supermodel..."
+        FNAME=$(basename "$SUPERMODEL_URL")
+        if curl -#fL -o "$EMUS/$FNAME" "$SUPERMODEL_URL"; then
+            chmod +x "$EMUS/$FNAME"
             cat > "$EMUS/supermodel-portable.sh" << 'SUPERWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
-exec "$SCRIPT_DIR/supermodel" "$@"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'supermodel*.AppImage' | head -1)
+exec "$BIN" "$@"
 SUPERWRAP
             chmod +x "$EMUS/supermodel-portable.sh"
             ok "Supermodel downloaded"
         else
-            fail "Supermodel binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fail "Supermodel download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
     else
-        warn "Supermodel download failed — check https://www.supermodel3.com/Download.html"
+        warn "Supermodel URL not found — check https://github.com/pkgforge-dev/Supermodel-AppImage/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
-    rm -rf "$SUPERMODEL_TMP"
 fi
 
-# ── PICO-8 notice (commercial software) ──
+# ── PICO-8 — using fake-08 libretro core (free, open source) ──
 echo "   ── PICO-8 ──"
-if [[ -f "$EMUS/pico8" ]] || compgen -G "$EMUS/pico8*" > /dev/null 2>&1; then
-    ok "PICO-8 already present"
-else
-    warn "PICO-8 is commercial software — purchase at https://www.lexaloffle.com/pico-8.php"
-    warn "   After purchase, place the pico8 binary in: $EMUS/pico8"
-    warn "   The free alternative fake-08 core will be used until then"
-fi
+ok "PICO-8 handled by fake-08 core (downloaded with RetroArch cores)"
 
 ok "Additional standalone emulators done"
 echo ""
