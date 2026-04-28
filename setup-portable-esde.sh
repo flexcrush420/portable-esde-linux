@@ -946,9 +946,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
   <s><n>psx</n><fullname>Sony PlayStation</fullname>
     <path>%ROMPATH%/psx</path>
     <extension>.bin .BIN .cue .CUE .iso .ISO .img .IMG .chd .CHD .pbp .PBP .toc .TOC .mdf .MDF .m3u .M3U .zip .ZIP</extension>
+    <command label="DuckStation">%EMULATOR_DUCKSTATION% %ROM%</command>
     <command label="Mednafen PSX HW">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_psx_hw_libretro.so %ROM%</command>
     <command label="Mednafen PSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_psx_libretro.so %ROM%</command>
-    <command label="DuckStation">%EMULATOR_DUCKSTATION% %ROM%</command>
     <platform>psx</platform><theme>psx</theme></s>
 
   <s><n>dos</n><fullname>DOS</fullname>
@@ -3306,30 +3306,34 @@ check_and_update "Eden (Switch)" "Eden*.AppImage" \
 check_and_update "86Box (Win9x/PC)" "86Box*.AppImage" \
     "$(github_latest_url 86Box/86Box '86Box.*x86_64.*\.AppImage$')" "86Box-latest"
 
-# shadPS4 — ships as tar.gz, just offer re-download
+# shadPS4 — ships as zip, re-download to update
 SHADPS4_CURRENT=$(find "$EMUS" -maxdepth 1 -name 'shadps4' -type f 2>/dev/null | head -1)
 if [[ -n "$SHADPS4_CURRENT" ]]; then
     printf "   %-32s" "shadPS4 (PS4)"
-    echo -e " ${CYAN}[tar.gz release — re-download to update]${NC}"
+    echo -e " ${CYAN}[zip release — re-download to update]${NC}"
     read -rp "      Re-download latest? [y/N]: " SHAD_CONFIRM
     if [[ "${SHAD_CONFIRM,,}" == "y" ]]; then
-        SHAD_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
-            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-            | grep -iP "linux.*x86.?64.*\.tar\.(gz|xz)$" \
-            | grep -iv "debug\|symbols" | head -1) || true
+        SHAD_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=3"             | grep -oP '"browser_download_url":\s*"\K[^"]*'             | grep -iP "linux.*x86.?64.*\.(tar\.(gz|xz)|zip)$"             | grep -iv "debug\|symbols\|arm" | head -1) || true
         if [[ -n "$SHAD_URL" ]]; then
             SHAD_TMP=$(mktemp -d)
-            EXT="${SHAD_URL##*.}"
-            [[ "$EXT" == "gz" ]] \
-                && curl -#fL "$SHAD_URL" | tar -xz -C "$SHAD_TMP" 2>/dev/null || true \
-                || curl -#fL "$SHAD_URL" | tar -xJ -C "$SHAD_TMP" 2>/dev/null || true
-            SHAD_BIN=$(find "$SHAD_TMP" -type f \( -name "shadps4" -o -name "shadps4-qt" \) | head -1)
-            if [[ -n "$SHAD_BIN" ]]; then
-                mv "$SHAD_BIN" "$EMUS/shadps4"
-                chmod +x "$EMUS/shadps4"
-                ok "shadPS4 updated"
-            else
-                warn "Binary not found in archive"
+            SHAD_FILE="$SHAD_TMP/shadps4-dl"
+            if curl -#fL -o "$SHAD_FILE" "$SHAD_URL"; then
+                FILE_TYPE=$(file "$SHAD_FILE" | tr '[:upper:]' '[:lower:]')
+                if echo "$FILE_TYPE" | grep -q "zip"; then
+                    unzip -qo "$SHAD_FILE" -d "$SHAD_TMP/extract" 2>/dev/null || true
+                elif echo "$FILE_TYPE" | grep -q "xz\|lzma"; then
+                    tar -xJf "$SHAD_FILE" -C "$SHAD_TMP" 2>/dev/null || true
+                else
+                    tar -xzf "$SHAD_FILE" -C "$SHAD_TMP" 2>/dev/null || true
+                fi
+                SHAD_BIN=$(find "$SHAD_TMP" -type f \( -name "shadps4-qt" -o -name "shadps4" \) | grep -v "\.so" | head -1)
+                if [[ -n "$SHAD_BIN" ]]; then
+                    mv "$SHAD_BIN" "$EMUS/shadps4"
+                    chmod +x "$EMUS/shadps4"
+                    ok "shadPS4 updated"
+                else
+                    warn "Binary not found in archive"
+                fi
             fi
             rm -rf "$SHAD_TMP"
         else
@@ -3338,6 +3342,86 @@ if [[ -n "$SHADPS4_CURRENT" ]]; then
     fi
     echo ""
 fi
+
+# VPinball — zip-within-tar.gz, re-download to update
+if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+    printf "   %-32s" "VPinball (Visual Pinball)"
+    echo -e " ${CYAN}[zip release — re-download to update]${NC}"
+    read -rp "      Re-download latest? [y/N]: " VPIN_CONFIRM
+    if [[ "${VPIN_CONFIRM,,}" == "y" ]]; then
+        VPIN_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=1"             | grep -oP '"browser_download_url":\s*"\K[^"]*'             | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"             | grep -iv "debug\|symbols") || true
+        if [[ -n "$VPIN_URLS" ]]; then
+            VPIN_TMP=$(mktemp -d)
+            while IFS= read -r VURL; do
+                [[ -z "$VURL" ]] && continue
+                VZIP=$(basename "$VURL")
+                info "Downloading $VZIP ..."
+                if curl -#fL -o "$VPIN_TMP/$VZIP" "$VURL"; then
+                    unzip -qo "$VPIN_TMP/$VZIP" -d "$VPIN_TMP" 2>/dev/null || true
+                    for TGZ in "$VPIN_TMP"/*.tar.gz "$VPIN_TMP"/*.tar.xz; do
+                        [[ -f "$TGZ" ]] || continue
+                        mkdir -p "$VPIN_TMP/extract"
+                        tar -xzf "$TGZ" -C "$VPIN_TMP/extract" 2>/dev/null || true
+                        rm -f "$TGZ"
+                    done
+                fi
+            done <<< "$VPIN_URLS"
+            for BIN in VPinballX_BGFX VPinballX_GL; do
+                FOUND=$(find "$VPIN_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
+                [[ -n "$FOUND" ]] && cp "$FOUND" "$EMUS/$BIN" && chmod +x "$EMUS/$BIN"
+            done
+            rm -rf "$VPIN_TMP"
+            ok "VPinball updated"
+        else
+            warn "Could not find download URL"
+        fi
+    fi
+    echo ""
+fi
+
+# DOSBox-X
+check_and_update "DOSBox-X (DOS)" "dosbox-x*.AppImage"     "$(github_latest_url pkgforge-dev/DOSBox-X-AppImage '\.AppImage$' | grep -iv arm)" "dosbox-x-latest"
+
+# Supermodel
+check_and_update "Supermodel (Model 3)" "Supermodel*.AppImage"     "$(github_latest_url pkgforge-dev/Supermodel-AppImage '\.AppImage$' | grep -iv arm)" "Supermodel-latest"
+
+# Ruffle — tar.gz binary
+if [[ -f "$EMUS/ruffle" ]]; then
+    printf "   %-32s" "Ruffle (Flash)"
+    echo -e " ${CYAN}[tar.gz release — re-download to update]${NC}"
+    read -rp "      Re-download latest? [y/N]: " RUFFLE_CONFIRM
+    if [[ "${RUFFLE_CONFIRM,,}" == "y" ]]; then
+        RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"             | grep -oP '"browser_download_url":\s*"\K[^"]*'             | grep -iP "linux.*x86.?64.*\.tar\.gz$" | grep -iv "debug\|arm" | head -1) || true
+        if [[ -n "$RUFFLE_URL" ]]; then
+            RUFFLE_TMP=$(mktemp -d)
+            if curl -#fL "$RUFFLE_URL" | tar -xz -C "$RUFFLE_TMP" 2>/dev/null; then
+                RUFFLE_BIN=$(find "$RUFFLE_TMP" -name "ruffle" -type f | head -1)
+                [[ -n "$RUFFLE_BIN" ]] && mv "$RUFFLE_BIN" "$EMUS/ruffle" && chmod +x "$EMUS/ruffle" && ok "Ruffle updated"
+            fi
+            rm -rf "$RUFFLE_TMP"
+        else
+            warn "Could not find download URL"
+        fi
+    fi
+    echo ""
+fi
+
+# SimCoupe — tar.gz binary from GitHub releases
+if [[ -f "$EMUS/simcoupe" ]]; then
+    printf "   %-32s" "SimCoupe (SAM Coupé)"
+    echo -e " ${CYAN}[version-pinned — check https://simonowen.com/simcoupe/ for updates]${NC}"
+    echo ""
+fi
+
+# Solarus — tar.gz binary from solarus-games.org
+if [[ -f "$EMUS/solarus-run" ]]; then
+    printf "   %-32s" "Solarus"
+    echo -e " ${CYAN}[version-pinned — check https://www.solarus-games.org/download/ for updates]${NC}"
+    echo ""
+fi
+
+check_and_update "Ryubing (Switch)" "ryujinx*.AppImage"     "$(github_latest_url Ryubing/Ryujinx 'x64\.AppImage$')" "ryujinx-latest"
+
 echo ""
 echo -e "${CYAN}RetroArch Cores:${NC}"
 read -rp "   Update all cores from buildbot.libretro.com? [y/N]: " CORES_CONFIRM
@@ -3381,15 +3465,21 @@ if [[ "$CREATE_SHORTCUT" == "yes" ]]; then
     DESKTOP_DIR="$HOME/.local/share/applications"
     mkdir -p "$DESKTOP_DIR"
 
-    # Extract ES-DE icon from AppImage if present
+    # Extract ES-DE icon from AppImage
     ESDE_APPIMAGE=$(find "$BASE" -maxdepth 1 -name 'ES-DE*.AppImage' | head -1)
     ICON_PATH="$BASE/ES-DE/es-de.png"
     if [[ -n "$ESDE_APPIMAGE" && ! -f "$ICON_PATH" ]]; then
         info "Extracting ES-DE icon..."
-        (cd /tmp && "$ESDE_APPIMAGE" --appimage-extract usr/bin/es-de.png 2>/dev/null || true)
-        [[ -f /tmp/squashfs-root/usr/bin/es-de.png ]] && \
-            cp /tmp/squashfs-root/usr/bin/es-de.png "$ICON_PATH" && \
-            rm -rf /tmp/squashfs-root
+        ICON_TMP=$(mktemp -d)
+        (cd "$ICON_TMP" && "$ESDE_APPIMAGE" --appimage-extract 2>/dev/null || true)
+        # ES-DE stores its icon in various locations depending on version
+        for ICON_SRC in             "$ICON_TMP/squashfs-root/usr/share/pixmaps/es-de.png"             "$ICON_TMP/squashfs-root/es-de.png"             "$ICON_TMP/squashfs-root/.DirIcon"             "$ICON_TMP/squashfs-root/usr/bin/es-de.png"; do
+            if [[ -f "$ICON_SRC" ]]; then
+                cp "$ICON_SRC" "$ICON_PATH"
+                break
+            fi
+        done
+        rm -rf "$ICON_TMP"
     fi
     [[ ! -f "$ICON_PATH" ]] && ICON_PATH="applications-games"
 
