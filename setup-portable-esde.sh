@@ -1134,6 +1134,91 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
     <platform>snes</platform><theme>snes</theme></s>
 
+  <!-- MAME core overrides — ES-DE built-ins use standalone MAME, we use mame_libretro -->
+  <s><n>archimedes</n><fullname>Acorn Archimedes</fullname>
+    <path>%ROMPATH%/archimedes</path>
+    <extension>.adf .ADF .adl .ADL .img .IMG .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>archimedes</platform><theme>archimedes</theme></s>
+
+  <s><n>adam</n><fullname>Coleco ADAM</fullname>
+    <path>%ROMPATH%/adam</path>
+    <extension>.ddp .DDP .wav .WAV .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>adam</platform><theme>adam</theme></s>
+
+  <s><n>dragon32</n><fullname>Dragon 32</fullname>
+    <path>%ROMPATH%/dragon32</path>
+    <extension>.cas .CAS .wav .WAV .bas .BAS .bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>dragon32</platform><theme>dragon32</theme></s>
+
+  <s><n>fm7</n><fullname>Fujitsu FM-7</fullname>
+    <path>%ROMPATH%/fm7</path>
+    <extension>.d77 .D77 .d88 .D88 .t77 .T77 .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>fm7</platform><theme>fm7</theme></s>
+
+  <s><n>gamecom</n><fullname>Tiger Electronics Game.com</fullname>
+    <path>%ROMPATH%/gamecom</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>gamecom</platform><theme>gamecom</theme></s>
+
+  <s><n>gameandwatch</n><fullname>Nintendo Game and Watch</fullname>
+    <path>%ROMPATH%/gameandwatch</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>gameandwatch</platform><theme>gameandwatch</theme></s>
+
+  <s><n>gamate</n><fullname>Bit Corporation Gamate</fullname>
+    <path>%ROMPATH%/gamate</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>gamate</platform><theme>gamate</theme></s>
+
+  <s><n>pv1000</n><fullname>Casio PV-1000</fullname>
+    <path>%ROMPATH%/pv1000</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>pv1000</platform><theme>pv1000</theme></s>
+
+  <s><n>scv</n><fullname>Epoch Super Cassette Vision</fullname>
+    <path>%ROMPATH%/scv</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>scv</platform><theme>scv</theme></s>
+
+  <s><n>supracan</n><fullname>Funtech Super A'Can</fullname>
+    <path>%ROMPATH%/supracan</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>supracan</platform><theme>supracan</theme></s>
+
+  <s><n>gmaster</n><fullname>Hartung Game Master</fullname>
+    <path>%ROMPATH%/gmaster</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>gmaster</platform><theme>gmaster</theme></s>
+
+  <s><n>lcdgames</n><fullname>LCD Handheld Games</fullname>
+    <path>%ROMPATH%/lcdgames</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>lcdgames</platform><theme>lcdgames</theme></s>
+
+  <s><n>vsmile</n><fullname>VTech V.Smile</fullname>
+    <path>%ROMPATH%/vsmile</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>vsmile</platform><theme>vsmile</theme></s>
+
+  <s><n>model2</n><fullname>Sega Model 2</fullname>
+    <path>%ROMPATH%/model2</path>
+    <extension>.zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>model2</theme></s>
+
 </systemList>
 CUSTOMSYSTEMS
 ok "custom es_systems.xml written (hack systems + ps3psn + xbla)"
