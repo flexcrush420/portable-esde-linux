@@ -41,7 +41,6 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 | **Supermodel** | Sega Model 3 | Community AppImage via pkgforge-dev |
 | **VPinball** | Visual Pinball | BGFX + GL builds |
 | **3dSen** | NES in 3D | Commercial — buy on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen), auto-detected if installed |
-| **fake-08** | PICO-8 | Free open-source PICO-8 compatible core via RetroArch |
 
 All configured for fullscreen, portable paths, and your chosen internal resolution out of the box.
 
