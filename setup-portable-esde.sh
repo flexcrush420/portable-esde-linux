@@ -1066,6 +1066,12 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
     <platform>colecovision</platform><theme>colecovision</theme></s>
 
+  <s><n>ti99</n><fullname>Texas Instruments TI-99/4A</fullname>
+    <path>%ROMPATH%/ti99</path>
+    <extension>.rpk .RPK .zip .ZIP .7z .7Z</extension>
+    <command label="MAME (RetroArch)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>ti99</platform><theme>ti99</theme></s>
+
   <s><n>msx</n><fullname>MSX</fullname>
     <path>%ROMPATH%/msx</path>
     <extension>.rom .ROM .mx1 .MX1 .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
