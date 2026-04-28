@@ -17,7 +17,7 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 | **ES-DE 3.4.1** | Frontend | Portable mode — no system installation |
 | **RetroArch** | 60+ systems | NES (Mesen), SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME & more |
 | | | |
-| **DuckStation** | PlayStation 1 | Alt to Mednafen PSX core |
+| **DuckStation** | PlayStation 1 |  |
 | **PCSX2** | PlayStation 2 | |
 | **RPCS3** | PlayStation 3 | |
 | **shadPS4** | PlayStation 4 | Requires Vulkan 1.3+ |
