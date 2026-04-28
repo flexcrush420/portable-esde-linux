@@ -420,9 +420,53 @@ download_cores() {
         [uzem]="Uzebox"
         [opera]="3DO"
         [scummvm]="ScummVM"
-        [dosbox_pure]="DOS"
+        [dosbox_pure]="DOS (fallback)"
         [cap32]="Amstrad CPC"
-        [quasi88]="x68000 (alt)"
+        [quasi88]="PC-88 (alt)"
+
+        # MAME — covers ~20 systems with no other libretro core
+        [mame]="MAME (Archimedes/ADAM/Dragon32/FM7/TI99/Model2/LCD/G&W/Gamate/PV1000/SCV/SuperACan/GameMaster/Game.com/VSmile)"
+
+        # Nintendo
+        [mesen]="NES / Famicom (high accuracy)"
+        [mesen-s]="Super Game Boy (Mesen-S)"
+        [gw_libretro]="Game & Watch (alt to MAME)"
+
+        # Sega
+        [kronos]="Saturn / Saturn JP (high accuracy)"
+        [model2]="Sega Model 2"
+
+        # Sony
+        [mednafen_psx]="PS1 (high accuracy)"
+        [mednafen_psx_hw]="PS1 HW renderer"
+        [mednafen_supergrafx]="NEC SuperGrafx"
+
+        # NEC
+        [np2kai]="PC-9800"
+
+        # Sharp
+        [x1]="Sharp X1"
+        [px68k]="Sharp X68000"
+
+        # Commodore
+        [vice_x64sc]="C64 (high accuracy, replaces vice_x64)"
+        [vice_xplus4]="Commodore Plus/4"
+
+        # Misc missing cores
+        [arduboy]="Arduboy"
+        [atari800]="Atari 800 / 5200 / XEGS"
+        [bluemsx]="MSX / MSX2 / Turbo R / Spectravideo / Colecovision"
+        [sameduck]="Mega Duck"
+        [easyrpg]="EasyRPG"
+        [arcadia]="Arcadia 2001"
+        [lowresnx]="LowRes NX"
+        [lutro]="Lutro"
+        [neocd]="Neo Geo CD"
+        [tic80]="TIC-80"
+        [jollycv]="Creativision"
+        [wasm4]="WASM-4"
+        [potator]="Watara Supervision"
+        [fake08]="PICO-8 (free/open alternative)"
     )
 
     local total=${#CORES[@]}
@@ -577,7 +621,7 @@ emu('MAME', [fp('mame*.AppImage')], ['mame']),
 '',
 emu('FLYCAST', [fp('flycast*.AppImage')], ['flycast']),
 '',
-emu('RYUBING', [fp('Ryubing*.AppImage'), fp('ryubing*')], ['Ryubing']),
+emu('RYUBING', [fp('Ryubing*.AppImage'), fp('ryubing*.AppImage'), fp('ryujinx*.AppImage')], ['Ryubing']),
 '',
 emu('EDEN', [fp('Eden*.AppImage'), fp('eden*.AppImage')], ['eden']),
 '',
@@ -604,7 +648,21 @@ emu('AZAHAR', [fp('azahar*.AppImage'), fp('Azahar*.AppImage')], ['azahar']),
 '',
 emu('GEARGRAFX', [fp('Geargrafx*.AppImage')], ['geargrafx']),
 '',
-emu('MESEN', [fp('Mesen*.AppImage')], ['Mesen']),
+emu('MESEN', [fp('Mesen*.AppImage'), fp('Mesen2*.AppImage')], ['Mesen']),
+'',
+emu('DOSBOX_X', [fp('dosbox-x-portable.sh'), fp('dosbox-x*.AppImage'), fp('dosbox-x')], ['dosbox-x']),
+'',
+emu('SIMCOUPE', [fp('simcoupe-portable.sh'), fp('SimCoupe*.AppImage'), fp('simcoupe')], ['simcoupe', 'SimCoupe']),
+'',
+emu('SUPERMODEL', [fp('supermodel-portable.sh'), fp('Supermodel*.AppImage'), fp('supermodel')], ['supermodel']),
+'',
+emu('SOLARUS', [fp('solarus-run*.AppImage'), fp('solarus-portable.sh'), fp('solarus-run')], ['solarus-run']),
+'',
+emu('RUFFLE', [fp('ruffle-portable.sh'), fp('ruffle*.AppImage'), fp('ruffle')], ['ruffle']),
+'',
+emu('EKA2L1', [fp('eka2l1-portable.sh'), fp('eka2l1*.AppImage'), fp('eka2l1')], ['eka2l1']),
+'',
+emu('FAKE08', [fp('fake08*.AppImage')], ['fake08']),
 '',
 emu('VPINBALL',
     [fp('VPinballX_BGFX'), fp('VPinballX_GL'), fp('vpinball-portable.sh')],
@@ -708,115 +766,360 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
   </system>
 
 
-  <s>
-    <n>ps3psn</n>
-    <fullname>PlayStation 3 (PSN / Digital)</fullname>
-    <path>%ROMPATH%/ps3psn</path>
-    <extension>.pkg .PKG .psn .PSN</extension>
+  <system>
+    <name>ps3</name>
+    <fullname>Sony PlayStation 3</fullname>
+    <path>%ROMPATH%/ps3</path>
+    <extension>.squashfs .SQUASHFS .psn .PSN .pkg .PKG .iso .ISO .zip .ZIP</extension>
     <command label="RPCS3">%EMULATOR_RPCS3% %ROM%</command>
     <platform>ps3</platform>
     <theme>ps3</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>xbla</n>
-    <fullname>Xbox Live Arcade</fullname>
-    <path>%ROMPATH%/xbla</path>
-    <extension>.xex .XEX .iso .ISO .xcp .XCP .zip .ZIP</extension>
+  <system>
+    <name>ps3psn</name>
+    <fullname>PlayStation 3 (PSN / Digital)</fullname>
+    <path>%ROMPATH%/ps3psn</path>
+    <extension>.lnk .LNK .pkg .PKG .psn .PSN .rap .RAP</extension>
+    <command label="RPCS3">%EMULATOR_RPCS3% %ROM%</command>
+    <platform>ps3</platform>
+    <theme>ps3</theme>
+  </system>
+
+  <system>
+    <name>ps4</name>
+    <fullname>Sony PlayStation 4</fullname>
+    <path>%ROMPATH%/ps4</path>
+    <extension>.7z .7Z .pkg .PKG .iso .ISO</extension>
+    <command label="shadPS4">%EMULATOR_SHADPS4% %ROM%</command>
+    <platform>ps4</platform>
+    <theme>ps4</theme>
+  </system>
+
+  <system>
+    <name>xbox360</name>
+    <fullname>Microsoft Xbox 360</fullname>
+    <path>%ROMPATH%/xbox360</path>
+    <extension>.xbox360 .XBOX360 .squashfs .SQUASHFS .m3u .M3U .iso .ISO .xex .XEX .zip .ZIP</extension>
     <command label="Xenia Canary">%EMULATOR_XENIA% %ROM%</command>
     <platform>xbox360</platform>
     <theme>xbox360</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>sfc</n>
+  <system>
+    <name>xbla</name>
+    <fullname>Xbox Live Arcade</fullname>
+    <path>%ROMPATH%/xbla</path>
+    <extension>.xbox360 .XBOX360 .xex .XEX .iso .ISO .xcp .XCP .zip .ZIP .squashfs .SQUASHFS</extension>
+    <command label="Xenia Canary">%EMULATOR_XENIA% %ROM%</command>
+    <platform>xbox360</platform>
+    <theme>xbox360</theme>
+  </system>
+
+  <system>
+    <name>sfc</name>
     <fullname>Super Famicom</fullname>
     <path>%ROMPATH%/sfc</path>
     <extension>.sfc .smc .fig .swc .bs .st .zip .7z .SFC .SMC .ZIP .7Z</extension>
     <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
     <platform>snes</platform>
     <theme>sfc</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>n64dd</n>
+  <system>
+    <name>n64dd</name>
     <fullname>Nintendo 64DD</fullname>
     <path>%ROMPATH%/n64dd</path>
     <extension>.ndd .zip .7z .NDD .ZIP .7Z</extension>
     <command label="Mupen64Plus-Next">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mupen64plus_next_libretro.so %ROM%</command>
     <platform>n64</platform>
     <theme>n64dd</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>wiiware</n>
+  <system>
+    <name>wiiware</name>
     <fullname>WiiWare</fullname>
     <path>%ROMPATH%/wiiware</path>
     <extension>.wad .WAD .zip .ZIP</extension>
     <command label="Dolphin">%EMULATOR_DOLPHIN% %ROM%</command>
     <platform>wii</platform>
     <theme>wii</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>megadrivejp</n>
+  <system>
+    <name>megadrivejp</name>
     <fullname>Sega Mega Drive (Japan)</fullname>
     <path>%ROMPATH%/megadrivejp</path>
     <extension>.md .bin .smd .gen .zip .7z .MD .BIN .ZIP .7Z</extension>
     <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
     <platform>megadrive</platform>
     <theme>megadrivejp</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>saturnjp</n>
+  <system>
+    <name>saturnjp</name>
     <fullname>Sega Saturn (Japan)</fullname>
     <path>%ROMPATH%/saturnjp</path>
     <extension>.bin .cue .iso .mdf .chd .zip .7z .BIN .CUE .ISO .ZIP .7Z</extension>
     <command label="Kronos">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/kronos_libretro.so %ROM%</command>
     <platform>saturn</platform>
     <theme>saturnjp</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>amiga500</n>
+  <system>
+    <name>amiga500</name>
     <fullname>Commodore Amiga 500</fullname>
     <path>%ROMPATH%/amiga500</path>
     <extension>.adf .adz .dms .fdi .ipf .hdf .hdz .lha .zip .7z .ADF .ZIP .7Z</extension>
     <command label="PUAE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/puae_libretro.so %ROM%</command>
     <platform>amiga</platform>
     <theme>amiga</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>amiga1200</n>
+  <system>
+    <name>amiga1200</name>
     <fullname>Commodore Amiga 1200</fullname>
     <path>%ROMPATH%/amiga1200</path>
     <extension>.adf .adz .dms .fdi .ipf .hdf .hdz .lha .zip .7z .ADF .ZIP .7Z</extension>
     <command label="PUAE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/puae_libretro.so %ROM%</command>
     <platform>amiga</platform>
     <theme>amiga1200</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>videopacplus</n>
+  <system>
+    <name>videopacplus</name>
     <fullname>Philips Videopac+ G7400</fullname>
     <path>%ROMPATH%/videopacplus</path>
     <extension>.bin .zip .7z .BIN .ZIP .7Z</extension>
     <command label="O2EM">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/o2em_libretro.so %ROM%</command>
     <platform>videopac</platform>
     <theme>videopac</theme>
-  </s>
+  </system>
 
-  <s>
-    <n>vpinball</n>
+  <system>
+    <name>vpinball</name>
     <fullname>Visual Pinball</fullname>
     <path>%ROMPATH%/vpinball</path>
     <extension>.vpx .VPX</extension>
     <command label="VPinballX">%EMULATOR_VPINBALL% -play %ROM%</command>
     <platform>vpinball</platform>
     <theme>vpinball</theme>
-  </s>
+  </system>
+
+
+  <!-- Built-in system overrides — portable emulators/cores take priority -->
+
+  <s><n>nes</n><fullname>Nintendo Entertainment System</fullname>
+    <path>%ROMPATH%/nes</path>
+    <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
+    <command label="Mesen">%EMULATOR_MESEN% %ROM%</command>
+    <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
+    <platform>nes</platform><theme>nes</theme></s>
+
+  <s><n>famicom</n><fullname>Nintendo Famicom</fullname>
+    <path>%ROMPATH%/famicom</path>
+    <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
+    <command label="Mesen">%EMULATOR_MESEN% %ROM%</command>
+    <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
+    <platform>nes</platform><theme>famicom</theme></s>
+
+  <s><n>gc</n><fullname>Nintendo GameCube</fullname>
+    <path>%ROMPATH%/gc</path>
+    <extension>.iso .ISO .gcm .GCM .gcz .GCZ .chd .CHD .rvz .RVZ .wbfs .WBFS .ciso .CISO .zip .ZIP</extension>
+    <command label="Dolphin">%EMULATOR_DOLPHIN% %ROM%</command>
+    <platform>gc</platform><theme>gc</theme></s>
+
+  <s><n>wii</n><fullname>Nintendo Wii</fullname>
+    <path>%ROMPATH%/wii</path>
+    <extension>.iso .ISO .gcm .GCM .gcz .GCZ .chd .CHD .rvz .RVZ .wbfs .WBFS .ciso .CISO .wad .WAD .zip .ZIP</extension>
+    <command label="Dolphin">%EMULATOR_DOLPHIN% %ROM%</command>
+    <platform>wii</platform><theme>wii</theme></s>
+
+  <s><n>nds</n><fullname>Nintendo DS</fullname>
+    <path>%ROMPATH%/nds</path>
+    <extension>.nds .NDS .zip .ZIP .7z .7Z</extension>
+    <command label="melonDS">%EMULATOR_MELONDS% %ROM%</command>
+    <platform>nds</platform><theme>nds</theme></s>
+
+  <s><n>ps2</n><fullname>Sony PlayStation 2</fullname>
+    <path>%ROMPATH%/ps2</path>
+    <extension>.iso .ISO .bin .BIN .chd .CHD .cso .CSO .mdf .MDF .gz .GZ .img .IMG .zip .ZIP</extension>
+    <command label="PCSX2">%EMULATOR_PCSX2% %ROM%</command>
+    <platform>ps2</platform><theme>ps2</theme></s>
+
+  <s><n>psx</n><fullname>Sony PlayStation</fullname>
+    <path>%ROMPATH%/psx</path>
+    <extension>.bin .BIN .cue .CUE .iso .ISO .img .IMG .chd .CHD .pbp .PBP .toc .TOC .mdf .MDF .m3u .M3U .zip .ZIP</extension>
+    <command label="Mednafen PSX HW">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_psx_hw_libretro.so %ROM%</command>
+    <command label="Mednafen PSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_psx_libretro.so %ROM%</command>
+    <command label="DuckStation">%EMULATOR_DUCKSTATION% %ROM%</command>
+    <platform>psx</platform><theme>psx</theme></s>
+
+  <s><n>dos</n><fullname>DOS</fullname>
+    <path>%ROMPATH%/dos</path>
+    <extension>.exe .EXE .com .COM .bat .BAT .conf .CONF .zip .ZIP</extension>
+    <command label="DOSBox-X">%EMULATOR_DOSBOX_X% %ROM%</command>
+    <command label="DOSBox Pure">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dosbox_pure_libretro.so %ROM%</command>
+    <platform>dos</platform><theme>dos</theme></s>
+
+  <s><n>samcoupe</n><fullname>MGT SAM Coupé</fullname>
+    <path>%ROMPATH%/samcoupe</path>
+    <extension>.mgt .MGT .sad .SAD .dsk .DSK .sdf .SDF .zip .ZIP</extension>
+    <command label="SimCoupe">%EMULATOR_SIMCOUPE% %ROM%</command>
+    <platform>samcoupe</platform><theme>samcoupe</theme></s>
+
+  <s><n>cps1</n><fullname>Capcom Play System I</fullname>
+    <path>%ROMPATH%/cps1</path><extension>.zip .ZIP .7z .7Z</extension>
+    <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>cps1</theme></s>
+
+  <s><n>cps2</n><fullname>Capcom Play System II</fullname>
+    <path>%ROMPATH%/cps2</path><extension>.zip .ZIP .7z .7Z</extension>
+    <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>cps2</theme></s>
+
+  <s><n>cps3</n><fullname>Capcom Play System III</fullname>
+    <path>%ROMPATH%/cps3</path><extension>.zip .ZIP .7z .7Z</extension>
+    <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>cps3</theme></s>
+
+  <s><n>atomiswave</n><fullname>Sammy Atomiswave</fullname>
+    <path>%ROMPATH%/atomiswave</path><extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="Flycast">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/flycast_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>atomiswave</theme></s>
+
+  <s><n>naomi</n><fullname>Sega NAOMI</fullname>
+    <path>%ROMPATH%/naomi</path><extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="Flycast">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/flycast_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>naomi</theme></s>
+
+  <s><n>naomi2</n><fullname>Sega NAOMI 2</fullname>
+    <path>%ROMPATH%/naomi2</path><extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="Flycast">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/flycast_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>naomi2</theme></s>
+
+  <s><n>model2</n><fullname>Sega Model 2</fullname>
+    <path>%ROMPATH%/model2</path><extension>.zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <platform>arcade</platform><theme>model2</theme></s>
+
+  <s><n>model3</n><fullname>Sega Model 3</fullname>
+    <path>%ROMPATH%/model3</path><extension>.zip .ZIP .7z .7Z</extension>
+    <command label="Supermodel">%EMULATOR_SUPERMODEL% -fullscreen %ROM%</command>
+    <platform>arcade</platform><theme>model3</theme></s>
+
+  <s><n>flash</n><fullname>Adobe Flash</fullname>
+    <path>%ROMPATH%/flash</path><extension>.swf .SWF .zip .ZIP</extension>
+    <command label="Ruffle">%EMULATOR_RUFFLE% %ROM%</command>
+    <platform>flash</platform><theme>flash</theme></s>
+
+  <s><n>pico8</n><fullname>PICO-8</fullname>
+    <path>%ROMPATH%/pico8</path><extension>.png .PNG .p8 .P8</extension>
+    <command label="PICO-8 (commercial)">%EMULATOR_PICO8% -run %ROM%</command>
+    <command label="fake-08 (free)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fake08_libretro.so %ROM%</command>
+    <platform>pico8</platform><theme>pico8</theme></s>
+
+  <s><n>solarus</n><fullname>Solarus</fullname>
+    <path>%ROMPATH%/solarus</path><extension>.solarus .SOLARUS .zip .ZIP</extension>
+    <command label="Solarus">%EMULATOR_SOLARUS% %ROM%</command>
+    <platform>solarus</platform><theme>solarus</theme></s>
+
+  <s><n>neogeocd</n><fullname>SNK Neo Geo CD</fullname>
+    <path>%ROMPATH%/neogeocd</path>
+    <extension>.chd .CHD .cue .CUE .iso .ISO .zip .ZIP</extension>
+    <command label="NeoCD">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/neocd_libretro.so %ROM%</command>
+    <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <platform>neogeocd</platform><theme>neogeocd</theme></s>
+
+  <s><n>supergrafx</n><fullname>NEC SuperGrafx</fullname>
+    <path>%ROMPATH%/supergrafx</path>
+    <extension>.pce .PCE .sgx .SGX .zip .ZIP .7z .7Z</extension>
+    <command label="Mednafen SuperGrafx">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_supergrafx_libretro.so %ROM%</command>
+    <command label="Mednafen PCE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mednafen_pce_libretro.so %ROM%</command>
+    <platform>pcengine</platform><theme>supergrafx</theme></s>
+
+  <s><n>sgb</n><fullname>Nintendo Super Game Boy</fullname>
+    <path>%ROMPATH%/sgb</path>
+    <extension>.gb .GB .gbc .GBC .zip .ZIP .7z .7Z</extension>
+    <command label="Mesen-S">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mesen-s_libretro.so %ROM%</command>
+    <platform>gb</platform><theme>sgb</theme></s>
+
+  <s><n>spectravideo</n><fullname>Spectravideo</fullname>
+    <path>%ROMPATH%/spectravideo</path>
+    <extension>.rom .ROM .cas .CAS .zip .ZIP .7z .7Z</extension>
+    <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
+    <platform>spectravideo</platform><theme>spectravideo</theme></s>
+
+  <s><n>colecovision</n><fullname>ColecoVision</fullname>
+    <path>%ROMPATH%/colecovision</path>
+    <extension>.col .COL .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
+    <platform>colecovision</platform><theme>colecovision</theme></s>
+
+  <s><n>msx</n><fullname>MSX</fullname>
+    <path>%ROMPATH%/msx</path>
+    <extension>.rom .ROM .mx1 .MX1 .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
+    <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
+    <platform>msx</platform><theme>msx</theme></s>
+
+  <s><n>msx2</n><fullname>MSX2</fullname>
+    <path>%ROMPATH%/msx2</path>
+    <extension>.rom .ROM .mx2 .MX2 .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
+    <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
+    <platform>msx</platform><theme>msx2</theme></s>
+
+  <s><n>msxturbor</n><fullname>MSX Turbo R</fullname>
+    <path>%ROMPATH%/msxturbor</path>
+    <extension>.rom .ROM .cas .CAS .dsk .DSK .zip .ZIP .7z .7Z</extension>
+    <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
+    <platform>msx</platform><theme>msx</theme></s>
+
+  <s><n>c64</n><fullname>Commodore 64</fullname>
+    <path>%ROMPATH%/c64</path>
+    <extension>.d64 .D64 .t64 .T64 .g64 .G64 .prg .PRG .crt .CRT .tap .TAP .x64 .X64 .zip .ZIP .7z .7Z</extension>
+    <command label="VICE x64sc">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_x64sc_libretro.so %ROM%</command>
+    <command label="VICE x64">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_x64_libretro.so %ROM%</command>
+    <platform>c64</platform><theme>c64</theme></s>
+
+  <s><n>plus4</n><fullname>Commodore Plus/4</fullname>
+    <path>%ROMPATH%/plus4</path>
+    <extension>.d64 .D64 .t64 .T64 .prg .PRG .tap .TAP .zip .ZIP .7z .7Z</extension>
+    <command label="VICE xplus4">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_xplus4_libretro.so %ROM%</command>
+    <platform>c64</platform><theme>plus4</theme></s>
+
+  <s><n>x68000</n><fullname>Sharp X68000</fullname>
+    <path>%ROMPATH%/x68000</path>
+    <extension>.dim .DIM .img .IMG .d88 .D88 .88d .88D .hdm .HDM .xdf .XDF .hdf .HDF .zip .ZIP .7z .7Z</extension>
+    <command label="PX68k">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/px68k_libretro.so %ROM%</command>
+    <platform>x68000</platform><theme>x68000</theme></s>
+
+  <s><n>x1</n><fullname>Sharp X1</fullname>
+    <path>%ROMPATH%/x1</path>
+    <extension>.dx1 .DX1 .zip .ZIP .2d .2D .2hd .2HD .tfd .TFD .d88 .D88 .88d .88D .hdm .HDM .xdf .XDF .hdf .HDF .cmd .CMD</extension>
+    <command label="X1">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/x1_libretro.so %ROM%</command>
+    <platform>x1</platform><theme>x1</theme></s>
+
+  <s><n>pc98</n><fullname>NEC PC-9800</fullname>
+    <path>%ROMPATH%/pc98</path>
+    <extension>.d98 .D98 .zip .ZIP .fdi .FDI .fdd .FDD .2hd .2HD .tfd .TFD .d88 .D88 .88d .88D .hdm .HDM .xdf .XDF .hdf .HDF .hdi .HDI .nhd .NHD .hdd .HDD</extension>
+    <command label="Neko Project II kai">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/np2kai_libretro.so %ROM%</command>
+    <platform>pc98</platform><theme>pc98</theme></s>
+
+  <s><n>megadrive</n><fullname>Sega Mega Drive</fullname>
+    <path>%ROMPATH%/megadrive</path>
+    <extension>.md .MD .bin .BIN .smd .SMD .gen .GEN .68k .68K .chd .CHD .zip .ZIP .7z .7Z</extension>
+    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
+    <command label="PicoDrive">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/picodrive_libretro.so %ROM%</command>
+    <platform>megadrive</platform><theme>megadrive</theme></s>
+
+  <s><n>snes</n><fullname>Super Nintendo Entertainment System</fullname>
+    <path>%ROMPATH%/snes</path>
+    <extension>.sfc .SFC .smc .SMC .fig .FIG .swc .SWC .bs .BS .st .ST .zip .ZIP .7z .7Z</extension>
+    <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
+    <platform>snes</platform><theme>snes</theme></s>
 
 </systemList>
 CUSTOMSYSTEMS
@@ -1018,12 +1321,17 @@ BOXWRAP
 chmod +x "$EMUS/86box-portable.sh"
 
 # VPinball — uses XDG_DATA_HOME for tables/config
+# TABLES_PATH tells VPinball where to look for .vpx table files and their
+# companion folders (music/, PinMAME ROMs next to the table, etc.)
 cat > "$EMUS/vpinball-portable.sh" << 'VPINWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+# Point VPinball at the bundle's vpinball ROM folder so it finds tables,
+# backglass files (.directb2s), music, and PinMAME ROMs automatically.
+export TABLES_PATH="$BASE_DIR/ROMs/vpinball"
 # Prefer BGFX (modern renderer), fall back to GL
 BIN="$SCRIPT_DIR/VPinballX_BGFX"
 [[ ! -f "$BIN" ]] && BIN="$SCRIPT_DIR/VPinballX_GL"
@@ -1457,29 +1765,45 @@ echo "   ── shadPS4 (PlayStation 4) ──"
 if compgen -G "$EMUS/shadps4*" > /dev/null 2>&1 || [[ -f "$EMUS/shadps4" ]]; then
     ok "shadPS4 already exists, skipping"
 else
-    # shadPS4 ships as tar.gz for Linux, not AppImage
+    # shadPS4 ships as tar.gz/zip for Linux — try Qt build first, then headless
+    # shadPS4 releases: shadps4-linux-sdl-*.zip containing Shadps4-sdl.AppImage
     SHADPS4_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
         | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "linux.*x86.?64.*\.tar\.(gz|xz)$|x86.?64.*linux.*\.tar\.(gz|xz)$" \
-        | grep -iv "debug\|symbols" \
+        | grep -iP "shadps4-linux-sdl.*\.zip$|linux.*x86.?64.*\.(tar\.(gz|xz)|zip)$" \
+        | grep -iv "debug\|symbols\|arm\|qt" \
+        | grep -v "Pre-release" \
         | head -1) || true
     if [[ -n "$SHADPS4_URL" ]]; then
         info "Downloading shadPS4 ..."
         SHADPS4_TMPDIR=$(mktemp -d)
-        EXT="${SHADPS4_URL##*.}"
-        if [[ "$EXT" == "gz" ]]; then
-            curl -#fL "$SHADPS4_URL" | tar -xz -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+        SHADPS4_FILE="$SHADPS4_TMPDIR/shadps4-dl"
+        if curl -#fL -o "$SHADPS4_FILE" "$SHADPS4_URL"; then
+            # Detect archive type by content, not extension
+            FILE_TYPE=$(file "$SHADPS4_FILE" | tr '[:upper:]' '[:lower:]')
+            if echo "$FILE_TYPE" | grep -q "zip"; then
+                unzip -qo "$SHADPS4_FILE" -d "$SHADPS4_TMPDIR/extract" 2>/dev/null || true
+            elif echo "$FILE_TYPE" | grep -q "xz\|lzma"; then
+                tar -xJf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+            else
+                tar -xzf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+            fi
+            # Find the main shadPS4 executable (qt preferred over headless)
+            SHADPS4_BIN=$(find "$SHADPS4_TMPDIR" -type f \( -name "shadps4-qt" -o -name "shadps4" -o -iname "shadps4*.AppImage" -o -iname "Shadps4*.AppImage" \) 2>/dev/null | grep -v "\.so" | head -1)
+            if [[ -n "$SHADPS4_BIN" ]]; then
+                # Copy the binary and any sibling shared libs it needs
+                BIN_DIR=$(dirname "$SHADPS4_BIN")
+                cp "$SHADPS4_BIN" "$EMUS/shadps4"
+                chmod +x "$EMUS/shadps4"
+                # Copy .so files from same dir (shadPS4 bundles Qt libs)
+                find "$BIN_DIR" -maxdepth 1 -name "*.so*" -exec cp {} "$EMUS/" \; 2>/dev/null || true
+                find "$BIN_DIR" -maxdepth 1 -type d -exec cp -r {} "$EMUS/" \; 2>/dev/null || true
+                ok "shadPS4 downloaded"
+            else
+                fail "Could not find shadPS4 binary inside archive"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
         else
-            curl -#fL "$SHADPS4_URL" | tar -xJ -C "$SHADPS4_TMPDIR" 2>/dev/null || true
-        fi
-        # Find the main shadPS4 executable
-        SHADPS4_BIN=$(find "$SHADPS4_TMPDIR" -type f \( -name "shadps4" -o -name "shadps4-qt" \) 2>/dev/null | head -1)
-        if [[ -n "$SHADPS4_BIN" ]]; then
-            mv "$SHADPS4_BIN" "$EMUS/shadps4"
-            chmod +x "$EMUS/shadps4"
-            ok "shadPS4 downloaded"
-        else
-            fail "Could not find shadPS4 binary inside archive"
+            fail "shadPS4 download failed"
             DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
         rm -rf "$SHADPS4_TMPDIR"
@@ -1500,40 +1824,276 @@ echo "   ── VPinball (Visual Pinball) ──"
 if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
     ok "VPinball already exists, skipping"
 else
-    VPINBALL_URL=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=5" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "linux.*x64.*\.zip$|VPinballX.*linux.*x64.*\.zip$" \
-        | grep -iv "debug\|symbols" \
-        | head -1) || true
-    if [[ -n "$VPINBALL_URL" ]]; then
-        info "Downloading VPinball ..."
-        VPINBALL_TMP=$(mktemp -d)
-        if curl -#fL -o "$VPINBALL_TMP/vpinball.zip" "$VPINBALL_URL"; then
-            unzip -qo "$VPINBALL_TMP/vpinball.zip" -d "$VPINBALL_TMP/extract" 2>/dev/null || true
-            # Find and copy the main binaries
+    # vpinball releases: BGFX and GL are separate zips, each containing one binary
+    # plus shared support dirs (scripts/, shaders/, assets/, pinmame/, etc.)
+    # Real filename format: VPinballX_BGFX-10.8.1-3788-2151290-linux-x64-Release.zip
+    VPINBALL_TMP=$(mktemp -d)
+    VPINBALL_GOT=0
+
+    # Fetch all linux zip URLs from the latest release in one API call
+    VPINBALL_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"         | grep -iv "debug\|symbols") || true
+
+    if [[ -z "$VPINBALL_URLS" ]]; then
+        warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    else
+        # Download each zip (BGFX preferred, GL for fallback) — both share the same
+        # support dirs so extracting both is harmless and ensures we get all files
+        while IFS= read -r VPURL; do
+            [[ -z "$VPURL" ]] && continue
+            VPZIP=$(basename "$VPURL")
+            info "Downloading $VPZIP ..."
+            if curl -#fL -o "$VPINBALL_TMP/$VPZIP" "$VPURL"; then
+                unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP/extract" 2>/dev/null || true
+                VPINBALL_GOT=$((VPINBALL_GOT + 1))
+            else
+                warn "Failed to download $VPZIP"
+            fi
+        done <<< "$VPINBALL_URLS"
+
+        if [[ $VPINBALL_GOT -gt 0 ]]; then
+            # Copy binaries — find at any depth since zip may have a top-level subdir
             for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
                 FOUND=$(find "$VPINBALL_TMP/extract" -name "$BIN" -type f 2>/dev/null | head -1)
                 if [[ -n "$FOUND" ]]; then
                     cp "$FOUND" "$EMUS/$BIN"
                     chmod +x "$EMUS/$BIN"
+                    ok "  Installed: $BIN"
                 fi
             done
-            # Copy supporting files (scripts, shaders, etc.)
-            for SUBDIR in scripts shaders assets; do
-                FOUND_DIR=$(find "$VPINBALL_TMP/extract" -name "$SUBDIR" -type d 2>/dev/null | head -1)
-                [[ -n "$FOUND_DIR" ]] && cp -r "$FOUND_DIR" "$EMUS/" 2>/dev/null || true
+            # Copy ALL support subdirectories (scripts, shaders, assets, pinmame, etc.)
+            # The zip may extract flat (files at root) or into a subdir — handle both
+            EXTRACT_ROOT="$VPINBALL_TMP/extract"
+            # If there's a single top-level subdir, descend into it
+            SUBDIRS=$(find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+            SUBDIR_COUNT=$(echo "$SUBDIRS" | grep -c . 2>/dev/null || echo 0)
+            if [[ $SUBDIR_COUNT -eq 1 ]]; then
+                EXTRACT_ROOT="$SUBDIRS"
+            fi
+            # Now copy all subdirs from the effective root to Emulators/
+            find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d | while read -r D; do
+                DNAME=$(basename "$D")
+                # Don't overwrite an existing populated dir — merge instead
+                cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null ||                     { mkdir -p "$EMUS/$DNAME"; cp -rn "$D/." "$EMUS/$DNAME/"; } 2>/dev/null || true
             done
-            ok "VPinball downloaded"
+            ok "VPinball downloaded ($VPINBALL_GOT zip(s) extracted)"
         else
-            fail "VPinball download failed"
+            fail "VPinball downloads all failed"
             DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-        rm -rf "$VPINBALL_TMP"
+    fi
+    rm -rf "$VPINBALL_TMP"
+fi
+echo ""
+
+#=============================================================================
+# STEP 10b: DOWNLOAD ADDITIONAL STANDALONE EMULATORS
+#=============================================================================
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading additional standalone emulators..."
+
+# ── Mesen (NES/Famicom — best accuracy) ──
+echo "   ── Mesen ──"
+if compgen -G "$EMUS/Mesen*.AppImage" > /dev/null 2>&1; then
+    ok "Mesen already exists, skipping"
+else
+    MESEN_URL=$(curl -sfL "https://api.github.com/repos/SourMesen/Mesen2/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*\.AppImage$|Mesen.*linux.*\.AppImage$"         | grep -iv "debug\|symbols" | head -1) || true
+    if [[ -n "$MESEN_URL" ]]; then
+        info "Downloading Mesen..."
+        if curl -#fL -o "$EMUS/Mesen-latest.AppImage" "$MESEN_URL"; then
+            chmod +x "$EMUS/Mesen-latest.AppImage"
+            ok "Mesen downloaded"
+        else
+            fail "Mesen download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
     else
-        warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
+        warn "Mesen URL not found — check https://github.com/SourMesen/Mesen2/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
 fi
+
+# ── DOSBox-X (best DOS emulation) ──
+echo "   ── DOSBox-X ──"
+if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1 || [[ -f "$EMUS/dosbox-x" ]]; then
+    ok "DOSBox-X already exists, skipping"
+else
+    DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/joncampbell123/dosbox-x/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.AppImage$|dosbox-x.*linux.*\.AppImage$"         | grep -iv "debug\|arm" | head -1) || true
+    if [[ -n "$DOSBOXX_URL" ]]; then
+        info "Downloading DOSBox-X..."
+        FNAME=$(basename "$DOSBOXX_URL")
+        if curl -#fL -o "$EMUS/$FNAME" "$DOSBOXX_URL"; then
+            chmod +x "$EMUS/$FNAME"
+            # Write portable wrapper
+            cat > "$EMUS/dosbox-x-portable.sh" << 'DBXWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x*.AppImage' | head -1)
+[[ -z "$BIN" ]] && BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x' | head -1)
+exec "$BIN" "$@"
+DBXWRAP
+            chmod +x "$EMUS/dosbox-x-portable.sh"
+            ok "DOSBox-X downloaded"
+        else
+            fail "DOSBox-X download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    else
+        warn "DOSBox-X URL not found — check https://github.com/joncampbell123/dosbox-x/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+
+# ── Ruffle (Adobe Flash) ──
+echo "   ── Ruffle ──"
+if compgen -G "$EMUS/ruffle*" > /dev/null 2>&1; then
+    ok "Ruffle already exists, skipping"
+else
+    RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.tar\.gz$"         | grep -iv "debug\|arm" | head -1) || true
+    if [[ -n "$RUFFLE_URL" ]]; then
+        info "Downloading Ruffle..."
+        RUFFLE_TMP=$(mktemp -d)
+        if curl -#fL "$RUFFLE_URL" | tar -xz -C "$RUFFLE_TMP" 2>/dev/null; then
+            RUFFLE_BIN=$(find "$RUFFLE_TMP" -name "ruffle" -type f | head -1)
+            if [[ -n "$RUFFLE_BIN" ]]; then
+                cp "$RUFFLE_BIN" "$EMUS/ruffle"
+                chmod +x "$EMUS/ruffle"
+                cat > "$EMUS/ruffle-portable.sh" << 'RUFFLEWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+exec "$SCRIPT_DIR/ruffle" "$@"
+RUFFLEWRAP
+                chmod +x "$EMUS/ruffle-portable.sh"
+                ok "Ruffle downloaded"
+            else
+                fail "Ruffle binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            fail "Ruffle download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+        rm -rf "$RUFFLE_TMP"
+    else
+        warn "Ruffle URL not found — check https://github.com/ruffle-rs/ruffle/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+
+# ── Solarus ──
+echo "   ── Solarus ──"
+if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
+    ok "Solarus already exists, skipping"
+else
+    SOLARUS_URL=$(curl -sfL "https://api.github.com/repos/solarus-games/solarus/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "\.AppImage$" | grep -iv "debug\|arm" | head -1) || true
+    if [[ -n "$SOLARUS_URL" ]]; then
+        info "Downloading Solarus..."
+        FNAME=$(basename "$SOLARUS_URL")
+        if curl -#fL -o "$EMUS/$FNAME" "$SOLARUS_URL"; then
+            chmod +x "$EMUS/$FNAME"
+            cat > "$EMUS/solarus-portable.sh" << 'SOLARUSWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'solarus*.AppImage' | head -1)
+exec "$BIN" "$@"
+SOLARUSWRAP
+            chmod +x "$EMUS/solarus-portable.sh"
+            ok "Solarus downloaded"
+        else
+            fail "Solarus download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    else
+        warn "Solarus URL not found — check https://github.com/solarus-games/solarus/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+
+# ── SimCoupe (MGT SAM Coupé) ──
+echo "   ── SimCoupe ──"
+if compgen -G "$EMUS/SimCoupe*" > /dev/null 2>&1 || [[ -f "$EMUS/simcoupe" ]]; then
+    ok "SimCoupe already exists, skipping"
+else
+    SIMCOUPE_URL=$(curl -sfL "https://api.github.com/repos/simonowen/simcoupe/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.AppImage$|\.AppImage$"         | grep -iv "debug\|arm" | head -1) || true
+    if [[ -n "$SIMCOUPE_URL" ]]; then
+        info "Downloading SimCoupe..."
+        FNAME=$(basename "$SIMCOUPE_URL")
+        if curl -#fL -o "$EMUS/$FNAME" "$SIMCOUPE_URL"; then
+            chmod +x "$EMUS/$FNAME"
+            cat > "$EMUS/simcoupe-portable.sh" << 'SIMWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'SimCoupe*.AppImage' -o -name 'simcoupe' 2>/dev/null | head -1)
+exec "$BIN" "$@"
+SIMWRAP
+            chmod +x "$EMUS/simcoupe-portable.sh"
+            ok "SimCoupe downloaded"
+        else
+            fail "SimCoupe download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    else
+        warn "SimCoupe URL not found — check https://github.com/simonowen/simcoupe/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+
+# ── Supermodel (Sega Model 3) ──
+echo "   ── Supermodel ──"
+if compgen -G "$EMUS/supermodel*" > /dev/null 2>&1; then
+    ok "Supermodel already exists, skipping"
+else
+    # Supermodel has no GitHub releases — use nightly builds from supermodel3.com
+    SUPERMODEL_URL="https://www.supermodel3.com/Files/Supermodel_0.3a_Linux_x64.tar.gz"
+    info "Downloading Supermodel (Sega Model 3)..."
+    SUPERMODEL_TMP=$(mktemp -d)
+    if curl -#fL "$SUPERMODEL_URL" | tar -xz -C "$SUPERMODEL_TMP" 2>/dev/null; then
+        SUPERMODEL_BIN=$(find "$SUPERMODEL_TMP" -name "supermodel" -type f | head -1)
+        if [[ -n "$SUPERMODEL_BIN" ]]; then
+            cp "$SUPERMODEL_BIN" "$EMUS/supermodel"
+            chmod +x "$EMUS/supermodel"
+            # Copy any required data files alongside
+            find "$SUPERMODEL_TMP" -maxdepth 2 -type d | while read -r D; do
+                DNAME=$(basename "$D")
+                [[ "$DNAME" == "." ]] && continue
+                cp -rn "$D" "$EMUS/" 2>/dev/null || true
+            done
+            cat > "$EMUS/supermodel-portable.sh" << 'SUPERWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+exec "$SCRIPT_DIR/supermodel" "$@"
+SUPERWRAP
+            chmod +x "$EMUS/supermodel-portable.sh"
+            ok "Supermodel downloaded"
+        else
+            fail "Supermodel binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    else
+        warn "Supermodel download failed — check https://www.supermodel3.com/Download.html"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+    rm -rf "$SUPERMODEL_TMP"
+fi
+
+# ── PICO-8 notice (commercial software) ──
+echo "   ── PICO-8 ──"
+if [[ -f "$EMUS/pico8" ]] || compgen -G "$EMUS/pico8*" > /dev/null 2>&1; then
+    ok "PICO-8 already present"
+else
+    warn "PICO-8 is commercial software — purchase at https://www.lexaloffle.com/pico-8.php"
+    warn "   After purchase, place the pico8 binary in: $EMUS/pico8"
+    warn "   The free alternative fake-08 core will be used until then"
+fi
+
+ok "Additional standalone emulators done"
 echo ""
 
 #=============================================================================
@@ -1579,22 +2139,27 @@ fi
 SETTINGS_FILE="$ESDE_DATA/settings/es_settings.xml"
 mkdir -p "$ESDE_DATA/settings"
 
-# ES-DE's settings format: no root element wrapper, entries directly under <?xml?>
-# Keys: "Theme" (not "ThemeSet"), standard ES-DE key names
+# ES-DE's settings format: entries inside a root <config> element.
+# Without the <config> wrapper ES-DE silently ignores the file, causing
+# ROMDirectory / MediaDirectory to fall back to ~/ROMs — which breaks
+# custom systems like ps3psn and xbla that only exist in the bundle.
+# Keys: "Theme" (not "ThemeSet"), standard ES-DE key names.
 # ES-DE will overwrite this on first run but preserves keys it recognises.
 # The launch.sh apply_theme function patches Theme after each exit as backup.
 cat > "$SETTINGS_FILE" << ESSETTINGS
 <?xml version="1.0"?>
-<bool name="FoldersOnTop" value="true" />
-<bool name="FavoritesFirst" value="true" />
-<bool name="ShowHiddenGames" value="false" />
-<string name="CollectionSystemsAuto" value="favorites,recent,lastplayed" />
-<string name="MediaDirectory" value="${BASE}/downloaded_media" />
-<string name="ROMDirectory" value="${ROMS}" />
-<string name="Scraper" value="screenscraper" />
-<string name="Theme" value="${THEME_NAME:-linear-es-de}" />
+<config>
+    <bool name="FoldersOnTop" value="true" />
+    <bool name="FavoritesFirst" value="true" />
+    <bool name="ShowHiddenGames" value="false" />
+    <string name="CollectionSystemsAuto" value="favorites,recent,lastplayed" />
+    <string name="MediaDirectory" value="${BASE}/downloaded_media" />
+    <string name="ROMDirectory" value="${ROMS}" />
+    <string name="Scraper" value="screenscraper" />
+    <string name="Theme" value="${THEME_NAME:-linear-es-de}" />
+</config>
 ESSETTINGS
-ok "es_settings.xml written (correct ES-DE format)"
+ok "es_settings.xml written (with <config> root — required for ES-DE to parse it)"
 
 # Also patch in launch.sh after any exit so theme sticks even if ES-DE rewrites
 # (launch.sh apply_theme handles this — just need correct key name "Theme")
@@ -1667,8 +2232,23 @@ else
         # ── ps3psn maps to ps3psn (own custom system) — no mapping needed ──
     )
 
-    # Folders that exist in roms/ but are NOT game systems — skip them
-    declare -A SKIP_SYSTEMS=( [media]=1 )
+    # Folders that exist in roms/ but are NOT game systems — skip them.
+    # RetroBat packs often include metadata/utility folders alongside system folders;
+    # importing these creates phantom ES-DE systems and misplaces files.
+    declare -A SKIP_SYSTEMS=(
+        [media]=1           # RetroBat media root (handled separately per-system)
+        [bios]=1            # BIOS/firmware files — imported separately, not a game system
+        [emulators]=1       # RetroBat emulator configs — not a game system
+        [saves]=1           # Save files — go to Saves/, not ROMs/
+        [screenshots]=1     # Screenshots — go to Saves/screenshots/
+        [cheats]=1          # Cheats — go to .config/retroarch/cheats/
+        [records]=1         # Recording output — not a game system
+        [sounds]=1          # Sound packs — not a game system
+        [decorations]=1     # Bezel decorations — not a game system
+        [library]=1         # RetroArch library cache
+        [system]=1          # RetroArch system/bios mirror
+        [music]=1           # Background music — not a game system
+    )
 
     for IDX in "${!RETROBAT_PATHS[@]}"; do
         RETROBAT_PATH="${RETROBAT_PATHS[$IDX]}"
@@ -1876,6 +2456,31 @@ else
                         IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
                     fi
                 done
+            else
+                # Flat-layout packs (e.g. vpinball RetroBat packs) put media subfolders
+                # directly inside the ROM dir rather than inside a media/ subdirectory.
+                # Handle: videos/ images/ marquee/ box2d/ etc. sitting at ROM dir root.
+                for RB_TYPE in "${!MEDIA_MAP[@]}"; do
+                    SRC="$SYS_DIR/$RB_TYPE"
+                    if [[ -d "$SRC" ]]; then
+                        ESDE_TYPE="${MEDIA_MAP[$RB_TYPE]}"
+                        DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
+                        mkdir -p "$DST"
+                        TRANSFER_LABEL="$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")"
+                        [[ "$RB_TYPE" == "videos" ]] \
+                            && echo "      videos (flat) → videos     [$TRANSFER_LABEL — large sets take time...]" \
+                            || echo -n "      $(printf '%-14s' "$RB_TYPE") (flat) → $(printf '%-10s' "$ESDE_TYPE") [$TRANSFER_LABEL...]"
+                        if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+                            find "$SRC" -maxdepth 1 -type f -exec mv -n {} "$DST/" \; 2>/dev/null || true
+                        else
+                            cp -rn "$SRC/." "$DST/" 2>/dev/null || true
+                        fi
+                        [[ "$RB_TYPE" == "videos" ]] \
+                            && echo -e "      ${GREEN}✓${NC} videos done" \
+                            || echo -e " ${GREEN}done${NC}"
+                        IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+                    fi
+                done
             fi
 
             # Gamelist — clean, flatten paths for category-folder systems, merge with existing
@@ -1960,8 +2565,9 @@ GLFIX
             # ROMs — detect category-folder systems and flatten, or preserve disc-game folders
             # Category systems (C64, Amiga, etc.) organise ROMs in subfolders like 1-hit/, 2-best/
             # Disc systems (PS2, PS3, GC, etc.) have per-game folders that must be preserved
+            # vpinball: .vpx tables are flat at the ROM dir root (RetroBat pack layout)
             FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist
-                              zxspectrum zx81 dos atari800 pc)
+                              zxspectrum zx81 dos atari800 pc vpinball)
             IS_FLAT=false
             for FS in "${FLAT_ROM_SYSTEMS[@]}"; do
                 [[ "$ESDE_SYS" == "$FS" || "$RB_SYS" == "$FS" ]] && IS_FLAT=true && break
@@ -2044,6 +2650,51 @@ GLFIX
     echo ""
 fi
 
+# ── Post-import cleanup: remove any RetroBat non-system folders from ROMs/ ──
+# These can appear even without a RetroBat import if the user's ROM pack
+# included them. Remove only if empty to avoid accidental data loss.
+# bios is intentionally excluded here — it lives in ROMs/bios/ legitimately and must not be deleted
+NON_SYSTEM_FOLDERS=(emulators saves screenshots cheats records sounds decorations library system music)
+for NSF in "${NON_SYSTEM_FOLDERS[@]}"; do
+    NSF_PATH="$ROMS/$NSF"
+    if [[ -d "$NSF_PATH" ]]; then
+        FILE_COUNT=$(find "$NSF_PATH" -type f 2>/dev/null | wc -l)
+        if [[ $FILE_COUNT -eq 0 ]]; then
+            rm -rf "$NSF_PATH"
+        else
+            warn "ROMs/$NSF has $FILE_COUNT files — not auto-removed. Move contents manually if needed."
+        fi
+    fi
+done
+
+# ── Remove known junk subfolders that some RetroBat packs embed inside ROM dirs ──
+for JUNK_DIR in "$ROMS/ps4/_saves_" "$ROMS/ps3/_saves_" "$ROMS/xbox360/_saves_" "$ROMS/xbla/_saves_"; do
+    [[ -d "$JUNK_DIR" ]] && rm -rf "$JUNK_DIR" && ok "Removed junk folder: $JUNK_DIR"
+done
+
+# ── ps3psn media: symlink to ps3 media so both systems share the same artwork ──
+if [[ -d "$BASE/downloaded_media/ps3" ]] && [[ ! -e "$BASE/downloaded_media/ps3psn" ]]; then
+    ln -s "$BASE/downloaded_media/ps3" "$BASE/downloaded_media/ps3psn"
+    ok "ps3psn media symlinked to ps3"
+fi
+
+# ── vpinball: migrate flat media folders from ROM dir to downloaded_media ──
+VPIN_ROM="$ROMS/vpinball"
+VPIN_MEDIA="$BASE/downloaded_media/vpinball"
+if [[ -d "$VPIN_ROM" ]]; then
+    declare -A VPIN_MAP=([images]=screenshots [marquee]=marquees [marquees]=marquees
+                         [videos]=videos [manuals]=manuals [fanart]=fanart)
+    for SRC_NAME in "${!VPIN_MAP[@]}"; do
+        SRC="$VPIN_ROM/$SRC_NAME"
+        [[ -d "$SRC" ]] || continue
+        DST="$VPIN_MEDIA/${VPIN_MAP[$SRC_NAME]}"
+        mkdir -p "$DST"
+        mv -n "$SRC"/. "$DST/" 2>/dev/null || true
+        rmdir "$SRC" 2>/dev/null || true
+        ok "vpinball: moved $SRC_NAME -> downloaded_media/vpinball/${VPIN_MAP[$SRC_NAME]}"
+    done
+fi
+
 #=============================================================================
 # STEP 13: WRITE CONVERSION SCRIPT TO BUNDLE
 #=============================================================================
@@ -2104,12 +2755,40 @@ declare -A MEDIA_MAP=(
     [images]=screenshots [titles]=titlescreens [cartridges]=physicalmedia [videos]=videos
 )
 declare -A SYS_MAP=(
-    [sfc]=snes [snesna]=snes [nes_aladdin]=nes [nomad]=genesis [megadrivejp]=megadrive
-    [n64dd]=n64 [sg1000]=sg-1000 [sc3000]=sg-1000 [markiii]=mastersystem
-    [amiga4000]=amiga [msx1]=msx [videopacplus]=videopac
-    [fbneo]=arcade [cave]=arcade [gaelco]=arcade [igspgm]=arcade [aleck64]=arcade
+    # SNES
+    [snesna]=snes           [snes-msu]=snes         [sufami]=snes
+    # NES
+    [nes_aladdin]=nes       [nes_hd]=nes            [nes-msu]=nes
+    # Mega Drive
+    [nomad]=genesis         [megadrive-msu]=megadrive [msu-md]=megadrive
+    # Game Boy
+    [gb2players]=gb         [gba2players]=gba       [gbc2players]=gbc
+    # GameCube / Wii
+    [gamecube]=gc
+    # 3DS
+    [3ds]=n3ds
+    # Atari
+    [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd [lynx]=atarilynx
+    # Sega
+    [sg1000]=sg-1000        [sc3000]=sg-1000         [markiii]=mastersystem
+    [dreamcast-jp]=dreamcast [saturn-jp]=saturnjp
+    # NEC
+    [tgcd]=tg-cd
+    # SNK
+    [neogeomvs]=neogeo
+    # Philips
+    [cdi]=cdimono1
+    # Bandai
+    [wswan]=wonderswan      [wswanc]=wonderswancolor
+    # Commodore
+    [c20]=vic20             [cplus4]=plus4          [amiga4000]=amiga
+    # MSX
+    [msx1]=msx              [msx2+]=msx2
+    # Arcade
+    [fbneo]=arcade          [cave]=arcade
+    [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
 )
-FLAT_ROM_SYSTEMS=(c64 amiga amigacd32 msx msx2 msx1 vic20 atarist zxspectrum zx81 dos atari800 pc)
+FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist zxspectrum zx81 dos atari800 pc vpinball)
 
 IMPORT_SYSTEMS=0; IMPORT_MEDIA=0; IMPORT_ROMS=0
 
@@ -2120,9 +2799,15 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         cp -rn "$RETROBAT_PATH/bios/." "$ROMS/bios/" 2>/dev/null || true
         echo -e " ${GREEN}done${NC}"
     fi
+    # Non-game folders to skip in the system loop
+    declare -A CONV_SKIP=( [media]=1 [bios]=1 [emulators]=1 [saves]=1
+        [screenshots]=1 [cheats]=1 [records]=1 [sounds]=1 [decorations]=1
+        [library]=1 [system]=1 [music]=1 )
+
     for SYS_DIR in "$RETROBAT_PATH/roms"/*/; do
         [[ -d "$SYS_DIR" ]] || continue
         RB_SYS=$(basename "$SYS_DIR")
+        [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
         ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
         ESDE_ROM_DIR="$ROMS/$ESDE_SYS"
         ESDE_MEDIA_DIR="$MEDIA_BASE/$ESDE_SYS"
@@ -2141,6 +2826,24 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
                     [[ "$RB_TYPE" == "videos" ]] \
                         && echo "      videos → videos [copying — large sets take time...]" \
                         || echo -n "      $(printf '%-14s' "$RB_TYPE") → $(printf '%-14s' "$ESDE_TYPE") [copying...]"
+                    cp -rn "$SRC/." "$DST/" 2>/dev/null || true
+                    [[ "$RB_TYPE" == "videos" ]] \
+                        && echo -e "      ${GREEN}✓${NC} videos done" \
+                        || echo -e " ${GREEN}done${NC}"
+                    IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+                fi
+            done
+        else
+            # Flat-layout packs (e.g. vpinball) put media subfolders directly in the ROM dir
+            for RB_TYPE in "${!MEDIA_MAP[@]}"; do
+                SRC="$SYS_DIR/$RB_TYPE"
+                if [[ -d "$SRC" ]]; then
+                    ESDE_TYPE="${MEDIA_MAP[$RB_TYPE]}"
+                    DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
+                    mkdir -p "$DST"
+                    [[ "$RB_TYPE" == "videos" ]] \
+                        && echo "      videos (flat) → videos [copying — large sets take time...]" \
+                        || echo -n "      $(printf '%-14s' "$RB_TYPE") (flat) → $(printf '%-10s' "$ESDE_TYPE") [copying...]"
                     cp -rn "$SRC/." "$DST/" 2>/dev/null || true
                     [[ "$RB_TYPE" == "videos" ]] \
                         && echo -e "      ${GREEN}✓${NC} videos done" \
