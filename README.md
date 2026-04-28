@@ -14,7 +14,7 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 
 | Component | System | Notes |
 |---|---|---|
-| **ES-DE 3.4.1** | Frontend | Portable mode — no system installation |
+| **ES-DE** | Frontend | Portable mode — no system installation |
 | **RetroArch** | 60+ systems | NES, SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME & more |
 | | | |
 | **DuckStation** | PlayStation 1 |  |
