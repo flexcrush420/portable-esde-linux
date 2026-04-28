@@ -1965,7 +1965,7 @@ fi
 echo ""
 
 echo "   ── shadPS4 (PlayStation 4) ──"
-if compgen -G "$EMUS/shadps4*" > /dev/null 2>&1 || [[ -f "$EMUS/shadps4" ]]; then
+if [[ -f "$EMUS/shadps4" ]] || [[ -f "$EMUS/shadps4-qt" ]]; then
     ok "shadPS4 already exists, skipping"
 else
     # shadPS4 ships as tar.gz/zip for Linux — try Qt build first, then headless
@@ -2042,13 +2042,21 @@ else
         warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     else
-        # while loop runs in a subshell — use a temp file to pass count back
+        # Download and extract each zip — VPinball zips contain a tar.gz inside
         while IFS= read -r VPURL; do
             [[ -z "$VPURL" ]] && continue
             VPZIP=$(basename "$VPURL")
             info "Downloading $VPZIP ..."
             if curl -#fL -o "$VPINBALL_TMP/$VPZIP" "$VPURL"; then
-                unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP/extract" 2>/dev/null || true
+                # Step 1: unzip to get the tar.gz inside
+                unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP" 2>/dev/null || true
+                # Step 2: extract any tar.gz that came out of the zip
+                for TGZ in "$VPINBALL_TMP"/*.tar.gz "$VPINBALL_TMP"/*.tar.xz; do
+                    [[ -f "$TGZ" ]] || continue
+                    mkdir -p "$VPINBALL_TMP/extract"
+                    tar -xzf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null ||                     tar -xJf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null || true
+                    rm -f "$TGZ"
+                done
                 echo $(( $(cat "$VPINBALL_COUNT_FILE") + 1 )) > "$VPINBALL_COUNT_FILE"
             else
                 warn "Failed to download $VPZIP"
@@ -2058,29 +2066,24 @@ else
         rm -f "$VPINBALL_COUNT_FILE"
 
         if [[ $VPINBALL_GOT -gt 0 ]]; then
-            # Copy binaries — find at any depth since zip may have a top-level subdir
+            # Copy binaries — search at any depth after extraction
             for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
-                FOUND=$(find "$VPINBALL_TMP/extract" -name "$BIN" -type f 2>/dev/null | head -1)
+                FOUND=$(find "$VPINBALL_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
                 if [[ -n "$FOUND" ]]; then
                     cp "$FOUND" "$EMUS/$BIN"
                     chmod +x "$EMUS/$BIN"
                     ok "  Installed: $BIN"
                 fi
             done
-            # Copy ALL support subdirectories (scripts, shaders, assets, pinmame, etc.)
-            # The zip may extract flat (files at root) or into a subdir — handle both
+            # Copy all support subdirectories (scripts, shaders, assets, pinmame, etc.)
             EXTRACT_ROOT="$VPINBALL_TMP/extract"
-            # If there's a single top-level subdir, descend into it
-            SUBDIR_COUNT=$(find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)
-            SUBDIR_COUNT=$(( SUBDIR_COUNT + 0 ))
-            if [[ $SUBDIR_COUNT -eq 1 ]]; then
-                EXTRACT_ROOT=$(find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d | head -1)
-            fi
-            # Now copy all subdirs from the effective root to Emulators/
-            find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 1 -type d | while read -r D; do
+            [[ ! -d "$EXTRACT_ROOT" ]] && EXTRACT_ROOT="$VPINBALL_TMP"
+            find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
                 DNAME=$(basename "$D")
-                # Don't overwrite an existing populated dir — merge instead
-                cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null ||                     { mkdir -p "$EMUS/$DNAME"; cp -rn "$D/." "$EMUS/$DNAME/"; } 2>/dev/null || true
+                # Skip the extract dir itself and temp root
+                [[ "$DNAME" == "extract" ]] && continue
+                [[ ! -d "$EMUS/$DNAME" ]] && mkdir -p "$EMUS/$DNAME"
+                cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null || true
             done
             ok "VPinball downloaded ($VPINBALL_GOT zip(s) extracted)"
         else
@@ -2134,7 +2137,7 @@ DBXWRAP
 fi
 # ── Ruffle (Adobe Flash) ──
 echo "   ── Ruffle ──"
-if compgen -G "$EMUS/ruffle*" > /dev/null 2>&1; then
+if [[ -f "$EMUS/ruffle" ]] || compgen -G "$EMUS/ruffle*.AppImage" > /dev/null 2>&1; then
     ok "Ruffle already exists, skipping"
 else
     RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.tar\.gz$"         | grep -iv "debug\|arm" | head -1) || true
@@ -2263,7 +2266,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
-BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'supermodel*.AppImage' | head -1)
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'supermodel*.AppImage' | head -1)
+[[ -z "$BIN" ]] && BIN="$SCRIPT_DIR/supermodel"
 exec "$BIN" "$@"
 SUPERWRAP
             chmod +x "$EMUS/supermodel-portable.sh"
