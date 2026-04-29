@@ -532,6 +532,7 @@ ROM_DIRS=(
     triforce j2me openbor pcarcade type-x
     ps4 windows9x windows3x
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
+    archimedes adam dragon32 fm7 supracan
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -1080,8 +1081,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
   <system>
     <name>model2</name>
     <fullname>Sega Model 2</fullname>
-    <path>%ROMPATH%/model2</path><extension>.zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <path>%ROMPATH%/model2</path>
+    <extension>.zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/model2\""</command>
     <platform>arcade</platform>
     <theme>model2</theme>
   </system>
@@ -1179,7 +1181,8 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Texas Instruments TI-99/4A</fullname>
     <path>%ROMPATH%/ti99</path>
     <extension>.rpk .RPK .zip .ZIP .7z .7Z</extension>
-    <command label="MAME (RetroArch)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -ioport peb -ioport:peb:slot8 speechadapter -cart \"%ROMRAW%\" -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99\""</command>
+    <command label="MAME [Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -ioport peb -ioport:peb:slot8 speechadapter %BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99\""</command>
     <platform>ti99</platform>
     <theme>ti99</theme>
   </system>
@@ -1284,6 +1287,73 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
     <platform>snes</platform>
     <theme>snes</theme>
+  </system>
+
+  <!-- ── MAME-only systems routed through mame_libretro core ──
+       ES-DE 3.4.1 still defaults these to standalone MAME (%EMULATOR_MAME%),
+       but this bundle ships mame_libretro.so as a RetroArch core, not
+       standalone MAME. Without these overrides, launching a game from any
+       of these systems fails with "Couldn't launch game, emulator not found".
+       Each system needs its specific MAME machine name and media flag —
+       a generic "-L mame_libretro.so %ROM%" won't work because mame_libretro
+       behaves like standalone MAME and requires the machine + flop/cart args.
+       Format follows ES-DE's own libretro MAME entries for pv1000, scv, etc. -->
+
+  <system>
+    <name>archimedes</name>
+    <fullname>Acorn Archimedes</fullname>
+    <path>%ROMPATH%/archimedes</path>
+    <extension>.1dd .1DD .360 .adf .ADF .adl .ADL .adm .ADM .ads .ADS .apd .APD .bbc .BBC .chd .CHD .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .dfi .DFI .dsd .DSD .dsk .DSK .hfe .HFE .ima .IMA .imd .IMD .img .IMG .ipf .IPF .jfd .JFD .mfi .MFI .mfm .MFM .msa .MSA .ssd .SSD .st .ST .td0 .TD0 .ufi .UFI .7z .7Z .zip .ZIP</extension>
+    <command label="MAME [Model A440/1]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A3000]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes\" -flop1 \"%ROMRAW%\""</command>
+    <platform>archimedes</platform>
+    <theme>archimedes</theme>
+  </system>
+
+  <system>
+    <name>adam</name>
+    <fullname>Coleco Adam</fullname>
+    <path>%ROMPATH%/adam</path>
+    <extension>.1dd .1DD .bin .BIN .col .COL .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .ddp .DDP .dfi .DFI .dsk .DSK .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .rom .ROM .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
+    <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam\" -cass1 \"%ROMRAW%\""</command>
+    <platform>adam</platform>
+    <theme>adam</theme>
+  </system>
+
+  <system>
+    <name>dragon32</name>
+    <fullname>Dragon Data Dragon 32</fullname>
+    <path>%ROMPATH%/dragon32</path>
+    <extension>.bas .BAS .bin .BIN .ccc .CCC .cas .CAS .dmk .DMK .dsk .DSK .fdi .FDI .hfe .HFE .imd .IMD .jvc .JVC .mfi .MFI .os9 .OS9 .rom .ROM .td0 .TD0 .vdk .VDK .wav .WAV .7z .7Z .zip .ZIP</extension>
+    <command label="MAME [Dragon 32 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 64 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32\" -cart \"%ROMRAW%\""</command>
+    <platform>dragon32</platform>
+    <theme>dragon32</theme>
+  </system>
+
+  <system>
+    <name>fm7</name>
+    <fullname>Fujitsu FM-7</fullname>
+    <path>%ROMPATH%/fm7</path>
+    <extension>.1dd .1DD .77 .cas .CAS .d77 .D77 .d88 .D88 .dfi .DFI .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .t77 .T77 .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
+    <command label="MAME [FM-7 Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7\" %BASENAME%"</command>
+    <platform>fm7</platform>
+    <theme>fm7</theme>
+  </system>
+
+  <system>
+    <name>supracan</name>
+    <fullname>Funtech Super A'Can</fullname>
+    <path>%ROMPATH%/supracan</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan\" -cart \"%ROMRAW%\""</command>
+    <platform>supracan</platform>
+    <theme>supracan</theme>
   </system>
 
 </systemList>
@@ -2489,27 +2559,34 @@ fi
 SETTINGS_FILE="$ESDE_DATA/settings/es_settings.xml"
 mkdir -p "$ESDE_DATA/settings"
 
-# ES-DE's settings format: entries inside a root <config> element.
-# Without the <config> wrapper ES-DE silently ignores the file, causing
-# ROMDirectory / MediaDirectory to fall back to ~/ROMs — which breaks
-# custom systems like ps3psn and xbla that only exist in the bundle.
-# Keys: "Theme" (not "ThemeSet"), standard ES-DE key names.
-# ES-DE will overwrite this on first run but preserves keys it recognises.
-# The launch.sh apply_theme function patches Theme after each exit as backup.
+# ES-DE's settings format: flat <bool>/<int>/<string> elements as direct
+# children of the document — NO <config> wrapper. ES-DE's loader iterates
+# doc.child("bool"), doc.child("string"), etc. directly; wrapping them in
+# <config> hides every key and ES-DE treats the file as empty, falling into
+# its first-run init path. That path:
+#   1. Logs "Application release number setting is blank, changing it to N"
+#   2. Creates downloaded_media/, scripts/, screensavers/ at $home/ES-DE/
+#      (the DEFAULT location — ignoring our MediaDirectory override)
+#   3. Loads the default theme (linear-es-de) instead of our Theme value
+# Then on exit it rewrites the file in the correct flat format, so launch 2
+# works fine. Hence the "theme/media only on second launch" symptom.
+#
+# We pre-write the file in the EXACT format ES-DE writes itself, including
+# ApplicationRelease so the "blank release number" branch doesn't fire.
+# Keys verified against an ES-DE 3.4.1-written settings file.
 cat > "$SETTINGS_FILE" << ESSETTINGS
 <?xml version="1.0"?>
-<config>
-    <bool name="FoldersOnTop" value="true" />
-    <bool name="FavoritesFirst" value="true" />
-    <bool name="ShowHiddenGames" value="false" />
-    <string name="CollectionSystemsAuto" value="favorites,recent,lastplayed" />
-    <string name="MediaDirectory" value="${BASE}/downloaded_media" />
-    <string name="ROMDirectory" value="${ROMS}" />
-    <string name="Scraper" value="screenscraper" />
-    <string name="Theme" value="${THEME_NAME:-linear-es-de}" />
-</config>
+<bool name="FavoritesFirst" value="true" />
+<bool name="FoldersOnTop" value="true" />
+<bool name="ShowHiddenGames" value="false" />
+<int name="ApplicationRelease" value="51" />
+<string name="CollectionSystemsAuto" value="favorites,recent,lastplayed" />
+<string name="MediaDirectory" value="${BASE}/downloaded_media" />
+<string name="ROMDirectory" value="${ROMS}" />
+<string name="Scraper" value="screenscraper" />
+<string name="Theme" value="${THEME_NAME:-linear-es-de}" />
 ESSETTINGS
-ok "es_settings.xml written (with <config> root — required for ES-DE to parse it)"
+ok "es_settings.xml written (flat format, no <config> wrapper — ES-DE format)"
 
 # Also patch in launch.sh after any exit so theme sticks even if ES-DE rewrites
 # (launch.sh apply_theme handles this — just need correct key name "Theme")
