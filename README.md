@@ -34,7 +34,7 @@ A fully self-contained retro gaming bundle — no installation needed.
 | **Xenia Canary** | Xbox 360 | |
 | | | |
 | **DOSBox-X** | DOS games | |
-| **86Box** | Windows 9x / Retro PC | Configure with your own Windows ISO |
+| **86Box** | Win 9x / Retro PC | Configure with your own Windows ISO |
 | **Ruffle** | Adobe Flash | |
 | **SimCoupe** | MGT SAM Coupé | |
 | **Solarus** | Solarus engine games | |
