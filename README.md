@@ -1,6 +1,6 @@
 # Portable ES-DE for Linux
 
-A fully self-contained retro gaming bundle. Unzip and run — no installation needed.
+A fully self-contained retro gaming bundle — no installation needed.
 
 ## What is this?
 
