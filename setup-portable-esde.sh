@@ -465,6 +465,8 @@ download_cores() {
         [jollycv]="Creativision"
         [wasm4]="WASM-4"
         [potator]="Watara Supervision"
+        [fake08]="PICO-8"
+        [b2]="BBC Micro / BBC Master"
     )
 
     local total=${#CORES[@]}
@@ -532,7 +534,7 @@ ROM_DIRS=(
     triforce j2me openbor pcarcade type-x
     ps4 windows9x windows3x
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
-    archimedes adam dragon32 fm7 supracan
+    archimedes adam dragon32 fm7 supracan bbcmicro apple2
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -1083,7 +1085,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Sega Model 2</fullname>
     <path>%ROMPATH%/model2</path>
     <extension>.zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/model2\""</command>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/model2;%ROMPATH%/bios\""</command>
     <platform>arcade</platform>
     <theme>model2</theme>
   </system>
@@ -1181,8 +1183,8 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Texas Instruments TI-99/4A</fullname>
     <path>%ROMPATH%/ti99</path>
     <extension>.rpk .RPK .zip .ZIP .7z .7Z</extension>
-    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -ioport peb -ioport:peb:slot8 speechadapter -cart \"%ROMRAW%\" -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99\""</command>
-    <command label="MAME [Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -ioport peb -ioport:peb:slot8 speechadapter %BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99\""</command>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99;%ROMPATH%/bios\" -ioport peb -ioport:peb:slot8 speechadapter -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99;%ROMPATH%/bios\" -ioport peb -ioport:peb:slot8 speechadapter %BASENAME%"</command>
     <platform>ti99</platform>
     <theme>ti99</theme>
   </system>
@@ -1304,8 +1306,8 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Acorn Archimedes</fullname>
     <path>%ROMPATH%/archimedes</path>
     <extension>.1dd .1DD .360 .adf .ADF .adl .ADL .adm .ADM .ads .ADS .apd .APD .bbc .BBC .chd .CHD .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .dfi .DFI .dsd .DSD .dsk .DSK .hfe .HFE .ima .IMA .imd .IMD .img .IMG .ipf .IPF .jfd .JFD .mfi .MFI .mfm .MFM .msa .MSA .ssd .SSD .st .ST .td0 .TD0 .ufi .UFI .7z .7Z .zip .ZIP</extension>
-    <command label="MAME [Model A440/1]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes\" -flop1 \"%ROMRAW%\""</command>
-    <command label="MAME [Model A3000]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A440/1]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A3000]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <platform>archimedes</platform>
     <theme>archimedes</theme>
   </system>
@@ -1315,9 +1317,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Coleco Adam</fullname>
     <path>%ROMPATH%/adam</path>
     <extension>.1dd .1DD .bin .BIN .col .COL .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .ddp .DDP .dfi .DFI .dsk .DSK .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .rom .ROM .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
-    <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam\" -flop1 \"%ROMRAW%\""</command>
-    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam\" -cart1 \"%ROMRAW%\""</command>
-    <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cass1 \"%ROMRAW%\""</command>
     <platform>adam</platform>
     <theme>adam</theme>
   </system>
@@ -1327,9 +1329,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Dragon Data Dragon 32</fullname>
     <path>%ROMPATH%/dragon32</path>
     <extension>.bas .BAS .bin .BIN .ccc .CCC .cas .CAS .dmk .DMK .dsk .DSK .fdi .FDI .hfe .HFE .imd .IMD .jvc .JVC .mfi .MFI .os9 .OS9 .rom .ROM .td0 .TD0 .vdk .VDK .wav .WAV .7z .7Z .zip .ZIP</extension>
-    <command label="MAME [Dragon 32 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32\" -cart \"%ROMRAW%\""</command>
-    <command label="MAME [Dragon 32 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
-    <command label="MAME [Dragon 64 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 64 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <platform>dragon32</platform>
     <theme>dragon32</theme>
   </system>
@@ -1339,9 +1341,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Fujitsu FM-7</fullname>
     <path>%ROMPATH%/fm7</path>
     <extension>.1dd .1DD .77 .cas .CAS .d77 .D77 .d88 .D88 .dfi .DFI .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .t77 .T77 .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
-    <command label="MAME [FM-7 Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7\" -flop1 \"%ROMRAW%\""</command>
-    <command label="MAME [FM-7 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
-    <command label="MAME [FM-7 Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7\" %BASENAME%"</command>
+    <command label="MAME [FM-7 Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" %BASENAME%"</command>
     <platform>fm7</platform>
     <theme>fm7</theme>
   </system>
@@ -1351,9 +1353,34 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <fullname>Funtech Super A'Can</fullname>
     <path>%ROMPATH%/supracan</path>
     <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
-    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <platform>supracan</platform>
     <theme>supracan</theme>
+  </system>
+
+  <!-- ── More systems where ES-DE defaults to an unbundled emulator ──
+       bbcmicro defaults to standalone MAME; we route through b2_libretro.
+       apple2 defaults to LinApple standalone; we route through mame_libretro
+       (apple2e machine — needs apple2e BIOS in ROMs/bios). -->
+
+  <system>
+    <name>bbcmicro</name>
+    <fullname>Acorn Computers BBC Micro</fullname>
+    <path>%ROMPATH%/bbcmicro</path>
+    <extension>.dsd .DSD .img .IMG .ssd .SSD .7z .7Z .zip .ZIP</extension>
+    <command label="b2">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/b2_libretro.so %ROM%</command>
+    <platform>bbcmicro</platform>
+    <theme>bbcmicro</theme>
+  </system>
+
+  <system>
+    <name>apple2</name>
+    <fullname>Apple II</fullname>
+    <path>%ROMPATH%/apple2</path>
+    <extension>.do .DO .dsk .DSK .nib .NIB .po .PO .woz .WOZ .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "apple2e -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <platform>apple2</platform>
+    <theme>apple2</theme>
   </system>
 
 </systemList>
@@ -1719,23 +1746,70 @@ echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Writing READMEs..."
 cat > "$ROMS/bios/README-BIOS.md" << 'BIOSREADME'
 # BIOS & Firmware Files — place in this directory
 
-| System        | File(s)                          | Emulator    |
-|---------------|----------------------------------|-------------|
-| PS1 (psx)     | scph5501.bin (+ other regions)   | DuckStation |
-| PS2 (ps2)     | BIOS files in PCSX2 bios dir     | PCSX2       |
-| PS3 (ps3)     | PS3 firmware (PS3UPDAT.PUP)      | RPCS3       |
-| Saturn        | saturn_bios.bin                  | RetroArch   |
-| Dreamcast     | dc_boot.bin, dc_flash.bin        | RetroArch   |
-| DS (nds)      | bios7.bin, bios9.bin, firmware   | melonDS     |
-| GBA (gba)     | gba_bios.bin (optional for mGBA) | mGBA        |
-| 3DS (n3ds)    | see Azahar docs                  | Azahar      |
-| Xbox (xbox)   | mcpx_1.0.bin, Complex_4627.bin + HDD image | xemu |
-| Lynx          | lynxboot.img                     | RetroArch   |
-| PC Engine CD  | syscard3.pce                     | RetroArch   |
-| Neo Geo       | neogeo.zip (in arcade/ or here)  | RetroArch   |
+The portable retroarch.cfg points `system_directory` here. BIOS/firmware
+files are copyrighted — dump from hardware you own.
 
-The portable retroarch.cfg points system_directory to this folder.
-BIOS/firmware files are copyrighted — dump from hardware you own.
+## How BIOS-missing failures look in practice
+
+When a BIOS file is missing, the emulator typically launches, opens its
+window briefly, then closes — no error dialog, no obvious failure. To
+diagnose, run `./launch.sh` from a terminal and check the logs:
+
+- **ES-DE log**: `ES-DE/logs/es_log.txt`
+- **RetroArch logs**: `.config/retroarch/logs/` (look for "NOT FOUND" lines)
+
+If a game fails silently, that's almost always BIOS. The RetroArch log
+will name the exact files it looked for.
+
+## Console / handheld systems
+
+| System          | File(s)                                    | Emulator    |
+|-----------------|--------------------------------------------|-------------|
+| PS1 (psx)       | scph5501.bin (+ other regions)             | DuckStation |
+| PS2 (ps2)       | BIOS files in PCSX2 bios dir               | PCSX2       |
+| PS3 (ps3)       | PS3 firmware (PS3UPDAT.PUP)                | RPCS3       |
+| Saturn          | saturn_bios.bin                            | RetroArch   |
+| Dreamcast       | dc_boot.bin, dc_flash.bin                  | RetroArch   |
+| DS (nds)        | bios7.bin, bios9.bin, firmware             | melonDS     |
+| GBA (gba)       | gba_bios.bin (optional for mGBA)           | mGBA        |
+| 3DS (n3ds)      | see Azahar docs                            | Azahar      |
+| Xbox (xbox)     | mcpx_1.0.bin, Complex_4627.bin + HDD image | xemu        |
+| Lynx            | lynxboot.img                               | RetroArch   |
+| PC Engine CD    | syscard3.pce                               | RetroArch   |
+| Neo Geo         | neogeo.zip (in arcade/ or here)            | RetroArch   |
+| ColecoVision    | coleco.col                                 | blueMSX     |
+| MSX / MSX2      | MSX system ROMs (various)                  | blueMSX     |
+| Spectravideo    | SVI-318 / SVI-328 ROMs                     | blueMSX     |
+| CreatiVision    | bioscv.rom                                 | JollyCV     |
+| Sharp X68000    | iplrom.dat, cgrom.dat                      | PX68K       |
+
+## MAME-driven systems (zip up the BIOS files into the matching name)
+
+These all use mame_libretro and need a `<system>.zip` of MAME BIOS files
+in `ROMs/bios/` (or in the system's own ROM folder). MAME version this
+bundle ships matches the libretro core's MAME — see the RetroArch log
+header for the exact MAME version when troubleshooting.
+
+| ES-DE system | Required BIOS zip(s)                      |
+|--------------|-------------------------------------------|
+| archimedes   | aa310.zip, archimedes_keyboard.zip        |
+| apple2       | apple2e.zip                               |
+| apple2gs     | apple2gs.zip                              |
+| adam         | adam.zip, adam_kb.zip, adam_prn.zip, adam_ddp.zip, adam_fdc.zip |
+| dragon32     | dragon32.zip                              |
+| fm7          | fm7.zip (and fm77av.zip if using that)    |
+| gamate       | gamate.zip                                |
+| gamecom      | gamecom.zip                               |
+| gmaster      | gmaster.zip                               |
+| pv1000       | pv1000.zip                                |
+| scv          | scv.zip                                   |
+| supracan     | supracan.zip (umc6650.bin can be empty)   |
+| ti99         | ti99_4a.zip, ti99_speech.zip              |
+| vsmile       | vsmile.zip                                |
+| lcdgames / gameandwatch | one zip per game (gnw_ball.zip, etc.) |
+
+For BBC Micro (b2_libretro), the b2 core handles BIOS internally — no
+extra files needed.
 BIOSREADME
 
 cat > "$BASE/README.md" << 'MAINREADME'
@@ -2718,7 +2792,7 @@ else
                         mkdir -p "$BASE/.config/PCSX2/bios"
                         cp -rn "$BIOS_SUBDIR/." "$BASE/.config/PCSX2/bios/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
-                    melonds)
+                    melonds|melonDS|"melonDS DS"|"melonds ds")
                         echo -n "   BIOS/melonds → ROMs/bios/               [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
@@ -2729,11 +2803,33 @@ else
                         echo -e " ${GREEN}done${NC}" ;;
                     mame)
                         echo -n "   BIOS/mame → ROMs/bios/                  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
+                        # libretro mame_libretro looks for BIOS in either:
+                        #   (1) the rompath (we add %ROMPATH%/bios in custom_systems)
+                        #   (2) <system_directory>/mame/bios/ or /mame/roms/
+                        # Cover both — flatten any .zip found anywhere under bios/mame/
+                        # to ROMs/bios/ AND ROMs/bios/mame/bios/ for double safety.
+                        # RetroBat's bios/mame/ tree contains hash/, roms/, and sometimes
+                        # bios files at the root — we don't want to recursively dump
+                        # the whole tree (creates ROMs/bios/hash/, ROMs/bios/roms/ which
+                        # MAME ignores). Grab only the .zip files.
+                        mkdir -p "$ROMS/bios/mame/bios"
+                        find "$BIOS_SUBDIR" -type f \( -iname '*.zip' -o -iname '*.7z' \) \
+                            -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true
+                        find "$BIOS_SUBDIR" -type f \( -iname '*.zip' -o -iname '*.7z' \) \
+                            -exec cp -n {} "$ROMS/bios/mame/bios/" \; 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     mednafen)
                         echo -n "   BIOS/mednafen → ROMs/bios/              [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
                         cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    mame2000|mame2003|mame2003-plus|mame2010|mame2014|mame2016|hbmame|fbneo|fba)
+                        # Versioned MAME / FBNeo libretro cores look for BIOS in
+                        # <system_dir>/<core_name>/. Mirror RetroBat's directory
+                        # structure to .config/retroarch/system/<core_name>/ so each
+                        # versioned core finds its own romset.
+                        echo -n "   BIOS/$BIOS_NAME → .config/retroarch/system/$BIOS_NAME/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
+                        mkdir -p "$BASE/.config/retroarch/system/$BIOS_NAME"
+                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/retroarch/system/$BIOS_NAME/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
                     *)
                         # Unknown subdir — copy flat files to ROMs/bios/ as safe fallback
