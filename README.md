@@ -126,7 +126,7 @@ BIOS files are required for many systems and must be sourced from hardware you o
 | Nintendo DS | `bios7.bin`, `bios9.bin`, firmware |
 | PC Engine CD | `syscard3.pce` |
 | Neo Geo | `neogeo.zip` |
-| Win98 / retro PC | Windows installation ISO (your own licensed copy) via 86Box |
+| Win9x / Retro PC | Windows installation ISO (your own licensed copy) via 86Box |
 
 ---
 
