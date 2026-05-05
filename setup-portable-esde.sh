@@ -424,8 +424,12 @@ download_cores() {
         [cap32]="Amstrad CPC"
         [quasi88]="PC-88 (alt)"
 
-        # MAME — covers ~20 systems with no other libretro core
+        # MAME — multiple versions because BIOS romsets are MAME-version-locked.
+        # Note: only mame, mame2003_plus, and mame2010 exist on libretro buildbot
+        # for Linux x86_64 (2014/2016 were never built or were dropped).
+        # mame2010 = MAME 0.139, decent fallback for older-era BIOS packs.
         [mame]="MAME (Archimedes/ADAM/Dragon32/FM7/TI99/Model2/LCD/G&W/Gamate/PV1000/SCV/SuperACan/GameMaster/Game.com/VSmile)"
+        [mame2010]="MAME 2010 (MAME 0.139 — older BIOS fallback)"
 
         # Nintendo
         [mesen]="NES / Famicom (high accuracy)"
@@ -465,8 +469,8 @@ download_cores() {
         [jollycv]="Creativision"
         [wasm4]="WASM-4"
         [potator]="Watara Supervision"
-        [fake08]="PICO-8"
         [b2]="BBC Micro / BBC Master"
+        [retro8]="PICO-8 (retro8 - free PICO-8-compatible core)"
     )
 
     local total=${#CORES[@]}
@@ -1029,6 +1033,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/cps1</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so %ROM%</command>
     <platform>arcade</platform>
     <theme>cps1</theme>
   </system>
@@ -1039,6 +1044,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/cps2</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so %ROM%</command>
     <platform>arcade</platform>
     <theme>cps2</theme>
   </system>
@@ -1049,6 +1055,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/cps3</path><extension>.zip .ZIP .7z .7Z</extension>
     <command label="FBNeo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so %ROM%</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so %ROM%</command>
     <platform>arcade</platform>
     <theme>cps3</theme>
   </system>
@@ -1086,6 +1093,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/model2</path>
     <extension>.zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/model2;%ROMPATH%/bios\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/model2;%ROMPATH%/bios\""</command>
     <platform>arcade</platform>
     <theme>model2</theme>
   </system>
@@ -1112,6 +1120,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <name>pico8</name>
     <fullname>PICO-8</fullname>
     <path>%ROMPATH%/pico8</path><extension>.png .PNG .p8 .P8</extension>
+    <command label="retro8">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/retro8_libretro.so %ROM%</command>
     <command label="fake-08">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fake08_libretro.so %ROM%</command>
     <platform>pico8</platform>
     <theme>pico8</theme>
@@ -1184,7 +1193,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/ti99</path>
     <extension>.rpk .RPK .zip .ZIP .7z .7Z</extension>
     <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99;%ROMPATH%/bios\" -ioport peb -ioport:peb:slot8 speechadapter -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "ti99_4a -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99;%ROMPATH%/bios\" -ioport peb -ioport:peb:slot8 speechadapter -cart \"%ROMRAW%\""</command>
     <command label="MAME [Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "ti99_4a -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99;%ROMPATH%/bios\" -ioport peb -ioport:peb:slot8 speechadapter %BASENAME%"</command>
+    <command label="MAME [Software list] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "ti99_4a -rompath \"%GAMEDIRRAW%;%ROMPATH%/ti99;%ROMPATH%/bios\" -ioport peb -ioport:peb:slot8 speechadapter %BASENAME%"</command>
     <platform>ti99</platform>
     <theme>ti99</theme>
   </system>
@@ -1307,7 +1318,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/archimedes</path>
     <extension>.1dd .1DD .360 .adf .ADF .adl .ADL .adm .ADM .ads .ADS .apd .APD .bbc .BBC .chd .CHD .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .dfi .DFI .dsd .DSD .dsk .DSK .hfe .HFE .ima .IMA .imd .IMD .img .IMG .ipf .IPF .jfd .JFD .mfi .MFI .mfm .MFM .msa .MSA .ssd .SSD .st .ST .td0 .TD0 .ufi .UFI .7z .7Z .zip .ZIP</extension>
     <command label="MAME [Model A440/1]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A440/1] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [Model A3000]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A3000] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <platform>archimedes</platform>
     <theme>archimedes</theme>
   </system>
@@ -1318,8 +1331,11 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/adam</path>
     <extension>.1dd .1DD .bin .BIN .col .COL .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .ddp .DDP .dfi .DFI .dsk .DSK .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .rom .ROM .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
     <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
     <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cass1 \"%ROMRAW%\""</command>
     <platform>adam</platform>
     <theme>adam</theme>
   </system>
@@ -1330,8 +1346,11 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/dragon32</path>
     <extension>.bas .BAS .bin .BIN .ccc .CCC .cas .CAS .dmk .DMK .dsk .DSK .fdi .FDI .hfe .HFE .imd .IMD .jvc .JVC .mfi .MFI .os9 .OS9 .rom .ROM .td0 .TD0 .vdk .VDK .wav .WAV .7z .7Z .zip .ZIP</extension>
     <command label="MAME [Dragon 32 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <command label="MAME [Dragon 32 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
     <command label="MAME [Dragon 64 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 64 Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <platform>dragon32</platform>
     <theme>dragon32</theme>
   </system>
@@ -1342,8 +1361,11 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/fm7</path>
     <extension>.1dd .1DD .77 .cas .CAS .d77 .D77 .d88 .D88 .dfi .DFI .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .t77 .T77 .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
     <command label="MAME [FM-7 Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [FM-7 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
     <command label="MAME [FM-7 Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" %BASENAME%"</command>
+    <command label="MAME [FM-7 Software list] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" %BASENAME%"</command>
     <platform>fm7</platform>
     <theme>fm7</theme>
   </system>
@@ -1354,6 +1376,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/supracan</path>
     <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <platform>supracan</platform>
     <theme>supracan</theme>
   </system>
@@ -1379,8 +1402,120 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <path>%ROMPATH%/apple2</path>
     <extension>.do .DO .dsk .DSK .nib .NIB .po .PO .woz .WOZ .zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "apple2e -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "apple2e -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <platform>apple2</platform>
     <theme>apple2</theme>
+  </system>
+
+  <!-- Apple IIgs uses MAME's apple2gs driver. ES-DE's built-in routes to
+       mame_libretro but its rompath omits %ROMPATH%/bios so the BIOS zip
+       isn't found even when imported. Override forces correct rompath. -->
+  <system>
+    <name>apple2gs</name>
+    <fullname>Apple IIGS</fullname>
+    <path>%ROMPATH%/apple2gs</path>
+    <extension>.2mg .2MG .do .DO .dsk .DSK .nib .NIB .po .PO .woz .WOZ .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "apple2gs -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios\" -gameio joy -flop3 \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "apple2gs -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios\" -gameio joy -flop3 \"%ROMRAW%\""</command>
+    <platform>apple2gs</platform>
+    <theme>apple2gs</theme>
+  </system>
+
+  <!-- ── Systems where ES-DE's built-in already routes to mame_libretro,
+       but its rompath omits %ROMPATH%/bios. Override to add the bios path
+       so MAME finds the BIOS zips imported from RetroBat. -->
+
+  <system>
+    <name>gamate</name>
+    <fullname>Bit Corporation Gamate</fullname>
+    <path>%ROMPATH%/gamate</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "gamate -rompath \"%GAMEDIRRAW%;%ROMPATH%/gamate;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "gamate -rompath \"%GAMEDIRRAW%;%ROMPATH%/gamate;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>gamate</platform>
+    <theme>gamate</theme>
+  </system>
+
+  <system>
+    <name>pv1000</name>
+    <fullname>Casio PV-1000</fullname>
+    <path>%ROMPATH%/pv1000</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "pv1000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/pv1000;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "pv1000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/pv1000;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>pv1000</platform>
+    <theme>pv1000</theme>
+  </system>
+
+  <system>
+    <name>scv</name>
+    <fullname>Epoch Super Cassette Vision</fullname>
+    <path>%ROMPATH%/scv</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "scv -rompath \"%GAMEDIRRAW%;%ROMPATH%/scv;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "scv -rompath \"%GAMEDIRRAW%;%ROMPATH%/scv;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>scv</platform>
+    <theme>scv</theme>
+  </system>
+
+  <system>
+    <name>vsmile</name>
+    <fullname>VTech V.Smile</fullname>
+    <path>%ROMPATH%/vsmile</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "vsmile -rompath \"%GAMEDIRRAW%;%ROMPATH%/vsmile;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "vsmile -rompath \"%GAMEDIRRAW%;%ROMPATH%/vsmile;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>vsmile</platform>
+    <theme>vsmile</theme>
+  </system>
+
+  <system>
+    <name>gmaster</name>
+    <fullname>Hartung Game Master</fullname>
+    <path>%ROMPATH%/gmaster</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "gmaster -rompath \"%GAMEDIRRAW%;%ROMPATH%/gmaster;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "gmaster -rompath \"%GAMEDIRRAW%;%ROMPATH%/gmaster;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>gmaster</platform>
+    <theme>gmaster</theme>
+  </system>
+
+  <system>
+    <name>gamecom</name>
+    <fullname>Tiger Game.com</fullname>
+    <path>%ROMPATH%/gamecom</path>
+    <extension>.bin .BIN .tgc .TGC .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "gamecom -rompath \"%GAMEDIRRAW%;%ROMPATH%/gamecom;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "gamecom -rompath \"%GAMEDIRRAW%;%ROMPATH%/gamecom;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <platform>gamecom</platform>
+    <theme>gamecom</theme>
+  </system>
+
+  <!-- Arcade also benefits from %ROMPATH%/bios — many MAME parent BIOS sets
+       (qsound_hle.zip, neogeo.zip etc.) live in ROMs/bios. Without this,
+       parent-set BIOS lookup fails on games like 19xx, cps2 etc. -->
+  <system>
+    <name>arcade</name>
+    <fullname>Arcade</fullname>
+    <path>%ROMPATH%/arcade</path>
+    <extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/arcade;%ROMPATH%/bios\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/arcade;%ROMPATH%/bios\""</command>
+    <command label="FB Neo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <platform>arcade</platform>
+    <theme>arcade</theme>
+  </system>
+
+  <system>
+    <name>mame</name>
+    <fullname>MAME</fullname>
+    <path>%ROMPATH%/mame</path>
+    <extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/mame;%ROMPATH%/bios\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/mame;%ROMPATH%/bios\""</command>
+    <command label="FB Neo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <platform>arcade</platform>
+    <theme>mame</theme>
   </system>
 
 </systemList>
@@ -1810,6 +1945,38 @@ header for the exact MAME version when troubleshooting.
 
 For BBC Micro (b2_libretro), the b2 core handles BIOS internally — no
 extra files needed.
+
+## MAME BIOS version mismatches (silent emulator exit)
+
+MAME romsets are tightly version-locked. Each MAME release renames or
+restructures BIOS files. If your BIOS pack is from an older MAME (e.g.
+RetroBat era, ~MAME 0.174-2016), the current MAME core (0.287+) will
+fail to find files inside your zips even though the zips look right —
+because the internal filenames have changed.
+
+To handle this, the bundle ships multiple MAME cores side-by-side:
+- mame_libretro (current, MAME 0.287+)
+- mame2010_libretro (MAME 0.139 — older BIOS fallback)
+- mame2003_plus_libretro (MAME 0.78 with backports — oldest fallback)
+
+Note: mame2014/2016 cores are NOT built for Linux x86_64 on the libretro
+buildbot, so they aren't included. mame2010 is the closest available
+fallback for RetroBat-era BIOS packs (originally targeting MAME 0.174).
+Some systems may still fail because BIOS expectations differ between
+0.139 and 0.174 — those need a current 0.287-compatible BIOS pack.
+
+Every BIOS zip in this folder is automatically symlinked into each
+core's system_directory, so all cores can see the same files.
+
+**To switch a system to an older MAME core in ES-DE:**
+1. Highlight the system in the system list (don't enter it).
+2. Press the menu button (typically Start or F1 → "Other settings").
+3. Choose "Alternative emulator".
+4. Pick e.g. "MAME (MAME 2010)" instead of the default "MAME".
+
+You can also override per-game from the game's metadata edit screen.
+If the default core fails silently, try MAME 2010 first — it covers
+most BIOS packs from the past several years.
 BIOSREADME
 
 cat > "$BASE/README.md" << 'MAINREADME'
@@ -2533,8 +2700,12 @@ else
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+# SimCoupe writes its config/saves to ~/.simcoupe/ — redirect HOME so
+# everything stays in the bundle (true portability).
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+mkdir -p "$BASE_DIR/.simcoupe"
 exec "$SCRIPT_DIR/simcoupe" "$@"
 SIMWRAP
             chmod +x "$EMUS/simcoupe-portable.sh"
@@ -2583,9 +2754,11 @@ SUPERWRAP
     fi
 fi
 
-# ── PICO-8 — using fake-08 libretro core (free, open source) ──
+# ── PICO-8 — retro8 libretro is the default (free, on libretro buildbot) ──
+# fake08 also supported as alt emulator if user manually compiles & drops in.
 echo "   ── PICO-8 ──"
-ok "PICO-8 handled by fake-08 core (downloaded with RetroArch cores)"
+ok "PICO-8: retro8 core downloaded (default). For fake08 alt, compile from"
+ok "  https://github.com/jtothebell/fake-08 and drop into Emulators/retroarch-cores/"
 
 ok "Additional standalone emulators done"
 echo ""
@@ -2831,12 +3004,161 @@ else
                         mkdir -p "$BASE/.config/retroarch/system/$BIOS_NAME"
                         cp -rn "$BIOS_SUBDIR/." "$BASE/.config/retroarch/system/$BIOS_NAME/" 2>/dev/null || true
                         echo -e " ${GREEN}done${NC}" ;;
+                    Databases|Machines|keropi|np2kai|openmsx|same_cdi|flycast|hatari|hatarib|kronos|neocd|psxmame|quasi88|raine|scummvm|vice|xmil|cannonball|fmtowns|fmtownsux|HdPacks|Mupen64plus|PPSSPP|dc)
+                        # Core-specific BIOS subdirs — preserve the directory
+                        # structure inside ROMs/bios/. blueMSX needs Databases/
+                        # and Machines/ as directories. PX68K needs keropi/.
+                        # NP2 wants np2kai/. OpenMSX wants openmsx/. etc.
+                        echo -n "   BIOS/$BIOS_NAME → ROMs/bios/$BIOS_NAME/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
+                        mkdir -p "$ROMS/bios/$BIOS_NAME"
+                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/$BIOS_NAME/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    xbox)
+                        # xemu wants its BIOS in .config/xemu/
+                        echo -n "   BIOS/xbox → .config/xemu/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
+                        mkdir -p "$BASE/.config/xemu"
+                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/xemu/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
+                    eka2l1)
+                        # EKA2L1 (N-Gage) — not currently bundled, but copy data anyway
+                        echo -n "   BIOS/eka2l1 → .config/eka2l1/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
+                        mkdir -p "$BASE/.config/eka2l1"
+                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/eka2l1/" 2>/dev/null || true
+                        echo -e " ${GREEN}done${NC}" ;;
                     *)
                         # Unknown subdir — copy flat files to ROMs/bios/ as safe fallback
                         find "$BIOS_SUBDIR" -maxdepth 1 -type f -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true ;;
                 esac
             done
         fi
+
+        # ── Post-processing: extract specific BIOS files cores need flat ──
+        # JollyCV (CreatiVision) wants bioscv.rom — same data as crvision.u20
+        # inside the MAME crvision.zip.
+        if [[ -f "$ROMS/bios/crvision.zip" && ! -f "$ROMS/bios/bioscv.rom" ]]; then
+            if command -v unzip >/dev/null 2>&1; then
+                if unzip -p "$ROMS/bios/crvision.zip" crvision.u20 > "$ROMS/bios/bioscv.rom" 2>/dev/null && \
+                   [[ -s "$ROMS/bios/bioscv.rom" ]]; then
+                    ok "Extracted bioscv.rom from crvision.zip (for JollyCV core)"
+                else
+                    rm -f "$ROMS/bios/bioscv.rom"
+                fi
+            fi
+        fi
+
+        # ── Mirror flat BIOS zips to versioned MAME core system dirs ──
+        # Each libretro MAME core (current/2016/2014/2010/2003-plus) is
+        # version-locked to a specific MAME release with its own BIOS romset.
+        # Users' BIOS packs match ONE of those versions — usually unknown until
+        # tested. Mirror every zip in ROMs/bios/ to each versioned core's
+        # system_directory (.config/retroarch/system/<core>/) so when ES-DE
+        # falls back to an alt emulator, that core finds the BIOS without
+        # needing the user to copy anything.
+        #
+        # Symlinks are used by default (one source of truth, zero extra disk).
+        # FAT32/exFAT don't support symlinks — copy instead on those.
+        FS_TYPE=$(stat -f -c %T "$ROMS/bios" 2>/dev/null || echo unknown)
+        case "$FS_TYPE" in
+            msdos|vfat|exfat)
+                MIRROR_MODE=copy
+                warn "FAT/exFAT filesystem detected — using BIOS copies (more disk usage)"
+                ;;
+            *)
+                MIRROR_MODE=symlink
+                ;;
+        esac
+
+        echo -n "   Mirroring MAME BIOS to versioned core dirs ($MIRROR_MODE)..."
+        MIRROR_COUNT=0
+        for CORE in mame2003-plus mame2010; do
+            CORE_DIR="$BASE/.config/retroarch/system/$CORE"
+            mkdir -p "$CORE_DIR"
+            # Iterate every zip at the top level of ROMs/bios/
+            shopt -s nullglob
+            for ZIP in "$ROMS/bios"/*.zip "$ROMS/bios"/*.7z; do
+                ZNAME=$(basename "$ZIP")
+                DEST="$CORE_DIR/$ZNAME"
+                [[ -e "$DEST" ]] && continue
+                if [[ "$MIRROR_MODE" == "symlink" ]]; then
+                    # Relative symlink — survives bundle relocation
+                    ln -s "../../../../ROMs/bios/$ZNAME" "$DEST" 2>/dev/null && \
+                        MIRROR_COUNT=$((MIRROR_COUNT + 1))
+                else
+                    cp -n "$ZIP" "$DEST" 2>/dev/null && \
+                        MIRROR_COUNT=$((MIRROR_COUNT + 1))
+                fi
+            done
+            shopt -u nullglob
+        done
+        echo -e " ${GREEN}done${NC} ($MIRROR_COUNT entries)"
+
+        # ── Per-system MAME version auto-detection ──
+        # MAME romsets are version-locked: each MAME release renames internal
+        # BIOS files. We probe each system's BIOS zip for marker filenames that
+        # only existed in older MAME releases (~2016 era / MAME 0.174). If a
+        # marker is found, the user's BIOS is from the older era and we write
+        # an alternativeEmulator entry into ES-DE's gamelist for that system,
+        # routing it to MAME 2010 by default. No marker → keep current MAME
+        # default (newer BIOS, or no zip at all so it'll fail loudly anyway).
+        #
+        # Format (per ES-DE docs):
+        #   <gameList>
+        #     <alternativeEmulator>
+        #       <label>MAME (MAME 2010)</label>
+        #     </alternativeEmulator>
+        #   </gameList>
+        echo -n "   Auto-detecting MAME romset versions..."
+        ESDE_GAMELISTS="$ESDE_DATA/gamelists"
+        DETECTED_COUNT=0
+
+        # system → "zip:marker_file:label"
+        # marker_file = a file whose presence in the zip indicates ~2016 era
+        # label = the <command label="..."> in custom_systems/es_systems.xml
+        #         to use as default for that system
+        declare -A MAME_DETECT=(
+            [archimedes]="aa310.zip:0270,251-01.ic24:MAME [Model A440/1] (MAME 2010)"
+            [adam]="adam.zip:os7.u2:MAME [Diskette] (MAME 2010)"
+            [dragon32]="dragon32.zip:d32.rom:MAME [Dragon 32 Cartridge] (MAME 2010)"
+            [fm7]="fm7.zip:ap2k.ic3c:MAME [FM-7 Diskette] (MAME 2010)"
+            [supracan]="supracan.zip:internal_68k.bin:MAME (MAME 2010)"
+            [scv]="scv.zip:epochtv.chr:MAME (MAME 2010)"
+            [apple2gs]="apple2gs.zip:apple2gs.chr:MAME (MAME 2010)"
+        )
+
+        if command -v unzip >/dev/null 2>&1; then
+            for SYS in "${!MAME_DETECT[@]}"; do
+                IFS=':' read -r ZIP_NAME MARKER LABEL <<< "${MAME_DETECT[$SYS]}"
+                ZIP_PATH="$ROMS/bios/$ZIP_NAME"
+                [[ -f "$ZIP_PATH" ]] || continue
+                # Check if marker file exists inside the zip (case-insensitive name match)
+                if unzip -l "$ZIP_PATH" 2>/dev/null | grep -qiF "$MARKER"; then
+                    # Old-era BIOS confirmed → write alternativeEmulator entry
+                    SYS_GAMELIST_DIR="$ESDE_GAMELISTS/$SYS"
+                    mkdir -p "$SYS_GAMELIST_DIR"
+                    GLIST="$SYS_GAMELIST_DIR/gamelist.xml"
+                    if [[ -f "$GLIST" ]]; then
+                        # Existing gamelist — splice in alternativeEmulator if absent
+                        if ! grep -q "<alternativeEmulator>" "$GLIST"; then
+                            # Insert right after <gameList> opening tag
+                            sed -i "0,/<gameList>/s||<gameList>\n  <alternativeEmulator>\n    <label>$LABEL</label>\n  </alternativeEmulator>|" "$GLIST"
+                        fi
+                    else
+                        # No gamelist yet — write minimal one with just the alt emulator.
+                        # ES-DE will populate it with games on next launch.
+                        cat > "$GLIST" <<GLIST_EOF
+<?xml version="1.0"?>
+<gameList>
+  <alternativeEmulator>
+    <label>$LABEL</label>
+  </alternativeEmulator>
+</gameList>
+GLIST_EOF
+                    fi
+                    DETECTED_COUNT=$((DETECTED_COUNT + 1))
+                fi
+            done
+        fi
+        echo -e " ${GREEN}done${NC} ($DETECTED_COUNT systems routed to MAME 2010)"
 
         # ── Saves ──
         # Map RetroBat saves → ES-DE Saves/files/ with same SYS_MAP logic
@@ -3032,14 +3354,25 @@ tag_re = re.compile(
 # Flatten subdir paths: ./subdir/game.ext → ./game.ext
 path_re = re.compile(r'(<path>\./)[^/]+/(.+</path>)')
 
-# Read existing destination gamelist paths to avoid duplicates on merge
+# Read existing destination gamelist paths to avoid duplicates on merge.
+# Also capture any existing <alternativeEmulator> block so we can preserve
+# it across the rewrite (auto-detection writes alt-emu blocks BEFORE this
+# import step, and we don't want to clobber them).
 existing_paths = set()
+existing_alt_emu = ''
 if os.path.exists(dst):
     with open(dst, 'r', encoding='utf-8', errors='replace') as f:
-        for line in f:
-            m = re.search(r'<path>([^<]+)</path>', line)
-            if m:
-                existing_paths.add(m.group(1).strip())
+        dst_content = f.read()
+    for line in dst_content.splitlines():
+        m = re.search(r'<path>([^<]+)</path>', line)
+        if m:
+            existing_paths.add(m.group(1).strip())
+    # Capture <alternativeEmulator>...</alternativeEmulator> block (multiline)
+    alt_match = re.search(
+        r'\s*<alternativeEmulator>.*?</alternativeEmulator>',
+        dst_content, re.DOTALL)
+    if alt_match:
+        existing_alt_emu = alt_match.group(0).rstrip() + '\n'
 
 # Process source gamelist
 new_games = []
@@ -3066,10 +3399,17 @@ for line in open(src, 'r', encoding='utf-8', errors='replace'):
             current_game.append(cleaned)
 
 if not new_games:
+    # No new games — but if we captured an alt-emu block and dest doesn't
+    # exist (or was just an alt-emu-only file), still write it back.
+    if existing_alt_emu and not existing_paths:
+        with open(dst, 'w', encoding='utf-8') as f:
+            f.write('<?xml version="1.0"?>\n<gameList>\n')
+            f.write(existing_alt_emu)
+            f.write('</gameList>\n')
     sys.exit(0)
 
 if os.path.exists(dst) and existing_paths:
-    # Merge: insert new games before </gameList>
+    # Merge: insert new games before </gameList> — alt-emu block already in dst
     with open(dst, 'r', encoding='utf-8', errors='replace') as f:
         content = f.read()
     insert = '\n'.join(new_games)
@@ -3077,9 +3417,11 @@ if os.path.exists(dst) and existing_paths:
     with open(dst, 'w', encoding='utf-8') as f:
         f.write(content)
 else:
-    # Fresh write
+    # Fresh write — preserve any captured <alternativeEmulator> block at top
     with open(dst, 'w', encoding='utf-8') as f:
         f.write('<?xml version="1.0"?>\n<gameList>\n')
+        if existing_alt_emu:
+            f.write(existing_alt_emu)
         f.writelines(new_games)
         f.write('</gameList>\n')
 GLFIX
