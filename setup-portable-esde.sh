@@ -90,21 +90,24 @@ else
     echo "Choose a default theme (you can always change or add more later"
     echo "via ES-DE's built-in Theme Downloader):"
     echo ""
-    echo -e "    ${BOLD}1)${NC} Epic Noir Next    — Dark cinematic, great for night gaming"
+    echo -e "    ${BOLD}1)${NC} Slick Remixed     — Refined Slick remake (Weestuarty)"
     echo -e "    ${BOLD}2)${NC} Carbon            — Classic clean look (RetroPie heritage)"
-    echo -e "    ${BOLD}3)${NC} Iconic            — Modern with famous game characters"
-    echo -e "    ${BOLD}4)${NC} Canvas            — Modern with easy wallpaper customization"
-    echo -e "    ${BOLD}5)${NC} Slate (ES-DE default) — Skip download, use built-in theme"
+    echo -e "    ${BOLD}3)${NC} Art Book Next     — Coffee-table-book style, polished"
+    echo -e "    ${BOLD}4)${NC} IISU Interpreted  — Clean port of the upcoming iiSU UI"
+    echo -e "    ${BOLD}5)${NC} Linear (ES-DE default) — Skip download, use built-in theme"
+    echo -e "    ${BOLD}6)${NC} Meringue          — Soft, light pastel theme"
+    echo -e "    ${BOLD}7)${NC} Slate (ES-DE legacy) — Skip download, use built-in legacy theme"
     echo ""
-    read -rp "  Theme [1-5] (default: 1): " THEME_CHOICE
+    read -rp "  Theme [1-7] (default: 1): " THEME_CHOICE
     THEME_CHOICE="${THEME_CHOICE:-1}"
 
     case "$THEME_CHOICE" in
         1)
-            THEME_NAME="epic-noir-next-es-de"
-            THEME_REPO="https://github.com/anthonycaccese/epic-noir-next-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Epic Noir Next"
-            THEME_ZIPDIR="epic-noir-next-es-de-main"
+            # Weestuarty's slick-es-de is the maintained "Slick Remixed" port
+            THEME_NAME="slick-es-de"
+            THEME_REPO="https://github.com/Weestuarty/slick-es-de/archive/refs/heads/main.zip"
+            THEME_LABEL="Slick Remixed"
+            THEME_ZIPDIR="slick-es-de-main"
             ;;
         2)
             THEME_NAME="carbon-es-de"
@@ -113,20 +116,32 @@ else
             THEME_ZIPDIR="carbon-es-de-main"
             ;;
         3)
-            THEME_NAME="iconic-es-de"
-            THEME_REPO="https://github.com/Siddy212/iconic-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Iconic"
-            THEME_ZIPDIR="iconic-es-de-main"
+            THEME_NAME="art-book-next-es-de"
+            THEME_REPO="https://github.com/anthonycaccese/art-book-next-es-de/archive/refs/heads/main.zip"
+            THEME_LABEL="Art Book Next"
+            THEME_ZIPDIR="art-book-next-es-de-main"
             ;;
         4)
-            THEME_NAME="canvas-es-de"
-            THEME_REPO="https://github.com/Siddy212/canvas-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Canvas"
-            THEME_ZIPDIR="canvas-es-de-main"
+            THEME_NAME="iisu-interpreted-es-de"
+            THEME_REPO="https://github.com/VictorUnlocked/iisu-interpreted-es-de/archive/refs/heads/main.zip"
+            THEME_LABEL="IISU Interpreted"
+            THEME_ZIPDIR="iisu-interpreted-es-de-main"
             ;;
-        5|*)
+        5)
+            # Linear is ES-DE's built-in default theme — no download needed
             THEME_NAME=""
-            THEME_LABEL="Slate (built-in)"
+            THEME_LABEL="Linear (ES-DE default, built-in)"
+            ;;
+        6)
+            THEME_NAME="meringue-es-de"
+            THEME_REPO="https://github.com/kthod861/meringue-es-de/archive/refs/heads/main.zip"
+            THEME_LABEL="Meringue"
+            THEME_ZIPDIR="meringue-es-de-main"
+            ;;
+        7|*)
+            # Force the legacy Slate theme — explicitly set so we don't fall back to Linear
+            THEME_NAME="slate-es-de"
+            THEME_LABEL="Slate (legacy, built-in)"
             ;;
     esac
     echo ""
@@ -424,12 +439,14 @@ download_cores() {
         [cap32]="Amstrad CPC"
         [quasi88]="PC-88 (alt)"
 
-        # MAME — multiple versions because BIOS romsets are MAME-version-locked.
-        # Note: only mame, mame2003_plus, and mame2010 exist on libretro buildbot
-        # for Linux x86_64 (2014/2016 were never built or were dropped).
-        # mame2010 = MAME 0.139, decent fallback for older-era BIOS packs.
+        # MAME — two versions because BIOS romsets are MAME-version-locked.
+        # Only mame, mame2003_plus, and mame2010 exist on the libretro buildbot
+        # for Linux x86_64 (mame2014/2015/2016 were dropped or never built).
+        # current MAME = the modern default, used as the primary command for
+        # all systems below. mame2010 = MAME 0.139, deeper fallback for very
+        # old BIOS packs (selectable via ES-DE's alt-emu menu).
         [mame]="MAME (Archimedes/ADAM/Dragon32/FM7/TI99/Model2/LCD/G&W/Gamate/PV1000/SCV/SuperACan/GameMaster/Game.com/VSmile)"
-        [mame2010]="MAME 2010 (MAME 0.139 — older BIOS fallback)"
+        [mame2010]="MAME 2010 (MAME 0.139 — deeper BIOS fallback)"
 
         # Nintendo
         [mesen]="NES / Famicom (high accuracy)"
@@ -1319,8 +1336,13 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.1dd .1DD .360 .adf .ADF .adl .ADL .adm .ADM .ads .ADS .apd .APD .bbc .BBC .chd .CHD .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .dfi .DFI .dsd .DSD .dsk .DSK .hfe .HFE .ima .IMA .imd .IMD .img .IMG .ipf .IPF .jfd .JFD .mfi .MFI .mfm .MFM .msa .MSA .ssd .SSD .st .ST .td0 .TD0 .ufi .UFI .7z .7Z .zip .ZIP</extension>
     <command label="MAME [Model A440/1]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [Model A440/1] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "aa4401 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A440/1] (Standalone)">%EMULATOR_MAME% aa4401 -rompath "%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
     <command label="MAME [Model A3000]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [Model A3000] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "aa3000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A3000] (Standalone)">%EMULATOR_MAME% aa3000 -rompath "%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
+    <command label="MAME [Model A310]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aa310 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A310] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "aa310 -rompath \"%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Model A310] (Standalone)">%EMULATOR_MAME% aa310 -rompath "%GAMEDIRRAW%;%ROMPATH%/archimedes;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
     <platform>archimedes</platform>
     <theme>archimedes</theme>
   </system>
@@ -1332,10 +1354,13 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.1dd .1DD .bin .BIN .col .COL .cqi .CQI .cqm .CQM .d77 .D77 .d88 .D88 .ddp .DDP .dfi .DFI .dsk .DSK .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .rom .ROM .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
     <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (Standalone)">%EMULATOR_MAME% adam -rompath "%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
     <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
     <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% adam -rompath "%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios" -cart1 "%ROMRAW%"</command>
     <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cass1 \"%ROMRAW%\""</command>
     <command label="MAME [Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "adam -rompath \"%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [Tape] (Standalone)">%EMULATOR_MAME% adam -rompath "%GAMEDIRRAW%;%ROMPATH%/adam;%ROMPATH%/bios" -cass1 "%ROMRAW%"</command>
     <platform>adam</platform>
     <theme>adam</theme>
   </system>
@@ -1347,10 +1372,13 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.bas .BAS .bin .BIN .ccc .CCC .cas .CAS .dmk .DMK .dsk .DSK .fdi .FDI .hfe .HFE .imd .IMD .jvc .JVC .mfi .MFI .os9 .OS9 .rom .ROM .td0 .TD0 .vdk .VDK .wav .WAV .7z .7Z .zip .ZIP</extension>
     <command label="MAME [Dragon 32 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <command label="MAME [Dragon 32 Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Cartridge] (Standalone)">%EMULATOR_MAME% dragon32 -rompath "%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
     <command label="MAME [Dragon 32 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
     <command label="MAME [Dragon 32 Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "dragon32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -autoboot_delay \"4\" -autoboot_command \"cloadm:exec\\n\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 32 Tape] (Standalone)">%EMULATOR_MAME% dragon32 -rompath "%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios" -autoboot_delay "4" -autoboot_command "cloadm:exec\\n" -cass "%ROMRAW%"</command>
     <command label="MAME [Dragon 64 Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <command label="MAME [Dragon 64 Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "dragon64 -rompath \"%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Dragon 64 Cartridge] (Standalone)">%EMULATOR_MAME% dragon64 -rompath "%GAMEDIRRAW%;%ROMPATH%/dragon32;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
     <platform>dragon32</platform>
     <theme>dragon32</theme>
   </system>
@@ -1362,10 +1390,13 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.1dd .1DD .77 .cas .CAS .d77 .D77 .d88 .D88 .dfi .DFI .hfe .HFE .imd .IMD .mfi .MFI .mfm .MFM .t77 .T77 .td0 .TD0 .wav .WAV .7z .7Z .zip .ZIP</extension>
     <command label="MAME [FM-7 Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
     <command label="MAME [FM-7 Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Diskette] (Standalone)">%EMULATOR_MAME% fm7 -rompath "%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
     <command label="MAME [FM-7 Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
     <command label="MAME [FM-7 Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" -autoboot_delay \"5\" -autoboot_command \"load\\n\\n\\nrun\\n\" -cass1 \"%ROMRAW%\""</command>
+    <command label="MAME [FM-7 Tape] (Standalone)">%EMULATOR_MAME% fm7 -rompath "%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios" -autoboot_delay "5" -autoboot_command "load\\n\\n\\nrun\\n" -cass1 "%ROMRAW%"</command>
     <command label="MAME [FM-7 Software list]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" %BASENAME%"</command>
     <command label="MAME [FM-7 Software list] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fm7 -rompath \"%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios\" %BASENAME%"</command>
+    <command label="MAME [FM-7 Software list] (Standalone)">%EMULATOR_MAME% fm7 -rompath "%GAMEDIRRAW%;%ROMPATH%/fm7;%ROMPATH%/bios" %BASENAME%</command>
     <platform>fm7</platform>
     <theme>fm7</theme>
   </system>
@@ -1377,6 +1408,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "supracan -rompath \"%GAMEDIRRAW%;%ROMPATH%/supracan;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (Standalone)">%EMULATOR_MAME% supracan -rompath "%GAMEDIRRAW%;%ROMPATH%/supracan;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
     <platform>supracan</platform>
     <theme>supracan</theme>
   </system>
@@ -1417,6 +1449,10 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.2mg .2MG .do .DO .dsk .DSK .nib .NIB .po .PO .woz .WOZ .zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "apple2gs -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios\" -gameio joy -flop3 \"%ROMRAW%\""</command>
     <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "apple2gs -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios\" -gameio joy -flop3 \"%ROMRAW%\""</command>
+    <command label="MAME (Standalone)">%EMULATOR_MAME% apple2gs -rompath "%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios" -gameio joy -flop3 "%ROMRAW%"</command>
+    <command label="MAME [ROM01]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "apple2gsr1 -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios\" -gameio joy -flop3 \"%ROMRAW%\""</command>
+    <command label="MAME [ROM01] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "apple2gsr1 -rompath \"%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios\" -gameio joy -flop3 \"%ROMRAW%\""</command>
+    <command label="MAME [ROM01] (Standalone)">%EMULATOR_MAME% apple2gsr1 -rompath "%GAMEDIRRAW%;%ROMPATH%/apple2gs;%ROMPATH%/bios" -gameio joy -flop3 "%ROMRAW%"</command>
     <platform>apple2gs</platform>
     <theme>apple2gs</theme>
   </system>
@@ -1454,6 +1490,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "scv -rompath \"%GAMEDIRRAW%;%ROMPATH%/scv;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "scv -rompath \"%GAMEDIRRAW%;%ROMPATH%/scv;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (Standalone)">%EMULATOR_MAME% scv -rompath "%GAMEDIRRAW%;%ROMPATH%/scv;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
     <platform>scv</platform>
     <theme>scv</theme>
   </system>
@@ -1859,6 +1896,15 @@ apply_paths() {
 
 apply_theme
 apply_paths
+
+# Refresh BIOS-aware MAME alt-emulator routing. Idempotent and silent —
+# probes ROMs/bios/ for known system zips, classifies romset era, writes
+# or strips <alternativeEmulator> entries in gamelists so old-era BIOS
+# users land on the matching libretro core. Picks up any BIOS the user
+# added/removed/replaced since last launch.
+if [[ -x "$SCRIPT_DIR/refresh-mame-routing.sh" ]]; then
+    "$SCRIPT_DIR/refresh-mame-routing.sh" >/dev/null 2>&1 || true
+fi
 
 "$ESDE_BIN" --home "$SCRIPT_DIR" "$@"
 EXIT_CODE=$?
@@ -2641,6 +2687,46 @@ RUFFLEWRAP
     fi
 fi
 
+# ── EKA2L1 (Symbian / N-Gage) ──
+# Continuous CI build — only release tag the project ships. AppImage assets
+# are named like "EKA2L1-Linux.AppImage" or similar; pattern is loose to
+# survive minor naming drift across CI runs.
+echo "   ── EKA2L1 (Symbian / N-Gage) ──"
+if compgen -G "$EMUS/eka2l1*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/EKA2L1*.AppImage" > /dev/null 2>&1; then
+    ok "EKA2L1 already exists, skipping"
+else
+    # The continuous tag is the only release tag — fetch by tag, not "latest"
+    EKA2L1_URL=$(curl -sfL "https://api.github.com/repos/EKA2L1/EKA2L1/releases/tags/continous" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -iP "linux.*\.AppImage$" \
+        | grep -iv "arm\|aarch" \
+        | head -1) || true
+    if [[ -n "$EKA2L1_URL" ]]; then
+        info "Downloading EKA2L1..."
+        EKA2L1_FNAME=$(basename "$EKA2L1_URL")
+        if curl -#fL -o "$EMUS/$EKA2L1_FNAME" "$EKA2L1_URL"; then
+            chmod +x "$EMUS/$EKA2L1_FNAME"
+            cat > "$EMUS/eka2l1-portable.sh" << 'EKA2L1WRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'eka2l1*.AppImage' -o -iname 'EKA2L1*.AppImage' 2>/dev/null | head -1)
+exec "$BIN" "$@"
+EKA2L1WRAP
+            chmod +x "$EMUS/eka2l1-portable.sh"
+            ok "EKA2L1 downloaded ($EKA2L1_FNAME)"
+        else
+            fail "EKA2L1 download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            rm -f "$EMUS/$EKA2L1_FNAME"
+        fi
+    else
+        warn "EKA2L1 URL not found — check https://github.com/EKA2L1/EKA2L1/releases/tag/continous"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+
 # ── Solarus ──
 # Solarus moved to GitLab — AppImage served via direct URL from solarus-games.org
 echo "   ── Solarus ──"
@@ -2750,6 +2836,33 @@ SUPERWRAP
         fi
     else
         warn "Supermodel URL not found — check https://github.com/pkgforge-dev/Supermodel-AppImage/releases"
+        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+    fi
+fi
+
+# ── MAME (standalone, current version) — alt-emu fallback for testing ──
+# Community AppImage from pkgforge-dev. Tier 3 fallback in the alt-emu
+# menu when neither current mame_libretro nor mame2010 accept a BIOS pack.
+# Resolves %EMULATOR_MAME% via es_find_rules.xml.
+echo "   ── MAME (standalone) ──"
+if compgen -G "$EMUS/MAME*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/mame*.AppImage" > /dev/null 2>&1; then
+    ok "Standalone MAME already exists, skipping"
+else
+    MAME_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/MAME-AppImage/releases?per_page=3" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -iP "\.AppImage$" \
+        | grep -iv "arm\|aarch" | head -1) || true
+    if [[ -n "$MAME_URL" ]]; then
+        info "Downloading standalone MAME..."
+        FNAME=$(basename "$MAME_URL")
+        if curl -#fL -o "$EMUS/$FNAME" "$MAME_URL"; then
+            chmod +x "$EMUS/$FNAME"
+            ok "Standalone MAME downloaded ($FNAME)"
+        else
+            fail "Standalone MAME download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    else
+        warn "Standalone MAME URL not found — check https://github.com/pkgforge-dev/MAME-AppImage/releases"
         DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
 fi
@@ -3094,70 +3207,150 @@ else
 
         # ── Per-system MAME version auto-detection ──
         # MAME romsets are version-locked: each MAME release renames internal
-        # BIOS files. We probe each system's BIOS zip for marker filenames that
-        # only existed in older MAME releases (~2016 era / MAME 0.174). If a
-        # marker is found, the user's BIOS is from the older era and we write
-        # an alternativeEmulator entry into ES-DE's gamelist for that system,
-        # routing it to MAME 2010 by default. No marker → keep current MAME
-        # default (newer BIOS, or no zip at all so it'll fail loudly anyway).
+        # BIOS files. We probe each system's BIOS zip for marker filenames
+        # that distinguish romset eras, then write/clear ES-DE alternative
+        # emulator entries in the relevant gamelist.xml files.
         #
-        # Format (per ES-DE docs):
-        #   <gameList>
-        #     <alternativeEmulator>
-        #       <label>MAME (MAME 2010)</label>
-        #     </alternativeEmulator>
-        #   </gameList>
+        # Detection is implemented in a standalone refresh script written to
+        # the bundle root, so it runs during install AND on every launch.sh
+        # invocation — keeps routing current with whatever the user has in
+        # ROMs/bios/ at the moment, not just at install time.
+        cat > "$BASE/refresh-mame-routing.sh" <<'REFRESH_EOF'
+#!/usr/bin/env bash
+# refresh-mame-routing.sh — BIOS-aware ES-DE alt-emulator router.
+# Probes ROMs/bios/ for known MAME-system zips, classifies each by romset
+# era, and writes/clears <alternativeEmulator> entries in ES-DE's
+# gamelist.xml files. Idempotent. Safe to run repeatedly. Silent unless
+# attached to a terminal.
+#
+# Routing target: MAME 2010 (MAME 0.139). mame2015_libretro.so is NOT on
+# the libretro buildbot for Linux x86_64 (only mame, mame2003_plus, and
+# mame2010 build). MAME 2010 is the deepest fallback that actually
+# downloads — its romset expectations are old enough that BIOS packs
+# from the ~MAME 0.130-0.150 era usually match. New-era BIOS detection
+# strips any stale alt-emu so the current MAME default takes over.
+# Users can also manually pick (Standalone) variants from the ES-DE
+# alt-emu menu — that uses upstream MAME (current version) for
+# further testing if mame2010 also rejects a romset.
+set -u
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+BIOS="$SCRIPT_DIR/ROMs/bios"
+ESDE_GAMELISTS="$SCRIPT_DIR/ES-DE/gamelists"
+LOG="$SCRIPT_DIR/Saves/logs/mame-routing.log"
+mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
+
+[[ -d "$BIOS" ]] || exit 0
+command -v unzip >/dev/null 2>&1 || exit 0
+
+# system → "zip:marker:label"
+# marker semantics:
+#   plain string  → presence of file in zip indicates old era
+#   "!" prefix    → ABSENCE of file in zip indicates old era (use this when
+#                   the only reliable discriminator is a new-era file the
+#                   old set never had — old-era markers like d32.rom often
+#                   survive into new era and don't discriminate)
+declare -A MAME_DETECT=(
+    [archimedes]="aa310.zip:0270,251-01.ic24:MAME [Model A310] (MAME 2010)"
+    [adam]="adam.zip:os7.u2:MAME [Diskette] (MAME 2010)"
+    [dragon32]="dragon32.zip:!dragon_data_ltd_1-0.ic18:MAME [Dragon 32 Cartridge] (MAME 2010)"
+    [fm7]="fm7.zip:ap2k.ic3c:MAME [FM-7 Diskette] (MAME 2010)"
+    [supracan]="supracan.zip:!internal_6502_1.bin:MAME (MAME 2010)"
+    [scv]="scv.zip:!upd1771c-017.s03:MAME (MAME 2010)"
+    [apple2gs]="apple2gs.zip:!344s0047.bin:MAME [ROM01] (MAME 2010)"
+)
+
+is_old_era() {
+    local zip="$1" marker="$2"
+    [[ -f "$BIOS/$zip" ]] || return 1
+    if [[ "$marker" == "!"* ]]; then
+        local m="${marker#!}"
+        unzip -l "$BIOS/$zip" 2>/dev/null | grep -qiF "$m" && return 1 || return 0
+    else
+        unzip -l "$BIOS/$zip" 2>/dev/null | grep -qiF "$marker" && return 0 || return 1
+    fi
+}
+
+# update_gamelist <system> <label>
+#   label = "" → strip any existing alt-emu (so default command takes over)
+#   label set → write/replace alt-emu OUTSIDE <gameList> (canonical ES-DE 3.x)
+update_gamelist() {
+    local sys="$1" label="$2"
+    local glist="$ESDE_GAMELISTS/$sys/gamelist.xml"
+    python3 - "$glist" "$label" <<'PY' 2>/dev/null
+import sys, os, re
+glist, label = sys.argv[1], sys.argv[2]
+
+if not os.path.exists(glist):
+    if not label:
+        sys.exit(0)
+    os.makedirs(os.path.dirname(glist), exist_ok=True)
+    with open(glist, 'w', encoding='utf-8') as f:
+        f.write('<?xml version="1.0"?>\n')
+        f.write('<alternativeEmulator>\n')
+        f.write('    <label>%s</label>\n' % label)
+        f.write('</alternativeEmulator>\n')
+        f.write('<gameList>\n</gameList>\n')
+    sys.exit(0)
+
+with open(glist, 'r', encoding='utf-8', errors='replace') as f:
+    content = f.read()
+
+# Idempotent fast path: if current label already matches, no rewrite
+m = re.search(r'<alternativeEmulator>\s*<label>([^<]*)</label>\s*</alternativeEmulator>', content, re.DOTALL)
+current = m.group(1).strip() if m else ''
+if current == label:
+    sys.exit(0)
+
+# Strip any existing alt-emu (anywhere in document)
+content = re.sub(r'\s*<alternativeEmulator>.*?</alternativeEmulator>\s*',
+                 '\n', content, flags=re.DOTALL)
+
+if label:
+    alt = '<alternativeEmulator>\n    <label>%s</label>\n</alternativeEmulator>\n' % label
+    if re.search(r'<gameList[\s>]', content):
+        content = re.sub(r'(<gameList[\s>])', alt + r'\1', content, count=1)
+    else:
+        content = content.rstrip() + '\n' + alt + '<gameList>\n</gameList>\n'
+
+with open(glist, 'w', encoding='utf-8') as f:
+    f.write(content)
+PY
+}
+
+routed=0
+unrouted=0
+absent=0
+for sys in "${!MAME_DETECT[@]}"; do
+    IFS=':' read -r zip marker label <<< "${MAME_DETECT[$sys]}"
+    if [[ ! -f "$BIOS/$zip" ]]; then
+        absent=$((absent + 1))
+        continue
+    fi
+    if is_old_era "$zip" "$marker"; then
+        update_gamelist "$sys" "$label"
+        routed=$((routed + 1))
+    else
+        # New-era BIOS — strip any stale alt-emu so current MAME default takes effect.
+        update_gamelist "$sys" ""
+        unrouted=$((unrouted + 1))
+    fi
+done
+
+printf '[%s] routed=%d default=%d absent=%d\n' \
+    "$(date -Iseconds 2>/dev/null || date)" \
+    "$routed" "$unrouted" "$absent" >> "$LOG"
+
+# Show summary only when run interactively (skip during launch.sh invocation)
+if [[ -t 1 ]]; then
+    echo "MAME routing: $routed routed to alt-emulator, $unrouted using default ($absent systems have no BIOS)"
+fi
+REFRESH_EOF
+        chmod +x "$BASE/refresh-mame-routing.sh"
+
         echo -n "   Auto-detecting MAME romset versions..."
-        ESDE_GAMELISTS="$ESDE_DATA/gamelists"
-        DETECTED_COUNT=0
-
-        # system → "zip:marker_file:label"
-        # marker_file = a file whose presence in the zip indicates ~2016 era
-        # label = the <command label="..."> in custom_systems/es_systems.xml
-        #         to use as default for that system
-        declare -A MAME_DETECT=(
-            [archimedes]="aa310.zip:0270,251-01.ic24:MAME [Model A440/1] (MAME 2010)"
-            [adam]="adam.zip:os7.u2:MAME [Diskette] (MAME 2010)"
-            [dragon32]="dragon32.zip:d32.rom:MAME [Dragon 32 Cartridge] (MAME 2010)"
-            [fm7]="fm7.zip:ap2k.ic3c:MAME [FM-7 Diskette] (MAME 2010)"
-            [supracan]="supracan.zip:internal_68k.bin:MAME (MAME 2010)"
-            [scv]="scv.zip:epochtv.chr:MAME (MAME 2010)"
-            [apple2gs]="apple2gs.zip:apple2gs.chr:MAME (MAME 2010)"
-        )
-
-        if command -v unzip >/dev/null 2>&1; then
-            for SYS in "${!MAME_DETECT[@]}"; do
-                IFS=':' read -r ZIP_NAME MARKER LABEL <<< "${MAME_DETECT[$SYS]}"
-                ZIP_PATH="$ROMS/bios/$ZIP_NAME"
-                [[ -f "$ZIP_PATH" ]] || continue
-                # Check if marker file exists inside the zip (case-insensitive name match)
-                if unzip -l "$ZIP_PATH" 2>/dev/null | grep -qiF "$MARKER"; then
-                    # Old-era BIOS confirmed → write alternativeEmulator entry
-                    SYS_GAMELIST_DIR="$ESDE_GAMELISTS/$SYS"
-                    mkdir -p "$SYS_GAMELIST_DIR"
-                    GLIST="$SYS_GAMELIST_DIR/gamelist.xml"
-                    if [[ -f "$GLIST" ]]; then
-                        # Existing gamelist — splice in alternativeEmulator if absent
-                        if ! grep -q "<alternativeEmulator>" "$GLIST"; then
-                            # Insert right after <gameList> opening tag
-                            sed -i "0,/<gameList>/s||<gameList>\n  <alternativeEmulator>\n    <label>$LABEL</label>\n  </alternativeEmulator>|" "$GLIST"
-                        fi
-                    else
-                        # No gamelist yet — write minimal one with just the alt emulator.
-                        # ES-DE will populate it with games on next launch.
-                        cat > "$GLIST" <<GLIST_EOF
-<?xml version="1.0"?>
-<gameList>
-  <alternativeEmulator>
-    <label>$LABEL</label>
-  </alternativeEmulator>
-</gameList>
-GLIST_EOF
-                    fi
-                    DETECTED_COUNT=$((DETECTED_COUNT + 1))
-                fi
-            done
-        fi
+        ROUTING_RESULT=$("$BASE/refresh-mame-routing.sh" 2>&1)
+        # Parse counts from log entry
+        DETECTED_COUNT=$(grep -oE 'routed=[0-9]+' "$BASE/Saves/logs/mame-routing.log" 2>/dev/null | tail -1 | cut -d= -f2 || echo 0)
         echo -e " ${GREEN}done${NC} ($DETECTED_COUNT systems routed to MAME 2010)"
 
         # ── Saves ──
@@ -3358,6 +3551,9 @@ path_re = re.compile(r'(<path>\./)[^/]+/(.+</path>)')
 # Also capture any existing <alternativeEmulator> block so we can preserve
 # it across the rewrite (auto-detection writes alt-emu blocks BEFORE this
 # import step, and we don't want to clobber them).
+# IMPORTANT: ES-DE 3.x requires <alternativeEmulator> to be a SIBLING of
+# <gameList> (root level), NOT a child of <gameList>. If it ends up inside
+# gameList ES-DE silently ignores it on launch.
 existing_paths = set()
 existing_alt_emu = ''
 if os.path.exists(dst):
@@ -3369,7 +3565,7 @@ if os.path.exists(dst):
             existing_paths.add(m.group(1).strip())
     # Capture <alternativeEmulator>...</alternativeEmulator> block (multiline)
     alt_match = re.search(
-        r'\s*<alternativeEmulator>.*?</alternativeEmulator>',
+        r'<alternativeEmulator>.*?</alternativeEmulator>',
         dst_content, re.DOTALL)
     if alt_match:
         existing_alt_emu = alt_match.group(0).rstrip() + '\n'
@@ -3400,28 +3596,39 @@ for line in open(src, 'r', encoding='utf-8', errors='replace'):
 
 if not new_games:
     # No new games — but if we captured an alt-emu block and dest doesn't
-    # exist (or was just an alt-emu-only file), still write it back.
+    # exist (or was just an alt-emu-only file), still write it back in
+    # the canonical OUTSIDE-gameList position.
     if existing_alt_emu and not existing_paths:
         with open(dst, 'w', encoding='utf-8') as f:
-            f.write('<?xml version="1.0"?>\n<gameList>\n')
+            f.write('<?xml version="1.0"?>\n')
             f.write(existing_alt_emu)
-            f.write('</gameList>\n')
+            f.write('<gameList>\n</gameList>\n')
     sys.exit(0)
 
 if os.path.exists(dst) and existing_paths:
-    # Merge: insert new games before </gameList> — alt-emu block already in dst
+    # Merge: insert new games before </gameList>. Existing alt-emu (which
+    # SHOULD already be outside gameList, but if it isn't we'll fix that
+    # below) is left where it is.
     with open(dst, 'r', encoding='utf-8', errors='replace') as f:
         content = f.read()
     insert = '\n'.join(new_games)
     content = content.replace('</gameList>', insert + '\n</gameList>')
+    # If alt-emu ended up inside <gameList>, hoist it out
+    if existing_alt_emu:
+        # Strip alt-emu wherever it is, then re-insert before <gameList>
+        content = re.sub(r'\s*<alternativeEmulator>.*?</alternativeEmulator>\s*',
+                         '\n', content, flags=re.DOTALL)
+        content = re.sub(r'(<gameList[\s>])',
+                         existing_alt_emu + r'\1', content, count=1)
     with open(dst, 'w', encoding='utf-8') as f:
         f.write(content)
 else:
-    # Fresh write — preserve any captured <alternativeEmulator> block at top
+    # Fresh write — alt-emu OUTSIDE gameList (canonical ES-DE 3.x position)
     with open(dst, 'w', encoding='utf-8') as f:
-        f.write('<?xml version="1.0"?>\n<gameList>\n')
+        f.write('<?xml version="1.0"?>\n')
         if existing_alt_emu:
             f.write(existing_alt_emu)
+        f.write('<gameList>\n')
         f.writelines(new_games)
         f.write('</gameList>\n')
 GLFIX
@@ -3730,11 +3937,16 @@ tags = ['image','thumbnail','marquee','video','fanart','boxart','titleshot','car
 tag_re = re.compile(r'\s*<(?:' + '|'.join(tags) + r')>[^<]*</(?:' + '|'.join(tags) + r')>')
 path_re = re.compile(r'(<path>\./)[^/]+/(.+</path>)')
 existing_paths = set()
+existing_alt_emu = ''
 if os.path.exists(dst):
     with open(dst,'r',encoding='utf-8',errors='replace') as f:
-        for line in f:
-            m = re.search(r'<path>([^<]+)</path>', line)
-            if m: existing_paths.add(m.group(1).strip())
+        dst_content = f.read()
+    for line in dst_content.splitlines():
+        m = re.search(r'<path>([^<]+)</path>', line)
+        if m: existing_paths.add(m.group(1).strip())
+    alt_match = re.search(r'<alternativeEmulator>.*?</alternativeEmulator>', dst_content, re.DOTALL)
+    if alt_match:
+        existing_alt_emu = alt_match.group(0).rstrip() + '\n'
 new_games = []; current_game = []; in_game = False
 for line in open(src,'r',encoding='utf-8',errors='replace'):
     cleaned = tag_re.sub('', line)
@@ -3748,14 +3960,25 @@ for line in open(src,'r',encoding='utf-8',errors='replace'):
         in_game = False; current_game = []
     elif in_game and cleaned.strip():
         current_game.append(cleaned)
-if not new_games: sys.exit(0)
+if not new_games:
+    if existing_alt_emu and not existing_paths:
+        with open(dst,'w',encoding='utf-8') as f:
+            f.write('<?xml version="1.0"?>\n')
+            f.write(existing_alt_emu)
+            f.write('<gameList>\n</gameList>\n')
+    sys.exit(0)
 if os.path.exists(dst) and existing_paths:
     with open(dst,'r',encoding='utf-8',errors='replace') as f: content = f.read()
     content = content.replace('</gameList>', '\n'.join(new_games) + '\n</gameList>')
+    if existing_alt_emu:
+        content = re.sub(r'\s*<alternativeEmulator>.*?</alternativeEmulator>\s*', '\n', content, flags=re.DOTALL)
+        content = re.sub(r'(<gameList[\s>])', existing_alt_emu + r'\1', content, count=1)
     with open(dst,'w',encoding='utf-8') as f: f.write(content)
 else:
     with open(dst,'w',encoding='utf-8') as f:
-        f.write('<?xml version="1.0"?>\n<gameList>\n')
+        f.write('<?xml version="1.0"?>\n')
+        if existing_alt_emu: f.write(existing_alt_emu)
+        f.write('<gameList>\n')
         f.writelines(new_games)
         f.write('</gameList>\n')
 GLFIX
