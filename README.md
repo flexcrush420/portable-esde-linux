@@ -188,13 +188,12 @@ The following themes are available during setup:
 
 | Theme | Description |
 |-------|-------------|
-| [Slick Remixed](https://github.com/Weestuarty/slick-es-de) | Refined remake of the classic Slick theme |
-| [Carbon](https://github.com/lilbud/carbon-es-de) | Classic clean look (RetroPie heritage) |
 | [Art Book Next](https://github.com/anthonycaccese/art-book-next-es-de) | Coffee-table-book aesthetic, polished and image-rich |
+| [Carbon](https://github.com/lilbud/carbon-es-de) | Classic clean look (RetroPie heritage) |
 | [IISU Interpreted](https://github.com/VictorUnlocked/iisu-interpreted-es-de) | Clean port of the upcoming iiSU UI |
 | Linear | ES-DE's built-in default — no download needed |
 | [Meringue](https://github.com/kthod861/meringue-es-de) | Soft, light pastel theme |
-| Slate | ES-DE's built-in legacy theme — no download needed |
+| [Slick Remixed](https://github.com/Weestuarty/slick-es-de) | Refined remake of the classic Slick theme |
 
 Additional themes can be installed anytime via ES-DE's built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader).
 
