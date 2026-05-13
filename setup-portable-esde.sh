@@ -30,27 +30,183 @@ ESDE_VERSION="3.4.1"
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 
+# ── Whiptail theme ──
+# Dark background with cyan borders/accents so the TUI matches the script's
+# terminal output palette (cyan headers, green ok, red errors). Eliminates
+# the jarring blue-default whiptail popup look.
+export NEWT_COLORS='
+root=,black
+window=white,black
+shadow=black,black
+title=brightcyan,black
+border=cyan,black
+textbox=white,black
+button=black,cyan
+actbutton=black,brightcyan
+compactbutton=cyan,black
+checkbox=white,black
+actcheckbox=black,cyan
+entry=white,black
+actentry=black,brightcyan
+disentry=gray,black
+label=white,black
+listbox=white,black
+actlistbox=black,cyan
+sellistbox=brightgreen,black
+actsellistbox=black,brightgreen
+menu=white,black
+actmenu=black,cyan
+emptyscale=black,black
+fullscale=,cyan
+helpline=brightcyan,black
+roottext=cyan,black
+'
+
 ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
 warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
 fail() { echo -e "   ${RED}✗${NC} $1"; }
 info() { echo -e "   ${CYAN}→${NC} $1"; }
 
 #=============================================================================
+# Whiptail UI helpers — used for ALL interactive prompts in the setup script.
+# The one exception is the bootstrap "install whiptail?" prompt below, which
+# necessarily uses bash read since whiptail isn't available yet at that point.
+#=============================================================================
+
+# Auto-size dialogs to fit any terminal — computed once at startup.
+# Cols floor 60 (very narrow), cap 100 (avoid stretched look on wide monitors).
+# Lines floor 14 (minimum for menus), cap 30 (avoid huge boxes on tall terminals).
+_term_cols=$(tput cols 2>/dev/null || echo 80)
+_term_lines=$(tput lines 2>/dev/null || echo 24)
+WT_W=$(( _term_cols - 4 ))
+(( WT_W > 100 )) && WT_W=100
+(( WT_W < 60 ))  && WT_W=60
+WT_H=$(( _term_lines - 4 ))
+(( WT_H > 30 )) && WT_H=30
+(( WT_H < 14 )) && WT_H=14
+# Tall variant for menus/checklists with many items
+WT_H_TALL=$(( _term_lines - 4 ))
+(( WT_H_TALL > 40 )) && WT_H_TALL=40
+(( WT_H_TALL < 18 )) && WT_H_TALL=18
+unset _term_cols _term_lines
+
+wt_input() {
+    # wt_input "title" "prompt" "default" → echoes user input; nonzero exit on Cancel
+    whiptail --title "$1" --inputbox "$2" "$WT_H" "$WT_W" "$3" 3>&1 1>&2 2>&3
+}
+wt_yesno() {
+    # wt_yesno "title" "prompt" → returns 0 (yes) or 1 (no/Cancel/Esc)
+    whiptail --title "$1" --yesno "$2" "$WT_H" "$WT_W"
+}
+wt_menu() {
+    # wt_menu "title" "prompt" tag1 item1 tag2 item2 ... → echoes selected tag
+    local title="$1" prompt="$2"; shift 2
+    local menu_h=$(( WT_H_TALL > 22 ? 22 : WT_H_TALL ))
+    whiptail --title "$title" --menu "$prompt" "$menu_h" "$WT_W" 12 "$@" 3>&1 1>&2 2>&3
+}
+wt_msg() {
+    # wt_msg "title" "message" → informational dialog
+    whiptail --title "$1" --msgbox "$2" "$WT_H" "$WT_W"
+}
+
+#=============================================================================
+# detect_pkg_manager / ensure_whiptail
+# Run BEFORE any user-facing prompt so the rest of setup can use whiptail.
+#=============================================================================
+detect_pkg_manager() {
+    PKG_INSTALL_CMD=()
+    PKG_MANUAL_HINT=""
+    if [[ -e /run/ostree-booted ]] && command -v rpm-ostree >/dev/null 2>&1; then
+        PKG_MANUAL_HINT="Your system is immutable (rpm-ostree — e.g. Bazzite, Silverblue, Kinoite).
+   Install with:
+     ${CYAN}sudo rpm-ostree install newt${NC}
+   Then reboot and re-run this installer."
+        return
+    fi
+    if [[ -f /etc/os-release ]] && grep -qiE '^ID=.*steamos' /etc/os-release; then
+        PKG_MANUAL_HINT="SteamOS has a read-only /usr. Disable it first:
+     ${CYAN}sudo steamos-readonly disable${NC}
+     ${CYAN}sudo pacman -Sy libnewt${NC}
+     ${CYAN}sudo steamos-readonly enable${NC}
+   Then re-run this installer."
+        return
+    fi
+    if command -v apt-get >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo apt-get install -y whiptail)
+    elif command -v dnf >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo dnf install -y newt)
+    elif command -v pacman >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo pacman -S --noconfirm libnewt)
+    elif command -v zypper >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo zypper install -y newt)
+    fi
+}
+
+ensure_whiptail() {
+    # Called once at script start, before any prompt. Bootstrap: if whiptail
+    # isn't installed, this is the ONLY allowed bash `read` in the whole flow
+    # (chicken-and-egg — can't use whiptail to ask whether to install whiptail).
+    command -v whiptail >/dev/null 2>&1 && return 0
+    detect_pkg_manager
+    echo ""
+    echo -e "   ${YELLOW}!${NC} ${BOLD}whiptail${NC} is required by this installer (used for all prompts) but is not installed."
+    echo ""
+    if (( ${#PKG_INSTALL_CMD[@]} > 0 )); then
+        echo -e "   Install command:  ${CYAN}${PKG_INSTALL_CMD[*]}${NC}"
+        echo ""
+        read -r -p "   Install whiptail now and continue setup? [Y/n]: " ans
+        if [[ "${ans,,}" == "n" ]]; then
+            echo ""
+            echo "   Aborted. Install whiptail manually and re-run when ready."
+            exit 0
+        fi
+        echo ""
+        info "Installing whiptail (you may be prompted for your sudo password)..."
+        if "${PKG_INSTALL_CMD[@]}"; then
+            if ! command -v whiptail >/dev/null 2>&1; then
+                fail "Install reported success but whiptail still isn't in PATH."
+                echo "   Please install manually and re-run."
+                exit 1
+            fi
+            ok "whiptail installed — continuing setup"
+            echo ""
+        else
+            fail "Install failed."
+            echo -e "   Try manually:  ${CYAN}${PKG_INSTALL_CMD[*]}${NC}"
+            echo "   Then re-run this installer."
+            exit 1
+        fi
+    elif [[ -n "$PKG_MANUAL_HINT" ]]; then
+        echo -e "   $PKG_MANUAL_HINT"
+        echo ""
+        exit 1
+    else
+        echo "   Couldn't detect your package manager. Install manually with one of:"
+        echo -e "     ${CYAN}sudo apt install whiptail${NC}     (Debian/Ubuntu/Mint/Pop!_OS)"
+        echo -e "     ${CYAN}sudo dnf install newt${NC}         (Fedora/Nobara)"
+        echo -e "     ${CYAN}sudo pacman -S libnewt${NC}        (Arch/Manjaro)"
+        echo -e "     ${CYAN}sudo zypper install newt${NC}      (openSUSE)"
+        echo "   Then re-run this installer."
+        echo ""
+        exit 1
+    fi
+}
+
+# Bootstrap whiptail before any other prompt
+ensure_whiptail
+
+#=============================================================================
 # INTERACTIVE INSTALL PATH
 #=============================================================================
-echo ""
-echo -e "${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${BOLD}║  Portable ES-DE Setup v${VERSION} (ES-DE ${ESDE_VERSION})          ║${NC}"
-echo -e "${BOLD}║  A complete retro gaming bundle for Linux             ║${NC}"
-echo -e "${BOLD}╚════════════════════════════════════════════════════════╝${NC}"
-echo ""
-
 DEFAULT_PATH="$(pwd)/ES-DE-Portable"
 
-echo -e "Where would you like to install the portable ES-DE bundle?"
-echo -e "  Default: ${CYAN}${DEFAULT_PATH}${NC}"
-echo ""
-read -rp "Install path (press Enter for default): " USER_PATH
+USER_PATH=$(wt_input "Portable ES-DE Setup v${VERSION}" \
+"A complete retro gaming bundle for Linux.
+
+Where would you like to install the bundle?
+
+Press Enter (or OK) to accept the default below, or edit to a different path. You can use ~ for your home directory." \
+"$DEFAULT_PATH") || { echo "Cancelled."; exit 0; }
 
 BASE="${USER_PATH:-$DEFAULT_PATH}"
 
@@ -60,23 +216,337 @@ BASE="${BASE/#\~/$HOME}"
 # Make absolute
 BASE="$(realpath -m "$BASE")"
 
-echo ""
-echo -e "Installing to: ${BOLD}${BASE}${NC}"
-echo ""
-
 # Check if directory exists and has content
 if [[ -d "$BASE" ]] && [[ -n "$(ls -A "$BASE" 2>/dev/null)" ]]; then
-    echo -e "${YELLOW}Directory already exists and is not empty.${NC}"
-    echo "  Existing files will be preserved. Only missing items will be added."
-    echo ""
-    read -rp "Continue? (Y/n): " CONTINUE
-    [[ "${CONTINUE,,}" == "n" ]] && echo "Aborted." && exit 0
-    echo ""
+    if ! wt_yesno "Directory not empty" \
+"The target directory already exists and is not empty:
+
+  $BASE
+
+Existing files will be preserved — only missing items will be added.
+
+Continue?"; then
+        echo "Aborted."
+        exit 0
+    fi
 fi
 
 EMUS="$BASE/Emulators"
 ROMS="$BASE/ROMs"
 ESDE_DATA="$BASE/ES-DE"         # ES-DE --home puts all its data here
+
+#=============================================================================
+# COMPONENT SELECTION TUI
+#=============================================================================
+# Lets users skip emulators/cores they don't need. Decision flow:
+#   1. No TTY (piped / CI) → skip TUI entirely → full install.
+#   2. Prompt: Full vs Custom.
+#   3. Custom: whiptail checklist for emulators, then cores. Selections
+#      cached to .setup-selections.cfg in the bundle root for sticky re-runs.
+# State lives in two associative arrays:
+#   SELECTED_EMULATORS[<key>] = 1 (install) | 0 (skip)
+#   SELECTED_CORES[<key>]     = 1 (install) | 0 (skip)
+# Each download block checks ${SELECTED_*[<key>]:-1} — absent keys default to
+# install, so a non-TUI run reproduces today's behavior exactly.
+
+declare -A SELECTED_EMULATORS=()
+declare -A SELECTED_CORES=()
+
+EMULATOR_CHECKLIST=(
+    "retroarch|RetroArch — libretro frontend (needed for cores)"
+    "dolphin|Dolphin — GameCube / Wii"
+    "cemu|Cemu — Wii U"
+    "rpcs3|RPCS3 — PlayStation 3"
+    "pcsx2|PCSX2 — PlayStation 2"
+    "duckstation|DuckStation — PlayStation 1"
+    "ppsspp|PPSSPP — PlayStation Portable"
+    "shadps4|shadPS4 — PlayStation 4"
+    "ryujinx|Ryubing — Nintendo Switch (Ryujinx fork)"
+    "eden|Eden — Nintendo Switch (alt fork)"
+    "azahar|Azahar — Nintendo 3DS"
+    "melonds|melonDS — Nintendo DS"
+    "xemu|xemu — Original Xbox"
+    "xenia|Xenia Canary — Xbox 360"
+    "mame|MAME (standalone) — arcade + fallback"
+    "supermodel|Supermodel — Sega Model 3"
+    "dosbox_x|DOSBox-X — DOS / x86 PC"
+    "_86box|86Box — Windows 9x / retro PC"
+    "vpinball|Visual Pinball — virtual pinball tables"
+    "solarus|Solarus — Zelda-like RPGs"
+    "ruffle|Ruffle — Adobe Flash games"
+    "simcoupe|SimCoupé — SAM Coupé"
+    "eka2l1|EKA2L1 — Symbian / N-Gage"
+)
+
+CORE_CHECKLIST=(
+    "_HDR_NINTENDO|─── Nintendo ───"
+    "fceumm|FCEUmm — NES / Famicom / FDS"
+    "mesen|Mesen — NES/Famicom (high accuracy, alt)"
+    "snes9x|Snes9x — Super Nintendo / Super Famicom"
+    "mesen-s|Mesen-S — SGB/SNES (high accuracy)"
+    "mgba|mGBA — Game Boy Advance / GB / GBC"
+    "gambatte|Gambatte — Game Boy / Game Boy Color (alt)"
+    "mupen64plus_next|Mupen64Plus-Next — Nintendo 64"
+    "pokemini|PokéMini — Pokémon Mini"
+    "gw|GW — Game & Watch (alt to MAME)"
+    "_HDR_SEGA|─── Sega ───"
+    "genesis_plus_gx|Genesis Plus GX — Genesis/MD/MS/GG/SG-1000/CD"
+    "picodrive|Picodrive — 32X / Sega CD (alt)"
+    "flycast|Flycast — Dreamcast"
+    "mednafen_saturn|Beetle Saturn — Sega Saturn"
+    "kronos|Kronos — Saturn (high accuracy, alt)"
+    "_HDR_SONY|─── Sony ───"
+    "mednafen_psx|Beetle PSX — PS1 (high accuracy)"
+    "mednafen_psx_hw|Beetle PSX HW — PS1 (hardware renderer)"
+    "_HDR_ATARI|─── Atari ───"
+    "stella|Stella — Atari 2600"
+    "a5200|a5200 — Atari 5200"
+    "atari800|Atari800 — 800/5200/XEGS"
+    "prosystem|ProSystem — Atari 7800"
+    "handy|Handy — Atari Lynx"
+    "hatari|Hatari — Atari ST"
+    "virtualjaguar|Virtual Jaguar — Atari Jaguar"
+    "_HDR_NEC|─── NEC ───"
+    "mednafen_pce|Beetle PCE — PCE/TG-16/SuperGrafx"
+    "mednafen_pce_fast|Beetle PCE Fast — PCE CD/TG-CD"
+    "mednafen_pcfx|Beetle PC-FX — PC-FX"
+    "mednafen_supergrafx|Beetle SuperGrafx"
+    "np2kai|Neko Project II Kai — NEC PC-9800"
+    "_HDR_SNK|─── SNK ───"
+    "mednafen_ngp|Beetle NeoPop — NGP/NGPC"
+    "fbneo|FinalBurn Neo — Arcade/Neo Geo/Neo Geo CD"
+    "neocd|NeoCD — Neo Geo CD (dedicated)"
+    "_HDR_ARCADE|─── Arcade / MAME ───"
+    "mame|MAME — current (Archimedes, Model2/3, LCDs, etc.)"
+    "mame2003_plus|MAME 2003-Plus — arcade (post-2003 sets)"
+    "mame2010|MAME 2010 — v0.139 (deeper BIOS fallback)"
+    "_HDR_PORTABLE|─── Other handhelds / portables ───"
+    "mednafen_vb|Beetle VB — Virtual Boy"
+    "mednafen_wswan|Beetle WonderSwan — WS/WSC"
+    "potator|Potator — Watara Supervision"
+    "sameduck|SameDuck — Mega Duck"
+    "arduous|Arduous — Arduboy"
+    "_HDR_COMPUTERS|─── Home computers ───"
+    "fuse|Fuse — ZX Spectrum"
+    "81|EightyOne — ZX81"
+    "vice_x64|VICE x64 — Commodore 64"
+    "vice_x64sc|VICE x64sc — C64 (high accuracy, alt)"
+    "vice_xvic|VICE xvic — VIC-20"
+    "vice_xplus4|VICE xplus4 — Commodore Plus/4"
+    "puae|PUAE — Commodore Amiga"
+    "bluemsx|blueMSX — MSX/MSX2/Turbo R/Spectravideo/Coleco"
+    "cap32|Caprice32 — Amstrad CPC / GX4000"
+    "quasi88|Quasi88 — NEC PC-88 (alt)"
+    "x1|X1 — Sharp X1"
+    "px68k|PX68k — Sharp X68000"
+    "b2|B2 — BBC Micro / BBC Master"
+    "_HDR_CONSOLES_MISC|─── Other consoles ───"
+    "o2em|O2EM — Odyssey²/Videopac"
+    "vecx|VecX — GCE Vectrex"
+    "freechaf|FreeChaF — Fairchild Channel F"
+    "freeintv|FreeIntv — Mattel Intellivision"
+    "uzem|Uzem — Uzebox"
+    "opera|Opera — 3DO Interactive Multiplayer"
+    "amiarcadia|Amiarcadia — Emerson Arcadia 2001"
+    "jollycv|JollyCV — VTech CreatiVision"
+    "_HDR_FANTASY|─── Fantasy consoles / engines ───"
+    "retro8|Retro8 — PICO-8-compatible"
+    "tic80|TIC-80 — fantasy console"
+    "wasm4|WASM-4 — fantasy console"
+    "lowresnx|LowRes NX — fantasy console"
+    "lutro|Lutro — Lua game engine"
+    "easyrpg|EasyRPG — RPG Maker 2000/2003"
+    "_HDR_OTHER|─── Other ───"
+    "scummvm|ScummVM — point-and-click adventures"
+    "dosbox_pure|DOSBox Pure — DOS (libretro fallback)"
+)
+
+SELECTIONS_CACHE="$BASE/.setup-selections.cfg"
+
+detect_tui_tool() {
+    if command -v whiptail >/dev/null 2>&1; then
+        TUI_TOOL="whiptail"
+    else
+        TUI_TOOL=""
+    fi
+}
+
+# Detect package manager for auto-installing whiptail when missing.
+# Sets PKG_INSTALL_CMD (array — runnable command) on mutable distros,
+# or PKG_MANUAL_HINT (string) on immutable distros where auto-install
+# isn't safe (rpm-ostree systems, SteamOS with read-only /usr).
+detect_pkg_manager() {
+    PKG_INSTALL_CMD=()
+    PKG_MANUAL_HINT=""
+
+    # Immutable systems first — these need manual handling
+    if [[ -e /run/ostree-booted ]] && command -v rpm-ostree >/dev/null 2>&1; then
+        PKG_MANUAL_HINT="Your system is immutable (rpm-ostree — e.g. Bazzite, Silverblue, Kinoite).
+   Install with:
+     ${CYAN}sudo rpm-ostree install newt${NC}
+   Then reboot and re-run this installer."
+        return
+    fi
+    if [[ -f /etc/os-release ]] && grep -qiE '^ID=.*steamos' /etc/os-release; then
+        PKG_MANUAL_HINT="SteamOS has a read-only /usr. Disable it first:
+     ${CYAN}sudo steamos-readonly disable${NC}
+     ${CYAN}sudo pacman -Sy libnewt${NC}
+     ${CYAN}sudo steamos-readonly enable${NC}
+   Then re-run this installer."
+        return
+    fi
+
+    # Mutable systems — pick the package manager
+    if command -v apt-get >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo apt-get install -y whiptail)
+    elif command -v dnf >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo dnf install -y newt)
+    elif command -v pacman >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo pacman -S --noconfirm libnewt)
+    elif command -v zypper >/dev/null 2>&1; then
+        PKG_INSTALL_CMD=(sudo zypper install -y newt)
+    fi
+}
+
+load_selections_cache() {
+    [[ -f "$SELECTIONS_CACHE" ]] || return 0
+    local key val
+    while IFS='=' read -r key val; do
+        [[ -z "$key" || "$key" == "#"* ]] && continue
+        case "$key" in
+            EMU_*) SELECTED_EMULATORS["${key#EMU_}"]="$val" ;;
+            CORE_*) SELECTED_CORES["${key#CORE_}"]="$val" ;;
+        esac
+    done < "$SELECTIONS_CACHE"
+}
+
+save_selections_cache() {
+    # Ensure $BASE exists — TUI runs before STEP 1's mkdir, so on a fresh install
+    # the directory hasn't been created yet
+    mkdir -p "$BASE" 2>/dev/null || true
+    {
+        echo "# Portable-ES-DE component selections"
+        echo "# Format: EMU_<key>=0|1 or CORE_<key>=0|1"
+        local k
+        for k in "${!SELECTED_EMULATORS[@]}"; do echo "EMU_${k}=${SELECTED_EMULATORS[$k]}"; done
+        for k in "${!SELECTED_CORES[@]}"; do echo "CORE_${k}=${SELECTED_CORES[$k]}"; done
+    } > "$SELECTIONS_CACHE"
+}
+
+tui_checklist() {
+    local title="$1" backtitle="$2"; shift 2
+    local listheight=$(( WT_H_TALL - 8 ))
+    local args=("--title" "$title" "--backtitle" "$backtitle" "--separate-output"
+                "--checklist" "SPACE = toggle, TAB = buttons, ENTER = confirm."
+                "$WT_H_TALL" "$WT_W" "$listheight" "$@")
+    "$TUI_TOOL" "${args[@]}" 3>&1 1>&2 2>&3
+}
+
+tui_menu_full_or_custom() {
+    "$TUI_TOOL" --title "Portable ES-DE for Linux — Component Selection" \
+            --backtitle "Setup will download emulators and libretro cores." \
+            --menu "Choose installation mode:" "$WT_H" "$WT_W" 4 \
+            "1" "Full install (recommended) — every emulator + core, ~3 GB" \
+            "2" "Custom — pick which emulators and cores to install" \
+            3>&1 1>&2 2>&3
+}
+
+tui_select_components() {
+    if [[ ! -t 0 || ! -t 1 ]]; then return 0; fi
+    # whiptail is guaranteed present by ensure_whiptail bootstrap at script start
+    TUI_TOOL="whiptail"
+    load_selections_cache
+    local choice
+    choice=$(tui_menu_full_or_custom) || { echo "Aborted."; exit 0; }
+    if [[ "$choice" != "2" ]]; then
+        rm -f "$SELECTIONS_CACHE"
+        SELECTED_EMULATORS=()
+        SELECTED_CORES=()
+        return 0
+    fi
+    local args=() entry key desc state selections
+    for entry in "${EMULATOR_CHECKLIST[@]}"; do
+        key="${entry%%|*}"; desc="${entry#*|}"
+        state="ON"
+        [[ "${SELECTED_EMULATORS[$key]:-1}" == "0" ]] && state="OFF"
+        args+=("$key" "$desc" "$state")
+    done
+    selections=$(tui_checklist "Standalone Emulators" "Custom — Screen 1 of 2" "${args[@]}") \
+        || { echo "Aborted."; exit 0; }
+    SELECTED_EMULATORS=()
+    for entry in "${EMULATOR_CHECKLIST[@]}"; do SELECTED_EMULATORS["${entry%%|*}"]=0; done
+    while IFS= read -r key; do
+        [[ -z "$key" ]] && continue
+        SELECTED_EMULATORS["$key"]=1
+    done <<< "$selections"
+
+    # If RetroArch was deselected, no libretro cores can run — skip core picker entirely
+    if [[ "${SELECTED_EMULATORS[retroarch]:-0}" != "1" ]]; then
+        SELECTED_CORES=()
+        for entry in "${CORE_CHECKLIST[@]}"; do
+            key="${entry%%|*}"
+            [[ "$key" == _HDR_* ]] && continue
+            SELECTED_CORES["$key"]=0
+        done
+        wt_msg "RetroArch deselected" \
+"RetroArch was not selected on the previous screen.
+
+Skipping the libretro cores picker — no cores will be installed (they all require RetroArch to run)."
+        save_selections_cache
+        return 0
+    fi
+
+    args=()
+    for entry in "${CORE_CHECKLIST[@]}"; do
+        key="${entry%%|*}"; desc="${entry#*|}"
+        if [[ "$key" == _HDR_* ]]; then
+            args+=("$key" "$desc" "OFF")
+        else
+            state="ON"
+            [[ "${SELECTED_CORES[$key]:-1}" == "0" ]] && state="OFF"
+            args+=("$key" "$desc" "$state")
+        fi
+    done
+    selections=$(tui_checklist "RetroArch Libretro Cores" "Custom — Screen 2 of 2 — ↑/↓ to scroll, SPACE to toggle" "${args[@]}") \
+        || { echo "Aborted."; exit 0; }
+    SELECTED_CORES=()
+    for entry in "${CORE_CHECKLIST[@]}"; do
+        key="${entry%%|*}"
+        [[ "$key" == _HDR_* ]] && continue
+        SELECTED_CORES["$key"]=0
+    done
+    while IFS= read -r key; do
+        [[ -z "$key" || "$key" == _HDR_* ]] && continue
+        SELECTED_CORES["$key"]=1
+    done <<< "$selections"
+
+    local any_core=0
+    for key in "${!SELECTED_CORES[@]}"; do
+        [[ "${SELECTED_CORES[$key]}" == "1" ]] && { any_core=1; break; }
+    done
+    if (( any_core == 1 )) && [[ "${SELECTED_EMULATORS[retroarch]:-1}" == "0" ]]; then
+        "$TUI_TOOL" --title "Notice" --msgbox \
+            "RetroArch was deselected but libretro cores were kept. Re-enabling RetroArch — cores require it." 10 70
+        SELECTED_EMULATORS[retroarch]=1
+    fi
+    save_selections_cache
+    local emu_on=0 core_on=0
+    for key in "${!SELECTED_EMULATORS[@]}"; do
+        [[ "${SELECTED_EMULATORS[$key]}" == "1" ]] && emu_on=$((emu_on + 1))
+    done
+    for key in "${!SELECTED_CORES[@]}"; do
+        [[ "${SELECTED_CORES[$key]}" == "1" ]] && core_on=$((core_on + 1))
+    done
+    echo ""
+    echo -e "${CYAN}Selection:${NC} $emu_on standalone emulators + $core_on libretro cores."
+    echo -e "${CYAN}Cached at:${NC} $SELECTIONS_CACHE (delete to reset)"
+    echo ""
+}
+
+emu_selected() { [[ "${SELECTED_EMULATORS[$1]:-1}" == "1" ]]; }
+core_selected() { [[ "${SELECTED_CORES[$1]:-1}" == "1" ]]; }
+
+tui_select_components
 
 # ── Theme selection (ask upfront so user can walk away during downloads) ──
 EXISTING_THEMES=0
@@ -87,27 +557,24 @@ if ((EXISTING_THEMES > 0)); then
     THEME_NAME=""
     THEME_SKIP_REASON="already installed"
 else
-    echo "Choose a default theme (you can always change or add more later"
-    echo "via ES-DE's built-in Theme Downloader):"
-    echo ""
-    echo -e "    ${BOLD}1)${NC} Slick Remixed     — Refined Slick remake (Weestuarty)"
-    echo -e "    ${BOLD}2)${NC} Carbon            — Classic clean look (RetroPie heritage)"
-    echo -e "    ${BOLD}3)${NC} Art Book Next     — Coffee-table-book style, polished"
-    echo -e "    ${BOLD}4)${NC} IISU Interpreted  — Clean port of the upcoming iiSU UI"
-    echo -e "    ${BOLD}5)${NC} Linear (ES-DE default) — Skip download, use built-in theme"
-    echo -e "    ${BOLD}6)${NC} Meringue          — Soft, light pastel theme"
-    echo -e "    ${BOLD}7)${NC} Slate (ES-DE legacy) — Skip download, use built-in legacy theme"
-    echo ""
-    read -rp "  Theme [1-7] (default: 1): " THEME_CHOICE
+    THEME_CHOICE=$(wt_menu "Default Theme" \
+"Choose a default theme.
+
+You can always change or add more later via ES-DE's built-in Theme Downloader." \
+        "1" "Art Book Next     — Coffee-table-book style, polished" \
+        "2" "Carbon            — Classic clean look (RetroPie heritage)" \
+        "3" "IISU Interpreted  — Clean port of the upcoming iiSU UI" \
+        "4" "Linear            — ES-DE built-in, no download" \
+        "5" "Meringue          — Soft, light pastel theme" \
+        "6" "Slick Remixed     — Refined Slick remake (Weestuarty)") || THEME_CHOICE="1"
     THEME_CHOICE="${THEME_CHOICE:-1}"
 
     case "$THEME_CHOICE" in
-        1)
-            # Weestuarty's slick-es-de is the maintained "Slick Remixed" port
-            THEME_NAME="slick-es-de"
-            THEME_REPO="https://github.com/Weestuarty/slick-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Slick Remixed"
-            THEME_ZIPDIR="slick-es-de-main"
+        1|*)
+            THEME_NAME="art-book-next-es-de"
+            THEME_REPO="https://github.com/anthonycaccese/art-book-next-es-de/archive/refs/heads/main.zip"
+            THEME_LABEL="Art Book Next"
+            THEME_ZIPDIR="art-book-next-es-de-main"
             ;;
         2)
             THEME_NAME="carbon-es-de"
@@ -116,32 +583,28 @@ else
             THEME_ZIPDIR="carbon-es-de-main"
             ;;
         3)
-            THEME_NAME="art-book-next-es-de"
-            THEME_REPO="https://github.com/anthonycaccese/art-book-next-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Art Book Next"
-            THEME_ZIPDIR="art-book-next-es-de-main"
-            ;;
-        4)
             THEME_NAME="iisu-interpreted-es-de"
             THEME_REPO="https://github.com/VictorUnlocked/iisu-interpreted-es-de/archive/refs/heads/main.zip"
             THEME_LABEL="IISU Interpreted"
             THEME_ZIPDIR="iisu-interpreted-es-de-main"
             ;;
-        5)
+        4)
             # Linear is ES-DE's built-in default theme — no download needed
             THEME_NAME=""
             THEME_LABEL="Linear (ES-DE default, built-in)"
             ;;
-        6)
+        5)
             THEME_NAME="meringue-es-de"
             THEME_REPO="https://github.com/kthod861/meringue-es-de/archive/refs/heads/main.zip"
             THEME_LABEL="Meringue"
             THEME_ZIPDIR="meringue-es-de-main"
             ;;
-        7|*)
-            # Force the legacy Slate theme — explicitly set so we don't fall back to Linear
-            THEME_NAME="slate-es-de"
-            THEME_LABEL="Slate (legacy, built-in)"
+        6)
+            # Weestuarty's slick-es-de is the maintained "Slick Remixed" port
+            THEME_NAME="slick-es-de"
+            THEME_REPO="https://github.com/Weestuarty/slick-es-de/archive/refs/heads/main.zip"
+            THEME_LABEL="Slick Remixed"
+            THEME_ZIPDIR="slick-es-de-main"
             ;;
     esac
     echo ""
@@ -158,8 +621,16 @@ echo "  You can add as many as you like. Leave blank when done."
 echo ""
 
 while true; do
-    [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && PROMPT="Path" || PROMPT="Another path"
-    read -rp "  $PROMPT (blank to continue): " RETROBAT_INPUT
+    [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && PROMPT_LABEL="Path" || PROMPT_LABEL="Another path"
+    RETROBAT_INPUT=$(wt_input "Import RetroBat / ROM Pack" \
+"$PROMPT_LABEL to import (leave blank to continue past this prompt).
+
+Accepts either:
+ • a full RetroBat folder (containing 'roms' subfolder)
+ • a standalone ROM pack folder (e.g. a single system folder like 'dreamcast/')
+
+You can add as many paths as you like, one at a time." \
+        "") || RETROBAT_INPUT=""
 
     [[ -z "$RETROBAT_INPUT" ]] && break
 
@@ -167,7 +638,7 @@ while true; do
     RETROBAT_INPUT="$(realpath -m "$RETROBAT_INPUT")"
 
     if [[ ! -d "$RETROBAT_INPUT" ]]; then
-        echo -e "   ${YELLOW}⚠${NC} Directory not found: $RETROBAT_INPUT — skipping"
+        wt_msg "Path not found" "Directory not found:\n\n$RETROBAT_INPUT\n\nSkipping this entry."
     elif [[ -d "$RETROBAT_INPUT/roms" ]]; then
         # Full RetroBat install — roms subfolder exists
         RETROBAT_PATHS+=("$RETROBAT_INPUT")
@@ -199,15 +670,13 @@ while true; do
 done
 
 if [[ ${#RETROBAT_PATHS[@]} -gt 0 ]]; then
-    echo ""
     # ── Cut or copy? ──
     RETROBAT_MOVE=""
-    echo "  How should files be transferred?"
-    echo -e "    ${BOLD}C)${NC} Copy  — keep originals (safe, uses extra space)"
-    echo -e "    ${BOLD}X)${NC} Cut   — move files as they're imported (no extra space needed)"
-    echo ""
-    read -rp "  [C/x]: " MOVE_CHOICE
-    [[ "${MOVE_CHOICE,,}" == "x" ]] && RETROBAT_MOVE="yes"
+    MOVE_CHOICE=$(wt_menu "Transfer mode" \
+"How should files be transferred from the source(s) to the bundle?" \
+        "copy" "Keep originals (safe, uses extra disk space)" \
+        "cut"  "Move files as they're imported (no extra space needed)") || MOVE_CHOICE="copy"
+    [[ "$MOVE_CHOICE" == "cut" ]] && RETROBAT_MOVE="yes"
     [[ "$RETROBAT_MOVE" == "yes" ]] \
         && echo -e "   ${GREEN}✓${NC} Cut mode — files will be moved, not copied" \
         || echo -e "   ${GREEN}✓${NC} Copy mode — originals will be kept"
@@ -216,15 +685,14 @@ fi
 echo ""
 
 # ── Internal resolution ──
-echo "Emulator internal resolution (affects N64, GC/Wii, PS1, PS2, Wii U):"
-echo "  Upscales the rendered image — higher = sharper but needs more GPU power."
-echo ""
-echo -e "    ${BOLD}1)${NC} Native    — original hardware resolution (fastest)"
-echo -e "    ${BOLD}2)${NC} 1080p     — good for mid-range GPUs"
-echo -e "    ${BOLD}3)${NC} 1440p/2K  — recommended for modern GPUs (default)"
-echo -e "    ${BOLD}4)${NC} 4K        — very powerful GPU required"
-echo ""
-read -rp "  Resolution [1-4] (default: 3): " RES_CHOICE
+RES_CHOICE=$(wt_menu "Emulator Internal Resolution" \
+"Upscales the rendered image for N64, GameCube/Wii, PS1, PS2, and Wii U.
+
+Higher = sharper but needs more GPU power." \
+    "1" "Native    — original hardware resolution (fastest)" \
+    "2" "1080p     — good for mid-range GPUs" \
+    "3" "1440p/2K  — recommended for modern GPUs (default)" \
+    "4" "4K        — very powerful GPU required") || RES_CHOICE="3"
 RES_CHOICE="${RES_CHOICE:-3}"
 case "$RES_CHOICE" in
     1) RES_SCALE=1; RES_LABEL="Native" ;;
@@ -237,9 +705,12 @@ echo ""
 
 # ── Desktop shortcut ──
 CREATE_SHORTCUT=""
-echo "Create a desktop shortcut for ES-DE in your applications menu?"
-read -rp "  [Y/n]: " SHORTCUT_CHOICE
-[[ "${SHORTCUT_CHOICE,,}" != "n" ]] && CREATE_SHORTCUT="yes"
+if wt_yesno "Desktop Shortcut" \
+"Create a desktop shortcut for ES-DE in your applications menu?
+
+The shortcut will launch the portable ES-DE installed in this bundle."; then
+    CREATE_SHORTCUT="yes"
+fi
 echo ""
 
 # ── Preflight ──
@@ -504,6 +975,10 @@ download_cores() {
 
     while IFS= read -r core_name; do
         [[ -z "$core_name" ]] && continue
+        if ! core_selected "$core_name"; then
+            skipped=$((skipped + 1))
+            continue
+        fi
         local desc="${CORES[$core_name]}"
         printf "   %-30s %s" "$core_name" "$desc"
 
@@ -527,7 +1002,7 @@ download_cores() {
 # STEP 1: DIRECTORY STRUCTURE
 #=============================================================================
 STEP=1
-TOTAL_STEPS=17
+TOTAL_STEPS=20
 
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Creating directory structure..."
 
@@ -1530,15 +2005,20 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
 
   <!-- Arcade also benefits from %ROMPATH%/bios — many MAME parent BIOS sets
        (qsound_hle.zip, neogeo.zip etc.) live in ROMs/bios. Without this,
-       parent-set BIOS lookup fails on games like 19xx, cps2 etc. -->
+       parent-set BIOS lookup fails on games like 19xx, cps2 etc.
+       FBNeo is the default — its romset expectations are looser and more
+       forgiving with modern BIOS packs than MAME, so common arcade games
+       (Capcom CPS1/2/3, Neo Geo, Sega System 16, fighters, shmups) tend
+       to launch cleanly without curated BIOS. MAME (current and 2010)
+       remain as alt-emu choices for the games FBNeo doesn't cover. -->
   <system>
     <name>arcade</name>
     <fullname>Arcade</fullname>
     <path>%ROMPATH%/arcade</path>
     <extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="FB Neo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/arcade;%ROMPATH%/bios\""</command>
     <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/arcade;%ROMPATH%/bios\""</command>
-    <command label="FB Neo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
     <platform>arcade</platform>
     <theme>arcade</theme>
   </system>
@@ -1629,6 +2109,12 @@ sort_savestates_by_content_enable = "true"
 # ── Rewind ──
 rewind_enable = "false"
 
+# ── Core options ──
+# Enable per-game .opt overrides so users can dial back specific games that
+# misbehave on a non-default core setting (e.g. CPC titles unhappy with
+# cap32_model = "6128+") via the RA quick-menu "Save Game Overrides" path.
+game_specific_options = "true"
+
 # ── Notifications ──
 video_font_enable = "true"
 RACFG
@@ -1636,6 +2122,29 @@ RACFG
 ok "retroarch.cfg written → $BASE/.config/retroarch/retroarch.cfg"
 mkdir -p "${BASE}/Saves/screenshots"
 mkdir -p "${BASE}/Saves/logs"
+
+# ── Per-core option defaults ──
+# Caprice32 (Amstrad CPC + GX4000): default the emulated machine to CPC6128+
+# so .cpr cartridges (the Amstrad GX4000 / Plus-range carts) actually boot.
+# The cap32 core refuses to load a cartridge unless its model is set to
+# "6128+" — without this override every Plus-cart launch dies with
+# "Cartridge ERROR: Please select CPC6128+".
+#
+# The 6128+ machine is firmware-compatible with the standard 6128 (same
+# OS 3.1 / BASIC 1.1) so nearly all CPC disc games run identically. The
+# rare titles that misbehave on Plus firmware can be fixed per-game via
+# the RetroArch quick-menu → Options → Save Game Overrides path (enabled
+# by game_specific_options = "true" above).
+mkdir -p "$BASE/.config/retroarch/config/Caprice32"
+CAPRICE32_OPT="$BASE/.config/retroarch/config/Caprice32/Caprice32.opt"
+# Only write if absent — preserve user customisations on re-runs.
+if [[ ! -f "$CAPRICE32_OPT" ]]; then
+    cat > "$CAPRICE32_OPT" <<'CAP32OPT'
+cap32_model = "6128+"
+cap32_ram = "128"
+CAP32OPT
+    ok "Caprice32.opt written → cap32_model = \"6128+\" for GX4000/.cpr support"
+fi
 
 ok "Portable emulator wrappers written (HOME=$BASE handles config routing)"
 
@@ -1897,15 +2406,6 @@ apply_paths() {
 apply_theme
 apply_paths
 
-# Refresh BIOS-aware MAME alt-emulator routing. Idempotent and silent —
-# probes ROMs/bios/ for known system zips, classifies romset era, writes
-# or strips <alternativeEmulator> entries in gamelists so old-era BIOS
-# users land on the matching libretro core. Picks up any BIOS the user
-# added/removed/replaced since last launch.
-if [[ -x "$SCRIPT_DIR/refresh-mame-routing.sh" ]]; then
-    "$SCRIPT_DIR/refresh-mame-routing.sh" >/dev/null 2>&1 || true
-fi
-
 "$ESDE_BIN" --home "$SCRIPT_DIR" "$@"
 EXIT_CODE=$?
 
@@ -2119,6 +2619,7 @@ ES-DE-Portable/
 ├── launch.sh                   ← Run this to play
 ├── update.sh                   ← Update emulators and cores
 ├── convert-retrobat.sh         ← Import RetroBat collections anytime
+├── verify-bios.sh              ← Check BIOS files (auto-runs after imports)
 ├── ES-DE/
 │   ├── custom_systems/         ← Hack system definitions (snesh, nesh, etc.)
 │   ├── settings/               ← ES-DE configuration
@@ -2281,10 +2782,14 @@ download_esde "$BASE" || true
 #=============================================================================
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading RetroArch..."
-download_direct \
-    "https://github.com/hizzlekizzle/RetroArch-AppImage/releases/download/Linux_LTS_Nightlies/RetroArch-Linux-x86_64-Nightly.AppImage" \
-    "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage" \
-    "RetroArch" || true
+if emu_selected retroarch; then
+    download_direct \
+        "https://github.com/hizzlekizzle/RetroArch-AppImage/releases/download/Linux_LTS_Nightlies/RetroArch-Linux-x86_64-Nightly.AppImage" \
+        "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage" \
+        "RetroArch" || true
+else
+    info "Skipped retroarch (deselected) — no libretro cores will be downloaded"
+fi
 
 #=============================================================================
 # STEP 9: DOWNLOAD RETROARCH CORES
@@ -2292,346 +2797,351 @@ download_direct \
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading RetroArch cores..."
 echo ""
-download_cores "$EMUS/retroarch-cores"
-
-#=============================================================================
-# STEP 10: DOWNLOAD STANDALONE EMULATORS
-#=============================================================================
-STEP=$((STEP + 1))
-echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading standalone emulators..."
-echo ""
-
-DOWNLOAD_ERRORS=0
-
-echo "   ── RPCS3 (PS3) ──"
-download_rpcs3 "$EMUS" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── PCSX2 (PS2) ──"
-github_appimage "PCSX2/pcsx2" \
-    "linux-appimage-x64.*\.AppImage$" \
-    "$EMUS/pcsx2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── DuckStation (PS1) ──"
-github_appimage "stenzek/duckstation" \
-    "DuckStation.*x64.*\.AppImage$" \
-    "$EMUS/DuckStation-x64.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── PPSSPP (PSP) ──"
-github_appimage "hrydgard/ppsspp" \
-    "PPSSPP.*x86_64.*\.AppImage$" \
-    "$EMUS/PPSSPP-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── melonDS (DS) ──"
-github_appimage "pkgforge-dev/melonDS-AppImage-Enhanced" \
-    "melonDS.*x86_64.*\.AppImage$" \
-    "$EMUS/melonDS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── Dolphin (GC/Wii) ──"
-github_appimage "pkgforge-dev/Dolphin-emu-AppImage" \
-    "Dolphin_Emulator.*x86_64.*\.AppImage$" \
-    "$EMUS/dolphin-emu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── Cemu (Wii U) ──"
-github_appimage "cemu-project/Cemu" \
-    "Cemu.*\.AppImage$" \
-    "$EMUS/Cemu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
-
-echo "   ── Azahar (3DS) ──"
-if compgen -G "$EMUS/azahar*.AppImage" > /dev/null 2>&1; then
-    ok "Azahar already exists, skipping"
+if emu_selected retroarch; then
+    download_cores "$EMUS/retroarch-cores"
 else
-    AZAHAR_URL=$(curl -sfL "https://api.github.com/repos/azahar-emu/azahar/releases?per_page=5" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*azahar\.AppImage(?!-)' \
-        | head -1) || true
-    if [[ -n "$AZAHAR_URL" ]]; then
-        info "Downloading Azahar ..."
-        if curl -#fL -o "$EMUS/azahar.AppImage" "$AZAHAR_URL"; then
-            chmod +x "$EMUS/azahar.AppImage"
-            ok "Azahar downloaded"
-        else
-            fail "Azahar download failed"
-            rm -f "$EMUS/azahar.AppImage"
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-        fi
-    else
-        fail "Could not find Azahar AppImage"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-    fi
-fi
-echo ""
-
-echo "   ── xemu (Xbox) ──"
-github_appimage "xemu-project/xemu" \
-    "xemu-[0-9].*x86_64\.AppImage$" \
-    "$EMUS/xemu-latest.AppImage" || {
-        github_appimage "xemu-project/xemu" \
-            "xemu.*x86_64\.AppImage$" \
-            "$EMUS/xemu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-    } || true
-echo ""
-
-echo "   ── Xenia Canary (Xbox 360) ──"
-if [[ -f "$EMUS/xenia_canary" ]]; then
-    ok "Xenia Canary already exists, skipping"
-else
-    XENIA_URL="https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_linux.tar.xz"
-    info "Downloading Xenia Canary (official build) ..."
-    XENIA_TMPDIR="$EMUS/xenia_tmp"
-    mkdir -p "$XENIA_TMPDIR"
-    if curl -#fL "$XENIA_URL" | tar -xJ -C "$XENIA_TMPDIR" 2>/dev/null; then
-        # Locate the xenia_canary binary (usually deep inside build/...)
-        XENIA_BIN=$(find "$XENIA_TMPDIR" -type f -name xenia_canary -executable 2>/dev/null | head -1)
-        if [[ -n "$XENIA_BIN" ]]; then
-            mv "$XENIA_BIN" "$EMUS/xenia_canary"
-            chmod +x "$EMUS/xenia_canary"
-            ok "Xenia Canary extracted"
-        else
-            fail "Could not find xenia_canary binary inside archive"
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-        fi
-        rm -rf "$XENIA_TMPDIR"
-    else
-        fail "Xenia Canary download failed"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-        rm -rf "$XENIA_TMPDIR"
-    fi
+    info "Skipped (RetroArch is deselected)"
 fi
 
-echo "   ── Ryubing (Nintendo Switch) ──"
-# Ryubing is hosted on a self-managed Forgejo instance, not GitHub
-# Downloads from git.ryujinx.app via their GitHub mirror releases
-if compgen -G "$EMUS/ryujinx*.AppImage" > /dev/null 2>&1; then
-    ok "Ryubing already exists, skipping"
-else
-    info "Downloading Ryubing ..."
-    # Try GitHub mirror first
-    RYUBING_URL=$(curl -sfL "https://api.github.com/repos/Ryubing/Ryujinx/releases?per_page=5" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -P "x64\.AppImage$" \
-        | head -1) || true
-    # Fallback: direct download from ryujinx.app
-    if [[ -z "$RYUBING_URL" ]]; then
-        RYUBING_URL=$(curl -sfL "https://git.ryujinx.app/api/v1/repos/ryubing/ryujinx/releases?limit=5" \
+#=============================================================================
+# Emulator install functions
+# Used by both the main install flow below AND by the bundle's
+# install-emulator.sh (a heredoc copy of these functions for on-demand
+# installation when convert-retrobat.sh imports a system whose emulator
+# isn't yet installed).
+#=============================================================================
+
+install_retroarch() {
+    download_direct \
+        "https://github.com/hizzlekizzle/RetroArch-AppImage/releases/download/Linux_LTS_Nightlies/RetroArch-Linux-x86_64-Nightly.AppImage" \
+        "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage" \
+        "RetroArch" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_rpcs3() {
+    download_rpcs3 "$EMUS" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_pcsx2() {
+    github_appimage "PCSX2/pcsx2" \
+        "linux-appimage-x64.*\.AppImage$" \
+        "$EMUS/pcsx2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_duckstation() {
+    github_appimage "stenzek/duckstation" \
+        "DuckStation.*x64.*\.AppImage$" \
+        "$EMUS/DuckStation-x64.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_ppsspp() {
+    github_appimage "hrydgard/ppsspp" \
+        "PPSSPP.*x86_64.*\.AppImage$" \
+        "$EMUS/PPSSPP-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_melonds() {
+    github_appimage "pkgforge-dev/melonDS-AppImage-Enhanced" \
+        "melonDS.*x86_64.*\.AppImage$" \
+        "$EMUS/melonDS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_dolphin() {
+    github_appimage "pkgforge-dev/Dolphin-emu-AppImage" \
+        "Dolphin_Emulator.*x86_64.*\.AppImage$" \
+        "$EMUS/dolphin-emu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_cemu() {
+    github_appimage "cemu-project/Cemu" \
+        "Cemu.*\.AppImage$" \
+        "$EMUS/Cemu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_azahar() {
+    if compgen -G "$EMUS/azahar*.AppImage" > /dev/null 2>&1; then
+        ok "Azahar already exists, skipping"
+    else
+        AZAHAR_URL=$(curl -sfL "https://api.github.com/repos/azahar-emu/azahar/releases?per_page=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*azahar\.AppImage(?!-)' \
+            | head -1) || true
+        if [[ -n "$AZAHAR_URL" ]]; then
+            info "Downloading Azahar ..."
+            if curl -#fL -o "$EMUS/azahar.AppImage" "$AZAHAR_URL"; then
+                chmod +x "$EMUS/azahar.AppImage"
+                ok "Azahar downloaded"
+            else
+                fail "Azahar download failed"
+                rm -f "$EMUS/azahar.AppImage"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            fail "Could not find Azahar AppImage"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install_xemu() {
+    github_appimage "xemu-project/xemu" \
+        "xemu-[0-9].*x86_64\.AppImage$" \
+        "$EMUS/xemu-latest.AppImage" || {
+            github_appimage "xemu-project/xemu" \
+                "xemu.*x86_64\.AppImage$" \
+                "$EMUS/xemu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        } || true
+}
+
+install_xenia() {
+    if [[ -f "$EMUS/xenia_canary" ]]; then
+        ok "Xenia Canary already exists, skipping"
+    else
+        XENIA_URL="https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_linux.tar.xz"
+        info "Downloading Xenia Canary (official build) ..."
+        XENIA_TMPDIR="$EMUS/xenia_tmp"
+        mkdir -p "$XENIA_TMPDIR"
+        if curl -#fL "$XENIA_URL" | tar -xJ -C "$XENIA_TMPDIR" 2>/dev/null; then
+            # Locate the xenia_canary binary (usually deep inside build/...)
+            XENIA_BIN=$(find "$XENIA_TMPDIR" -type f -name xenia_canary -executable 2>/dev/null | head -1)
+            if [[ -n "$XENIA_BIN" ]]; then
+                mv "$XENIA_BIN" "$EMUS/xenia_canary"
+                chmod +x "$EMUS/xenia_canary"
+                ok "Xenia Canary extracted"
+            else
+                fail "Could not find xenia_canary binary inside archive"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+            rm -rf "$XENIA_TMPDIR"
+        else
+            fail "Xenia Canary download failed"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            rm -rf "$XENIA_TMPDIR"
+        fi
+    fi
+}
+
+install_ryujinx() {
+    # Ryubing is hosted on a self-managed Forgejo instance, not GitHub
+    # Downloads from git.ryujinx.app via their GitHub mirror releases
+    if compgen -G "$EMUS/ryujinx*.AppImage" > /dev/null 2>&1; then
+        ok "Ryubing already exists, skipping"
+    else
+        info "Downloading Ryubing ..."
+        # Try GitHub mirror first
+        RYUBING_URL=$(curl -sfL "https://api.github.com/repos/Ryubing/Ryujinx/releases?per_page=5" \
             | grep -oP '"browser_download_url":\s*"\K[^"]*' \
             | grep -P "x64\.AppImage$" \
             | head -1) || true
-    fi
-    if [[ -n "$RYUBING_URL" ]]; then
-        RYUBING_FNAME=$(basename "$RYUBING_URL")
-        if curl -#fL -o "$EMUS/$RYUBING_FNAME" "$RYUBING_URL"; then
-            chmod +x "$EMUS/$RYUBING_FNAME"
-            ok "Ryubing downloaded: $RYUBING_FNAME"
-        else
-            fail "Ryubing download failed"
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-            rm -f "$EMUS/$RYUBING_FNAME"
+        # Fallback: direct download from ryujinx.app
+        if [[ -z "$RYUBING_URL" ]]; then
+            RYUBING_URL=$(curl -sfL "https://git.ryujinx.app/api/v1/repos/ryubing/ryujinx/releases?limit=5" \
+                | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+                | grep -P "x64\.AppImage$" \
+                | head -1) || true
         fi
-    else
-        warn "Ryubing URL not found — download manually from https://git.ryujinx.app/ryubing/ryujinx"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        if [[ -n "$RYUBING_URL" ]]; then
+            RYUBING_FNAME=$(basename "$RYUBING_URL")
+            if curl -#fL -o "$EMUS/$RYUBING_FNAME" "$RYUBING_URL"; then
+                chmod +x "$EMUS/$RYUBING_FNAME"
+                ok "Ryubing downloaded: $RYUBING_FNAME"
+            else
+                fail "Ryubing download failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                rm -f "$EMUS/$RYUBING_FNAME"
+            fi
+        else
+            warn "Ryubing URL not found — download manually from https://git.ryujinx.app/ryubing/ryujinx"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
     fi
-fi
-echo ""
+}
 
-echo "   ── Eden (Nintendo Switch) ──"
-# Eden is hosted on git.eden-emu.dev (Gitea instance, not GitHub)
-# Stable releases: git.eden-emu.dev/eden-emu/eden
-# Nightly builds:  git.eden-emu.dev/eden-ci/nightly
-if compgen -G "$EMUS/Eden*.AppImage" > /dev/null 2>&1; then
-    ok "Eden already exists, skipping"
-else
-    info "Downloading Eden ..."
-    # Try stable release first via Gitea API
-    EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=5&token=" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
-        | grep -iv "arm\|zsync\|deb\|room" \
-        | head -1) || true
-    # Fallback: nightly builds
-    if [[ -z "$EDEN_URL" ]]; then
-        EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases?limit=3" \
+install_eden() {
+    # Eden is hosted on git.eden-emu.dev (Gitea instance, not GitHub)
+    # Stable releases: git.eden-emu.dev/eden-emu/eden
+    # Nightly builds:  git.eden-emu.dev/eden-ci/nightly
+    if compgen -G "$EMUS/Eden*.AppImage" > /dev/null 2>&1; then
+        ok "Eden already exists, skipping"
+    else
+        info "Downloading Eden ..."
+        # Try stable release first via Gitea API
+        EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=5&token=" \
             | grep -oP '"browser_download_url":\s*"\K[^"]*' \
             | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
             | grep -iv "arm\|zsync\|deb\|room" \
             | head -1) || true
-    fi
-    if [[ -n "$EDEN_URL" ]]; then
-        EDEN_FNAME=$(basename "$EDEN_URL")
-        if curl -#fL -o "$EMUS/$EDEN_FNAME" "$EDEN_URL"; then
-            chmod +x "$EMUS/$EDEN_FNAME"
-            ok "Eden downloaded: $EDEN_FNAME"
-        else
-            fail "Eden download failed"
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-            rm -f "$EMUS/$EDEN_FNAME"
+        # Fallback: nightly builds
+        if [[ -z "$EDEN_URL" ]]; then
+            EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases?limit=3" \
+                | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+                | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
+                | grep -iv "arm\|zsync\|deb\|room" \
+                | head -1) || true
         fi
-    else
-        warn "Eden URL not found — download manually from https://git.eden-emu.dev/eden-emu/eden/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-    fi
-fi
-echo ""
-
-echo "   ── shadPS4 (PlayStation 4) ──"
-if [[ -f "$EMUS/shadps4" ]] || [[ -f "$EMUS/shadps4-qt" ]]; then
-    ok "shadPS4 already exists, skipping"
-else
-    # shadPS4 ships as tar.gz/zip for Linux — try Qt build first, then headless
-    # shadPS4 releases: shadps4-linux-sdl-*.zip containing Shadps4-sdl.AppImage
-    SHADPS4_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "shadps4-linux-sdl.*\.zip$|linux.*x86.?64.*\.(tar\.(gz|xz)|zip)$" \
-        | grep -iv "debug\|symbols\|arm\|qt" \
-        | grep -v "Pre-release" \
-        | head -1) || true
-    if [[ -n "$SHADPS4_URL" ]]; then
-        info "Downloading shadPS4 ..."
-        SHADPS4_TMPDIR=$(mktemp -d)
-        SHADPS4_FILE="$SHADPS4_TMPDIR/shadps4-dl"
-        if curl -#fL -o "$SHADPS4_FILE" "$SHADPS4_URL"; then
-            # Detect archive type by content, not extension
-            FILE_TYPE=$(file "$SHADPS4_FILE" | tr '[:upper:]' '[:lower:]')
-            if echo "$FILE_TYPE" | grep -q "zip"; then
-                unzip -qo "$SHADPS4_FILE" -d "$SHADPS4_TMPDIR/extract" 2>/dev/null || true
-            elif echo "$FILE_TYPE" | grep -q "xz\|lzma"; then
-                tar -xJf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+        if [[ -n "$EDEN_URL" ]]; then
+            EDEN_FNAME=$(basename "$EDEN_URL")
+            if curl -#fL -o "$EMUS/$EDEN_FNAME" "$EDEN_URL"; then
+                chmod +x "$EMUS/$EDEN_FNAME"
+                ok "Eden downloaded: $EDEN_FNAME"
             else
-                tar -xzf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+                fail "Eden download failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                rm -f "$EMUS/$EDEN_FNAME"
             fi
-            # Find the main shadPS4 executable (qt preferred over headless)
-            SHADPS4_BIN=$(find "$SHADPS4_TMPDIR" -type f \( -name "shadps4-qt" -o -name "shadps4" -o -iname "shadps4*.AppImage" -o -iname "Shadps4*.AppImage" \) 2>/dev/null | grep -v "\.so" | head -1)
-            if [[ -n "$SHADPS4_BIN" ]]; then
-                # Copy the binary and any sibling shared libs it needs
-                BIN_DIR=$(dirname "$SHADPS4_BIN")
-                cp "$SHADPS4_BIN" "$EMUS/shadps4"
-                chmod +x "$EMUS/shadps4"
-                # Copy .so files from same dir (shadPS4 bundles Qt libs)
-                find "$BIN_DIR" -maxdepth 1 -name "*.so*" -exec cp {} "$EMUS/" \; 2>/dev/null || true
-                find "$BIN_DIR" -maxdepth 1 -type d -exec cp -r {} "$EMUS/" \; 2>/dev/null || true
-                ok "shadPS4 downloaded"
+        else
+            warn "Eden URL not found — download manually from https://git.eden-emu.dev/eden-emu/eden/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install_shadps4() {
+    if [[ -f "$EMUS/shadps4" ]] || [[ -f "$EMUS/shadps4-qt" ]]; then
+        ok "shadPS4 already exists, skipping"
+    else
+        # shadPS4 ships as tar.gz/zip for Linux — try Qt build first, then headless
+        # shadPS4 releases: shadps4-linux-sdl-*.zip containing Shadps4-sdl.AppImage
+        SHADPS4_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "shadps4-linux-sdl.*\.zip$|linux.*x86.?64.*\.(tar\.(gz|xz)|zip)$" \
+            | grep -iv "debug\|symbols\|arm\|qt" \
+            | grep -v "Pre-release" \
+            | head -1) || true
+        if [[ -n "$SHADPS4_URL" ]]; then
+            info "Downloading shadPS4 ..."
+            SHADPS4_TMPDIR=$(mktemp -d)
+            SHADPS4_FILE="$SHADPS4_TMPDIR/shadps4-dl"
+            if curl -#fL -o "$SHADPS4_FILE" "$SHADPS4_URL"; then
+                # Detect archive type by content, not extension
+                FILE_TYPE=$(file "$SHADPS4_FILE" | tr '[:upper:]' '[:lower:]')
+                if echo "$FILE_TYPE" | grep -q "zip"; then
+                    unzip -qo "$SHADPS4_FILE" -d "$SHADPS4_TMPDIR/extract" 2>/dev/null || true
+                elif echo "$FILE_TYPE" | grep -q "xz\|lzma"; then
+                    tar -xJf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+                else
+                    tar -xzf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+                fi
+                # Find the main shadPS4 executable (qt preferred over headless)
+                SHADPS4_BIN=$(find "$SHADPS4_TMPDIR" -type f \( -name "shadps4-qt" -o -name "shadps4" -o -iname "shadps4*.AppImage" -o -iname "Shadps4*.AppImage" \) 2>/dev/null | grep -v "\.so" | head -1)
+                if [[ -n "$SHADPS4_BIN" ]]; then
+                    # Copy the binary and any sibling shared libs it needs
+                    BIN_DIR=$(dirname "$SHADPS4_BIN")
+                    cp "$SHADPS4_BIN" "$EMUS/shadps4"
+                    chmod +x "$EMUS/shadps4"
+                    # Copy .so files from same dir (shadPS4 bundles Qt libs)
+                    find "$BIN_DIR" -maxdepth 1 -name "*.so*" -exec cp {} "$EMUS/" \; 2>/dev/null || true
+                    find "$BIN_DIR" -maxdepth 1 -type d -exec cp -r {} "$EMUS/" \; 2>/dev/null || true
+                    ok "shadPS4 downloaded"
+                else
+                    fail "Could not find shadPS4 binary inside archive"
+                    DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                fi
             else
-                fail "Could not find shadPS4 binary inside archive"
+                fail "shadPS4 download failed"
                 DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
             fi
+            rm -rf "$SHADPS4_TMPDIR"
         else
-            fail "shadPS4 download failed"
+            warn "shadPS4 download URL not found — check https://github.com/shadps4-emu/shadPS4/releases"
             DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-        rm -rf "$SHADPS4_TMPDIR"
-    else
-        warn "shadPS4 download URL not found — check https://github.com/shadps4-emu/shadPS4/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
-fi
-echo ""
+}
 
-echo "   ── 86Box (Windows 9x / retro PC) ──"
-github_appimage "86Box/86Box" \
-    "86Box.*x86_64.*\.AppImage$" \
-    "$EMUS/86Box-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-echo ""
+install__86box() {
+    github_appimage "86Box/86Box" \
+        "86Box.*x86_64.*\.AppImage$" \
+        "$EMUS/86Box-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
 
-echo "   ── VPinball (Visual Pinball) ──"
-if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
-    ok "VPinball already exists, skipping"
-else
-    # vpinball releases: BGFX and GL are separate zips, each containing one binary
-    # plus shared support dirs (scripts/, shaders/, assets/, pinmame/, etc.)
-    # Real filename format: VPinballX_BGFX-10.8.1-3788-2151290-linux-x64-Release.zip
-    VPINBALL_TMP=$(mktemp -d)
-    VPINBALL_GOT=0
-    VPINBALL_COUNT_FILE=$(mktemp)
-    echo 0 > "$VPINBALL_COUNT_FILE"
-
-    # Fetch BGFX and GL zip URLs from the latest release only
-    VPINBALL_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=1"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"         | grep -iv "debug\|symbols") || true
-
-    if [[ -z "$VPINBALL_URLS" ]]; then
-        warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+install_vpinball() {
+    if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+        ok "VPinball already exists, skipping"
     else
-        # Download and extract each zip — VPinball zips contain a tar.gz inside
-        while IFS= read -r VPURL; do
-            [[ -z "$VPURL" ]] && continue
-            VPZIP=$(basename "$VPURL")
-            info "Downloading $VPZIP ..."
-            if curl -#fL -o "$VPINBALL_TMP/$VPZIP" "$VPURL"; then
-                # Step 1: unzip to get the tar.gz inside
-                unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP" 2>/dev/null || true
-                # Step 2: extract any tar.gz that came out of the zip
-                for TGZ in "$VPINBALL_TMP"/*.tar.gz "$VPINBALL_TMP"/*.tar.xz; do
-                    [[ -f "$TGZ" ]] || continue
-                    mkdir -p "$VPINBALL_TMP/extract"
-                    tar -xzf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null ||                     tar -xJf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null || true
-                    rm -f "$TGZ"
-                done
-                echo $(( $(cat "$VPINBALL_COUNT_FILE") + 1 )) > "$VPINBALL_COUNT_FILE"
-            else
-                warn "Failed to download $VPZIP"
-            fi
-        done <<< "$VPINBALL_URLS"
-        VPINBALL_GOT=$(cat "$VPINBALL_COUNT_FILE")
-        rm -f "$VPINBALL_COUNT_FILE"
+        # vpinball releases: BGFX and GL are separate zips, each containing one binary
+        # plus shared support dirs (scripts/, shaders/, assets/, pinmame/, etc.)
+        # Real filename format: VPinballX_BGFX-10.8.1-3788-2151290-linux-x64-Release.zip
+        VPINBALL_TMP=$(mktemp -d)
+        VPINBALL_GOT=0
+        VPINBALL_COUNT_FILE=$(mktemp)
+        echo 0 > "$VPINBALL_COUNT_FILE"
 
-        if [[ $VPINBALL_GOT -gt 0 ]]; then
-            # Copy binaries — search at any depth after extraction
-            for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
-                FOUND=$(find "$VPINBALL_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
-                if [[ -n "$FOUND" ]]; then
-                    cp "$FOUND" "$EMUS/$BIN"
-                    chmod +x "$EMUS/$BIN"
-                    ok "  Installed: $BIN"
+        # Fetch BGFX and GL zip URLs from the latest release only
+        VPINBALL_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=1"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"         | grep -iv "debug\|symbols") || true
+
+        if [[ -z "$VPINBALL_URLS" ]]; then
+            warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        else
+            # Download and extract each zip — VPinball zips contain a tar.gz inside
+            while IFS= read -r VPURL; do
+                [[ -z "$VPURL" ]] && continue
+                VPZIP=$(basename "$VPURL")
+                info "Downloading $VPZIP ..."
+                if curl -#fL -o "$VPINBALL_TMP/$VPZIP" "$VPURL"; then
+                    # Step 1: unzip to get the tar.gz inside
+                    unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP" 2>/dev/null || true
+                    # Step 2: extract any tar.gz that came out of the zip
+                    for TGZ in "$VPINBALL_TMP"/*.tar.gz "$VPINBALL_TMP"/*.tar.xz; do
+                        [[ -f "$TGZ" ]] || continue
+                        mkdir -p "$VPINBALL_TMP/extract"
+                        tar -xzf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null ||                     tar -xJf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null || true
+                        rm -f "$TGZ"
+                    done
+                    echo $(( $(cat "$VPINBALL_COUNT_FILE") + 1 )) > "$VPINBALL_COUNT_FILE"
+                else
+                    warn "Failed to download $VPZIP"
                 fi
-            done
-            # Copy all support subdirectories (scripts, shaders, assets, pinmame, etc.)
-            EXTRACT_ROOT="$VPINBALL_TMP/extract"
-            [[ ! -d "$EXTRACT_ROOT" ]] && EXTRACT_ROOT="$VPINBALL_TMP"
-            find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
-                DNAME=$(basename "$D")
-                # Skip the extract dir itself and temp root
-                [[ "$DNAME" == "extract" ]] && continue
-                [[ ! -d "$EMUS/$DNAME" ]] && mkdir -p "$EMUS/$DNAME"
-                cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null || true
-            done
-            ok "VPinball downloaded ($VPINBALL_GOT zip(s) extracted)"
-        else
-            fail "VPinball downloads all failed"
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            done <<< "$VPINBALL_URLS"
+            VPINBALL_GOT=$(cat "$VPINBALL_COUNT_FILE")
+            rm -f "$VPINBALL_COUNT_FILE"
+
+            if [[ $VPINBALL_GOT -gt 0 ]]; then
+                # Copy binaries — search at any depth after extraction
+                for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
+                    FOUND=$(find "$VPINBALL_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
+                    if [[ -n "$FOUND" ]]; then
+                        cp "$FOUND" "$EMUS/$BIN"
+                        chmod +x "$EMUS/$BIN"
+                        ok "  Installed: $BIN"
+                    fi
+                done
+                # Copy all support subdirectories (scripts, shaders, assets, pinmame, etc.)
+                EXTRACT_ROOT="$VPINBALL_TMP/extract"
+                [[ ! -d "$EXTRACT_ROOT" ]] && EXTRACT_ROOT="$VPINBALL_TMP"
+                find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
+                    DNAME=$(basename "$D")
+                    # Skip the extract dir itself and temp root
+                    [[ "$DNAME" == "extract" ]] && continue
+                    [[ ! -d "$EMUS/$DNAME" ]] && mkdir -p "$EMUS/$DNAME"
+                    cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null || true
+                done
+                ok "VPinball downloaded ($VPINBALL_GOT zip(s) extracted)"
+            else
+                fail "VPinball downloads all failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
         fi
+        rm -rf "$VPINBALL_TMP"
     fi
-    rm -rf "$VPINBALL_TMP"
-fi
-echo ""
+    echo ""
 
-#=============================================================================
-# STEP 10b: DOWNLOAD ADDITIONAL STANDALONE EMULATORS
-#=============================================================================
-STEP=$((STEP + 1))
-echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading additional standalone emulators..."
+}
 
-# ── DOSBox-X (best DOS emulation) ──
-# Official upstream ships RPM/Flatpak only; use pkgforge-dev community AppImage
-echo "   ── DOSBox-X ──"
-if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1; then
-    ok "DOSBox-X already exists, skipping"
-else
-    DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/DOSBox-X-AppImage/releases?per_page=3" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "\.AppImage$" \
-        | grep -iv "arm\|aarch" | head -1) || true
-    if [[ -n "$DOSBOXX_URL" ]]; then
-        info "Downloading DOSBox-X..."
-        FNAME=$(basename "$DOSBOXX_URL")
-        if curl -#fL -o "$EMUS/$FNAME" "$DOSBOXX_URL"; then
-            chmod +x "$EMUS/$FNAME"
-            cat > "$EMUS/dosbox-x-portable.sh" << 'DBXWRAP'
+install_dosbox_x() {
+    if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1; then
+        ok "DOSBox-X already exists, skipping"
+    else
+        DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/DOSBox-X-AppImage/releases?per_page=3" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "\.AppImage$" \
+            | grep -iv "arm\|aarch" | head -1) || true
+        if [[ -n "$DOSBOXX_URL" ]]; then
+            info "Downloading DOSBox-X..."
+            FNAME=$(basename "$DOSBOXX_URL")
+            if curl -#fL -o "$EMUS/$FNAME" "$DOSBOXX_URL"; then
+                chmod +x "$EMUS/$FNAME"
+                cat > "$EMUS/dosbox-x-portable.sh" << 'DBXWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -2640,31 +3150,32 @@ export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x*.AppImage' | head -1)
 exec "$BIN" "$@"
 DBXWRAP
-            chmod +x "$EMUS/dosbox-x-portable.sh"
-            ok "DOSBox-X downloaded"
+                chmod +x "$EMUS/dosbox-x-portable.sh"
+                ok "DOSBox-X downloaded"
+            else
+                fail "DOSBox-X download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
         else
-            fail "DOSBox-X download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            warn "DOSBox-X not found — check https://github.com/pkgforge-dev/DOSBox-X-AppImage/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-    else
-        warn "DOSBox-X not found — check https://github.com/pkgforge-dev/DOSBox-X-AppImage/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
-fi
-# ── Ruffle (Adobe Flash) ──
-echo "   ── Ruffle ──"
-if [[ -f "$EMUS/ruffle" ]] || compgen -G "$EMUS/ruffle*.AppImage" > /dev/null 2>&1; then
-    ok "Ruffle already exists, skipping"
-else
-    RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.tar\.gz$"         | grep -iv "debug\|arm" | head -1) || true
-    if [[ -n "$RUFFLE_URL" ]]; then
-        info "Downloading Ruffle..."
-        RUFFLE_TMP=$(mktemp -d)
-        if curl -#fL "$RUFFLE_URL" | tar -xz -C "$RUFFLE_TMP" 2>/dev/null; then
-            RUFFLE_BIN=$(find "$RUFFLE_TMP" -name "ruffle" -type f | head -1)
-            if [[ -n "$RUFFLE_BIN" ]]; then
-                cp "$RUFFLE_BIN" "$EMUS/ruffle"
-                chmod +x "$EMUS/ruffle"
-                cat > "$EMUS/ruffle-portable.sh" << 'RUFFLEWRAP'
+}
+
+install_ruffle() {
+    if [[ -f "$EMUS/ruffle" ]] || compgen -G "$EMUS/ruffle*.AppImage" > /dev/null 2>&1; then
+        ok "Ruffle already exists, skipping"
+    else
+        RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.tar\.gz$"         | grep -iv "debug\|arm" | head -1) || true
+        if [[ -n "$RUFFLE_URL" ]]; then
+            info "Downloading Ruffle..."
+            RUFFLE_TMP=$(mktemp -d)
+            if curl -#fL "$RUFFLE_URL" | tar -xz -C "$RUFFLE_TMP" 2>/dev/null; then
+                RUFFLE_BIN=$(find "$RUFFLE_TMP" -name "ruffle" -type f | head -1)
+                if [[ -n "$RUFFLE_BIN" ]]; then
+                    cp "$RUFFLE_BIN" "$EMUS/ruffle"
+                    chmod +x "$EMUS/ruffle"
+                    cat > "$EMUS/ruffle-portable.sh" << 'RUFFLEWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -2672,41 +3183,39 @@ export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
 exec "$SCRIPT_DIR/ruffle" "$@"
 RUFFLEWRAP
-                chmod +x "$EMUS/ruffle-portable.sh"
-                ok "Ruffle downloaded"
+                    chmod +x "$EMUS/ruffle-portable.sh"
+                    ok "Ruffle downloaded"
+                else
+                    fail "Ruffle binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                fi
             else
-                fail "Ruffle binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                fail "Ruffle download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
             fi
+            rm -rf "$RUFFLE_TMP"
         else
-            fail "Ruffle download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            warn "Ruffle URL not found — check https://github.com/ruffle-rs/ruffle/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-        rm -rf "$RUFFLE_TMP"
-    else
-        warn "Ruffle URL not found — check https://github.com/ruffle-rs/ruffle/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
-fi
 
-# ── EKA2L1 (Symbian / N-Gage) ──
-# Continuous CI build — only release tag the project ships. AppImage assets
-# are named like "EKA2L1-Linux.AppImage" or similar; pattern is loose to
-# survive minor naming drift across CI runs.
-echo "   ── EKA2L1 (Symbian / N-Gage) ──"
-if compgen -G "$EMUS/eka2l1*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/EKA2L1*.AppImage" > /dev/null 2>&1; then
-    ok "EKA2L1 already exists, skipping"
-else
-    # The continuous tag is the only release tag — fetch by tag, not "latest"
-    EKA2L1_URL=$(curl -sfL "https://api.github.com/repos/EKA2L1/EKA2L1/releases/tags/continous" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "linux.*\.AppImage$" \
-        | grep -iv "arm\|aarch" \
-        | head -1) || true
-    if [[ -n "$EKA2L1_URL" ]]; then
-        info "Downloading EKA2L1..."
-        EKA2L1_FNAME=$(basename "$EKA2L1_URL")
-        if curl -#fL -o "$EMUS/$EKA2L1_FNAME" "$EKA2L1_URL"; then
-            chmod +x "$EMUS/$EKA2L1_FNAME"
-            cat > "$EMUS/eka2l1-portable.sh" << 'EKA2L1WRAP'
+}
+
+install_eka2l1() {
+    if compgen -G "$EMUS/eka2l1*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/EKA2L1*.AppImage" > /dev/null 2>&1; then
+        ok "EKA2L1 already exists, skipping"
+    else
+        # The continuous tag is the only release tag — fetch by tag, not "latest"
+        EKA2L1_URL=$(curl -sfL "https://api.github.com/repos/EKA2L1/EKA2L1/releases/tags/continous" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "linux.*\.AppImage$" \
+            | grep -iv "arm\|aarch" \
+            | head -1) || true
+        if [[ -n "$EKA2L1_URL" ]]; then
+            info "Downloading EKA2L1..."
+            EKA2L1_FNAME=$(basename "$EKA2L1_URL")
+            if curl -#fL -o "$EMUS/$EKA2L1_FNAME" "$EKA2L1_URL"; then
+                chmod +x "$EMUS/$EKA2L1_FNAME"
+                cat > "$EMUS/eka2l1-portable.sh" << 'EKA2L1WRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -2715,39 +3224,39 @@ export XDG_DATA_HOME="$BASE_DIR/.local/share"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'eka2l1*.AppImage' -o -iname 'EKA2L1*.AppImage' 2>/dev/null | head -1)
 exec "$BIN" "$@"
 EKA2L1WRAP
-            chmod +x "$EMUS/eka2l1-portable.sh"
-            ok "EKA2L1 downloaded ($EKA2L1_FNAME)"
+                chmod +x "$EMUS/eka2l1-portable.sh"
+                ok "EKA2L1 downloaded ($EKA2L1_FNAME)"
+            else
+                fail "EKA2L1 download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                rm -f "$EMUS/$EKA2L1_FNAME"
+            fi
         else
-            fail "EKA2L1 download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-            rm -f "$EMUS/$EKA2L1_FNAME"
+            warn "EKA2L1 URL not found — check https://github.com/EKA2L1/EKA2L1/releases/tag/continous"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-    else
-        warn "EKA2L1 URL not found — check https://github.com/EKA2L1/EKA2L1/releases/tag/continous"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
-fi
 
-# ── Solarus ──
-# Solarus moved to GitLab — AppImage served via direct URL from solarus-games.org
-echo "   ── Solarus ──"
-if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
-    ok "Solarus already exists, skipping"
-else
-    # Known stable direct URL — update version number when new releases come out
-    SOLARUS_URL="https://gitlab.com/api/v4/projects/solarus-games%2Fsolarus/packages/generic/solarus/2.0.4/solarus-launcher-v2.0.4-linux-x64.tar.gz"
-    info "Downloading Solarus..."
-    # Solarus ships as a tar.gz containing a standalone binary
-    SOLARUS_TMP=$(mktemp -d)
-    if curl -#fL "$SOLARUS_URL" | tar -xz -C "$SOLARUS_TMP" 2>/dev/null; then
-        SOLARUS_BIN=$(find "$SOLARUS_TMP" -type f -name "solarus*" ! -name "*.so*" 2>/dev/null | head -1)
-        if [[ -n "$SOLARUS_BIN" ]]; then
-            cp "$SOLARUS_BIN" "$EMUS/solarus-run"
-            chmod +x "$EMUS/solarus-run"
-            # Copy any bundled data dirs
-            find "$SOLARUS_TMP" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
-                cp -rn "$D" "$EMUS/" 2>/dev/null || true
-            done
-            cat > "$EMUS/solarus-portable.sh" << 'SOLARUSWRAP'
+}
+
+install_solarus() {
+    if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
+        ok "Solarus already exists, skipping"
+    else
+        # Known stable direct URL — update version number when new releases come out
+        SOLARUS_URL="https://gitlab.com/api/v4/projects/solarus-games%2Fsolarus/packages/generic/solarus/2.0.4/solarus-launcher-v2.0.4-linux-x64.tar.gz"
+        info "Downloading Solarus..."
+        # Solarus ships as a tar.gz containing a standalone binary
+        SOLARUS_TMP=$(mktemp -d)
+        if curl -#fL "$SOLARUS_URL" | tar -xz -C "$SOLARUS_TMP" 2>/dev/null; then
+            SOLARUS_BIN=$(find "$SOLARUS_TMP" -type f -name "solarus*" ! -name "*.so*" 2>/dev/null | head -1)
+            if [[ -n "$SOLARUS_BIN" ]]; then
+                cp "$SOLARUS_BIN" "$EMUS/solarus-run"
+                chmod +x "$EMUS/solarus-run"
+                # Copy any bundled data dirs
+                find "$SOLARUS_TMP" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
+                    cp -rn "$D" "$EMUS/" 2>/dev/null || true
+                done
+                cat > "$EMUS/solarus-portable.sh" << 'SOLARUSWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -2755,34 +3264,34 @@ export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
 exec "$SCRIPT_DIR/solarus-run" "$@"
 SOLARUSWRAP
-            chmod +x "$EMUS/solarus-portable.sh"
-            ok "Solarus downloaded"
+                chmod +x "$EMUS/solarus-portable.sh"
+                ok "Solarus downloaded"
+            else
+                fail "Solarus binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
         else
-            fail "Solarus binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            warn "Solarus download failed — check https://www.solarus-games.org/download/"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-    else
-        warn "Solarus download failed — check https://www.solarus-games.org/download/"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        rm -rf "$SOLARUS_TMP"
     fi
-    rm -rf "$SOLARUS_TMP"
-fi
 
-# ── SimCoupe (MGT SAM Coupé) ──
-# No AppImage exists — downloads tar.gz from simonowen.com official site
-echo "   ── SimCoupe ──"
-if [[ -f "$EMUS/simcoupe" ]]; then
-    ok "SimCoupe already exists, skipping"
-else
-    # Version-pinned direct URL — check https://simonowen.com/simcoupe/ for updates
-    SIMCOUPE_URL="https://github.com/simonowen/simcoupe/releases/download/v1.2.15/simcoupe_1.2.15_linux_amd64.tar.gz"
-    info "Downloading SimCoupe..."
-    SIMCOUPE_TMP=$(mktemp -d)
-    if curl -#fL "$SIMCOUPE_URL" | tar -xz -C "$SIMCOUPE_TMP" 2>/dev/null; then
-        SIMCOUPE_BIN=$(find "$SIMCOUPE_TMP" -name "simcoupe" -type f 2>/dev/null | head -1)
-        if [[ -n "$SIMCOUPE_BIN" ]]; then
-            cp "$SIMCOUPE_BIN" "$EMUS/simcoupe"
-            chmod +x "$EMUS/simcoupe"
-            cat > "$EMUS/simcoupe-portable.sh" << 'SIMWRAP'
+}
+
+install_simcoupe() {
+    if [[ -f "$EMUS/simcoupe" ]]; then
+        ok "SimCoupe already exists, skipping"
+    else
+        # Version-pinned direct URL — check https://simonowen.com/simcoupe/ for updates
+        SIMCOUPE_URL="https://github.com/simonowen/simcoupe/releases/download/v1.2.15/simcoupe_1.2.15_linux_amd64.tar.gz"
+        info "Downloading SimCoupe..."
+        SIMCOUPE_TMP=$(mktemp -d)
+        if curl -#fL "$SIMCOUPE_URL" | tar -xz -C "$SIMCOUPE_TMP" 2>/dev/null; then
+            SIMCOUPE_BIN=$(find "$SIMCOUPE_TMP" -name "simcoupe" -type f 2>/dev/null | head -1)
+            if [[ -n "$SIMCOUPE_BIN" ]]; then
+                cp "$SIMCOUPE_BIN" "$EMUS/simcoupe"
+                chmod +x "$EMUS/simcoupe"
+                cat > "$EMUS/simcoupe-portable.sh" << 'SIMWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -2794,32 +3303,31 @@ export XDG_DATA_HOME="$BASE_DIR/.local/share"
 mkdir -p "$BASE_DIR/.simcoupe"
 exec "$SCRIPT_DIR/simcoupe" "$@"
 SIMWRAP
-            chmod +x "$EMUS/simcoupe-portable.sh"
-            ok "SimCoupe downloaded"
+                chmod +x "$EMUS/simcoupe-portable.sh"
+                ok "SimCoupe downloaded"
+            else
+                fail "SimCoupe binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
         else
-            fail "SimCoupe binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            warn "SimCoupe download failed — check https://simonowen.com/simcoupe/"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-    else
-        warn "SimCoupe download failed — check https://simonowen.com/simcoupe/"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        rm -rf "$SIMCOUPE_TMP"
     fi
-    rm -rf "$SIMCOUPE_TMP"
-fi
 
-# ── Supermodel (Sega Model 3) ──
-# ── Supermodel (Sega Model 3) ──
-# Community AppImage from pkgforge-dev
-echo "   ── Supermodel ──"
-if compgen -G "$EMUS/supermodel*.AppImage" > /dev/null 2>&1 || [[ -f "$EMUS/supermodel" ]]; then
-    ok "Supermodel already exists, skipping"
-else
-    SUPERMODEL_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/Supermodel-AppImage/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "\.AppImage$"         | grep -iv "arm\|aarch" | head -1) || true
-    if [[ -n "$SUPERMODEL_URL" ]]; then
-        info "Downloading Supermodel..."
-        FNAME=$(basename "$SUPERMODEL_URL")
-        if curl -#fL -o "$EMUS/$FNAME" "$SUPERMODEL_URL"; then
-            chmod +x "$EMUS/$FNAME"
-            cat > "$EMUS/supermodel-portable.sh" << 'SUPERWRAP'
+}
+
+install_supermodel() {
+    if compgen -G "$EMUS/supermodel*.AppImage" > /dev/null 2>&1 || [[ -f "$EMUS/supermodel" ]]; then
+        ok "Supermodel already exists, skipping"
+    else
+        SUPERMODEL_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/Supermodel-AppImage/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "\.AppImage$"         | grep -iv "arm\|aarch" | head -1) || true
+        if [[ -n "$SUPERMODEL_URL" ]]; then
+            info "Downloading Supermodel..."
+            FNAME=$(basename "$SUPERMODEL_URL")
+            if curl -#fL -o "$EMUS/$FNAME" "$SUPERMODEL_URL"; then
+                chmod +x "$EMUS/$FNAME"
+                cat > "$EMUS/supermodel-portable.sh" << 'SUPERWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
@@ -2829,15 +3337,230 @@ BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'supermodel*.AppImage' | head -1)
 [[ -z "$BIN" ]] && BIN="$SCRIPT_DIR/supermodel"
 exec "$BIN" "$@"
 SUPERWRAP
-            chmod +x "$EMUS/supermodel-portable.sh"
-            ok "Supermodel downloaded"
+                chmod +x "$EMUS/supermodel-portable.sh"
+                ok "Supermodel downloaded"
+            else
+                fail "Supermodel download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
         else
-            fail "Supermodel download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            warn "Supermodel URL not found — check https://github.com/pkgforge-dev/Supermodel-AppImage/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
         fi
-    else
-        warn "Supermodel URL not found — check https://github.com/pkgforge-dev/Supermodel-AppImage/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
     fi
+
+}
+
+install_mame() {
+    if compgen -G "$EMUS/MAME*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/mame*.AppImage" > /dev/null 2>&1; then
+        ok "Standalone MAME already exists, skipping"
+    else
+        MAME_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/MAME-AppImage/releases?per_page=3" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "\.AppImage$" \
+            | grep -iv "arm\|aarch" | head -1) || true
+        if [[ -n "$MAME_URL" ]]; then
+            info "Downloading standalone MAME..."
+            FNAME=$(basename "$MAME_URL")
+            if curl -#fL -o "$EMUS/$FNAME" "$MAME_URL"; then
+                chmod +x "$EMUS/$FNAME"
+                ok "Standalone MAME downloaded ($FNAME)"
+            else
+                fail "Standalone MAME download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            warn "Standalone MAME URL not found — check https://github.com/pkgforge-dev/MAME-AppImage/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+
+}
+
+#=============================================================================
+# STEP 10: DOWNLOAD STANDALONE EMULATORS
+#=============================================================================
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading standalone emulators..."
+echo ""
+
+DOWNLOAD_ERRORS=0
+
+echo "   ── RPCS3 (PS3) ──"
+if emu_selected rpcs3; then
+    install_rpcs3
+else
+    info "Skipped rpcs3 (deselected)"
+fi
+echo ""
+
+echo "   ── PCSX2 (PS2) ──"
+if emu_selected pcsx2; then
+    install_pcsx2
+else
+    info "Skipped pcsx2 (deselected)"
+fi
+echo ""
+
+echo "   ── DuckStation (PS1) ──"
+if emu_selected duckstation; then
+    install_duckstation
+else
+    info "Skipped duckstation (deselected)"
+fi
+echo ""
+
+echo "   ── PPSSPP (PSP) ──"
+if emu_selected ppsspp; then
+    install_ppsspp
+else
+    info "Skipped ppsspp (deselected)"
+fi
+echo ""
+
+echo "   ── melonDS (DS) ──"
+if emu_selected melonds; then
+    install_melonds
+else
+    info "Skipped melonds (deselected)"
+fi
+echo ""
+
+echo "   ── Dolphin (GC/Wii) ──"
+if emu_selected dolphin; then
+    install_dolphin
+else
+    info "Skipped dolphin (deselected)"
+fi
+echo ""
+
+echo "   ── Cemu (Wii U) ──"
+if emu_selected cemu; then
+    install_cemu
+else
+    info "Skipped cemu (deselected)"
+fi
+echo ""
+
+echo "   ── Azahar (3DS) ──"
+if emu_selected azahar; then
+    install_azahar
+else
+    info "Skipped azahar (deselected)"
+fi
+echo ""
+
+echo "   ── xemu (Xbox) ──"
+if emu_selected xemu; then
+    install_xemu
+else
+    info "Skipped xemu (deselected)"
+fi
+echo ""
+
+echo "   ── Xenia Canary (Xbox 360) ──"
+if emu_selected xenia; then
+    install_xenia
+else
+    info "Skipped xenia (deselected)"
+fi
+
+echo "   ── Ryubing (Nintendo Switch) ──"
+if emu_selected ryujinx; then
+    install_ryujinx
+else
+    info "Skipped ryujinx (deselected)"
+fi
+echo ""
+
+echo "   ── Eden (Nintendo Switch) ──"
+if emu_selected eden; then
+    install_eden
+else
+    info "Skipped eden (deselected)"
+fi
+echo ""
+
+echo "   ── shadPS4 (PlayStation 4) ──"
+if emu_selected shadps4; then
+    install_shadps4
+else
+    info "Skipped shadps4 (deselected)"
+fi
+echo ""
+
+echo "   ── 86Box (Windows 9x / retro PC) ──"
+if emu_selected _86box; then
+    install__86box
+else
+    info "Skipped _86box (deselected)"
+fi
+echo ""
+
+echo "   ── VPinball (Visual Pinball) ──"
+if emu_selected vpinball; then
+    install_vpinball
+else
+    info "Skipped vpinball (deselected)"
+fi
+
+#=============================================================================
+# STEP 10b: DOWNLOAD ADDITIONAL STANDALONE EMULATORS
+#=============================================================================
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading additional standalone emulators..."
+
+# ── DOSBox-X (best DOS emulation) ──
+# Official upstream ships RPM/Flatpak only; use pkgforge-dev community AppImage
+echo "   ── DOSBox-X ──"
+if emu_selected dosbox_x; then
+    install_dosbox_x
+else
+    info "Skipped dosbox_x (deselected)"
+fi
+
+# ── Ruffle (Adobe Flash) ──
+echo "   ── Ruffle ──"
+if emu_selected ruffle; then
+    install_ruffle
+else
+    info "Skipped ruffle (deselected)"
+fi
+
+# ── EKA2L1 (Symbian / N-Gage) ──
+# Continuous CI build — only release tag the project ships. AppImage assets
+# are named like "EKA2L1-Linux.AppImage" or similar; pattern is loose to
+# survive minor naming drift across CI runs.
+echo "   ── EKA2L1 (Symbian / N-Gage) ──"
+if emu_selected eka2l1; then
+    install_eka2l1
+else
+    info "Skipped eka2l1 (deselected)"
+fi
+
+# ── Solarus ──
+# Solarus moved to GitLab — AppImage served via direct URL from solarus-games.org
+echo "   ── Solarus ──"
+if emu_selected solarus; then
+    install_solarus
+else
+    info "Skipped solarus (deselected)"
+fi
+
+# ── SimCoupe (MGT SAM Coupé) ──
+# No AppImage exists — downloads tar.gz from simonowen.com official site
+echo "   ── SimCoupe ──"
+if emu_selected simcoupe; then
+    install_simcoupe
+else
+    info "Skipped simcoupe (deselected)"
+fi
+
+# ── Supermodel (Sega Model 3) ──
+# Community AppImage from pkgforge-dev
+echo "   ── Supermodel ──"
+if emu_selected supermodel; then
+    install_supermodel
+else
+    info "Skipped supermodel (deselected)"
 fi
 
 # ── MAME (standalone, current version) — alt-emu fallback for testing ──
@@ -2845,26 +3568,10 @@ fi
 # menu when neither current mame_libretro nor mame2010 accept a BIOS pack.
 # Resolves %EMULATOR_MAME% via es_find_rules.xml.
 echo "   ── MAME (standalone) ──"
-if compgen -G "$EMUS/MAME*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/mame*.AppImage" > /dev/null 2>&1; then
-    ok "Standalone MAME already exists, skipping"
+if emu_selected mame; then
+    install_mame
 else
-    MAME_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/MAME-AppImage/releases?per_page=3" \
-        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
-        | grep -iP "\.AppImage$" \
-        | grep -iv "arm\|aarch" | head -1) || true
-    if [[ -n "$MAME_URL" ]]; then
-        info "Downloading standalone MAME..."
-        FNAME=$(basename "$MAME_URL")
-        if curl -#fL -o "$EMUS/$FNAME" "$MAME_URL"; then
-            chmod +x "$EMUS/$FNAME"
-            ok "Standalone MAME downloaded ($FNAME)"
-        else
-            fail "Standalone MAME download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-        fi
-    else
-        warn "Standalone MAME URL not found — check https://github.com/pkgforge-dev/MAME-AppImage/releases"
-        DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-    fi
+    info "Skipped mame (deselected)"
 fi
 
 # ── PICO-8 — retro8 libretro is the default (free, on libretro buildbot) ──
@@ -3205,153 +3912,6 @@ else
         done
         echo -e " ${GREEN}done${NC} ($MIRROR_COUNT entries)"
 
-        # ── Per-system MAME version auto-detection ──
-        # MAME romsets are version-locked: each MAME release renames internal
-        # BIOS files. We probe each system's BIOS zip for marker filenames
-        # that distinguish romset eras, then write/clear ES-DE alternative
-        # emulator entries in the relevant gamelist.xml files.
-        #
-        # Detection is implemented in a standalone refresh script written to
-        # the bundle root, so it runs during install AND on every launch.sh
-        # invocation — keeps routing current with whatever the user has in
-        # ROMs/bios/ at the moment, not just at install time.
-        cat > "$BASE/refresh-mame-routing.sh" <<'REFRESH_EOF'
-#!/usr/bin/env bash
-# refresh-mame-routing.sh — BIOS-aware ES-DE alt-emulator router.
-# Probes ROMs/bios/ for known MAME-system zips, classifies each by romset
-# era, and writes/clears <alternativeEmulator> entries in ES-DE's
-# gamelist.xml files. Idempotent. Safe to run repeatedly. Silent unless
-# attached to a terminal.
-#
-# Routing target: MAME 2010 (MAME 0.139). mame2015_libretro.so is NOT on
-# the libretro buildbot for Linux x86_64 (only mame, mame2003_plus, and
-# mame2010 build). MAME 2010 is the deepest fallback that actually
-# downloads — its romset expectations are old enough that BIOS packs
-# from the ~MAME 0.130-0.150 era usually match. New-era BIOS detection
-# strips any stale alt-emu so the current MAME default takes over.
-# Users can also manually pick (Standalone) variants from the ES-DE
-# alt-emu menu — that uses upstream MAME (current version) for
-# further testing if mame2010 also rejects a romset.
-set -u
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
-BIOS="$SCRIPT_DIR/ROMs/bios"
-ESDE_GAMELISTS="$SCRIPT_DIR/ES-DE/gamelists"
-LOG="$SCRIPT_DIR/Saves/logs/mame-routing.log"
-mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
-
-[[ -d "$BIOS" ]] || exit 0
-command -v unzip >/dev/null 2>&1 || exit 0
-
-# system → "zip:marker:label"
-# marker semantics:
-#   plain string  → presence of file in zip indicates old era
-#   "!" prefix    → ABSENCE of file in zip indicates old era (use this when
-#                   the only reliable discriminator is a new-era file the
-#                   old set never had — old-era markers like d32.rom often
-#                   survive into new era and don't discriminate)
-declare -A MAME_DETECT=(
-    [archimedes]="aa310.zip:0270,251-01.ic24:MAME [Model A310] (MAME 2010)"
-    [adam]="adam.zip:os7.u2:MAME [Diskette] (MAME 2010)"
-    [dragon32]="dragon32.zip:!dragon_data_ltd_1-0.ic18:MAME [Dragon 32 Cartridge] (MAME 2010)"
-    [fm7]="fm7.zip:ap2k.ic3c:MAME [FM-7 Diskette] (MAME 2010)"
-    [supracan]="supracan.zip:!internal_6502_1.bin:MAME (MAME 2010)"
-    [scv]="scv.zip:!upd1771c-017.s03:MAME (MAME 2010)"
-    [apple2gs]="apple2gs.zip:!344s0047.bin:MAME [ROM01] (MAME 2010)"
-)
-
-is_old_era() {
-    local zip="$1" marker="$2"
-    [[ -f "$BIOS/$zip" ]] || return 1
-    if [[ "$marker" == "!"* ]]; then
-        local m="${marker#!}"
-        unzip -l "$BIOS/$zip" 2>/dev/null | grep -qiF "$m" && return 1 || return 0
-    else
-        unzip -l "$BIOS/$zip" 2>/dev/null | grep -qiF "$marker" && return 0 || return 1
-    fi
-}
-
-# update_gamelist <system> <label>
-#   label = "" → strip any existing alt-emu (so default command takes over)
-#   label set → write/replace alt-emu OUTSIDE <gameList> (canonical ES-DE 3.x)
-update_gamelist() {
-    local sys="$1" label="$2"
-    local glist="$ESDE_GAMELISTS/$sys/gamelist.xml"
-    python3 - "$glist" "$label" <<'PY' 2>/dev/null
-import sys, os, re
-glist, label = sys.argv[1], sys.argv[2]
-
-if not os.path.exists(glist):
-    if not label:
-        sys.exit(0)
-    os.makedirs(os.path.dirname(glist), exist_ok=True)
-    with open(glist, 'w', encoding='utf-8') as f:
-        f.write('<?xml version="1.0"?>\n')
-        f.write('<alternativeEmulator>\n')
-        f.write('    <label>%s</label>\n' % label)
-        f.write('</alternativeEmulator>\n')
-        f.write('<gameList>\n</gameList>\n')
-    sys.exit(0)
-
-with open(glist, 'r', encoding='utf-8', errors='replace') as f:
-    content = f.read()
-
-# Idempotent fast path: if current label already matches, no rewrite
-m = re.search(r'<alternativeEmulator>\s*<label>([^<]*)</label>\s*</alternativeEmulator>', content, re.DOTALL)
-current = m.group(1).strip() if m else ''
-if current == label:
-    sys.exit(0)
-
-# Strip any existing alt-emu (anywhere in document)
-content = re.sub(r'\s*<alternativeEmulator>.*?</alternativeEmulator>\s*',
-                 '\n', content, flags=re.DOTALL)
-
-if label:
-    alt = '<alternativeEmulator>\n    <label>%s</label>\n</alternativeEmulator>\n' % label
-    if re.search(r'<gameList[\s>]', content):
-        content = re.sub(r'(<gameList[\s>])', alt + r'\1', content, count=1)
-    else:
-        content = content.rstrip() + '\n' + alt + '<gameList>\n</gameList>\n'
-
-with open(glist, 'w', encoding='utf-8') as f:
-    f.write(content)
-PY
-}
-
-routed=0
-unrouted=0
-absent=0
-for sys in "${!MAME_DETECT[@]}"; do
-    IFS=':' read -r zip marker label <<< "${MAME_DETECT[$sys]}"
-    if [[ ! -f "$BIOS/$zip" ]]; then
-        absent=$((absent + 1))
-        continue
-    fi
-    if is_old_era "$zip" "$marker"; then
-        update_gamelist "$sys" "$label"
-        routed=$((routed + 1))
-    else
-        # New-era BIOS — strip any stale alt-emu so current MAME default takes effect.
-        update_gamelist "$sys" ""
-        unrouted=$((unrouted + 1))
-    fi
-done
-
-printf '[%s] routed=%d default=%d absent=%d\n' \
-    "$(date -Iseconds 2>/dev/null || date)" \
-    "$routed" "$unrouted" "$absent" >> "$LOG"
-
-# Show summary only when run interactively (skip during launch.sh invocation)
-if [[ -t 1 ]]; then
-    echo "MAME routing: $routed routed to alt-emulator, $unrouted using default ($absent systems have no BIOS)"
-fi
-REFRESH_EOF
-        chmod +x "$BASE/refresh-mame-routing.sh"
-
-        echo -n "   Auto-detecting MAME romset versions..."
-        ROUTING_RESULT=$("$BASE/refresh-mame-routing.sh" 2>&1)
-        # Parse counts from log entry
-        DETECTED_COUNT=$(grep -oE 'routed=[0-9]+' "$BASE/Saves/logs/mame-routing.log" 2>/dev/null | tail -1 | cut -d= -f2 || echo 0)
-        echo -e " ${GREEN}done${NC} ($DETECTED_COUNT systems routed to MAME 2010)"
 
         # ── Saves ──
         # Map RetroBat saves → ES-DE Saves/files/ with same SYS_MAP logic
@@ -3549,8 +4109,9 @@ path_re = re.compile(r'(<path>\./)[^/]+/(.+</path>)')
 
 # Read existing destination gamelist paths to avoid duplicates on merge.
 # Also capture any existing <alternativeEmulator> block so we can preserve
-# it across the rewrite (auto-detection writes alt-emu blocks BEFORE this
-# import step, and we don't want to clobber them).
+# it across the rewrite — users can pick an alt-emu manually via ES-DE's
+# UI menu (Options → Alternative Emulators) and we shouldn't clobber that
+# choice when they re-run the importer.
 # IMPORTANT: ES-DE 3.x requires <alternativeEmulator> to be a SIBLING of
 # <gameList> (root level), NOT a child of <gameList>. If it ends up inside
 # gameList ES-DE silently ignores it on launch.
@@ -3786,11 +4347,25 @@ ROMS="$BASE/ROMs"
 ESDE_DATA="$BASE/ES-DE"
 MEDIA_BASE="$BASE/downloaded_media"
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
 warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
 fail() { echo -e "   ${RED}✗${NC} $1"; }
 info() { echo -e "   ${CYAN}→${NC} $1"; }
+
+# Whiptail UI helpers (bundle requires whiptail — installed by setup)
+if ! command -v whiptail >/dev/null 2>&1; then
+    fail "whiptail is required but not found in PATH."
+    echo "   Install with: sudo apt install whiptail   (or 'sudo dnf install newt' on Fedora)"
+    exit 1
+fi
+wt_input() { whiptail --title "$1" --inputbox "$2" 14 78 "$3" 3>&1 1>&2 2>&3; }
+wt_yesno() { whiptail --title "$1" --yesno "$2" 14 78; }
+wt_menu() {
+    local title="$1" prompt="$2"; shift 2
+    whiptail --title "$title" --menu "$prompt" 22 78 12 "$@" 3>&1 1>&2 2>&3
+}
+wt_msg()  { whiptail --title "$1" --msgbox "$2" 14 78; }
 
 echo ""
 echo -e "${CYAN}RetroBat → ES-DE Converter${NC}"
@@ -3798,8 +4373,12 @@ echo ""
 
 RETROBAT_PATHS=()
 while true; do
-    [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && PROMPT="Path" || PROMPT="Another path"
-    read -rp "  $PROMPT (blank to continue): " INPUT
+    [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && PROMPT_LABEL="Path" || PROMPT_LABEL="Another path"
+    INPUT=$(wt_input "Import RetroBat" \
+"$PROMPT_LABEL to a RetroBat folder (containing 'roms' subfolder).
+
+Leave blank and press OK to finish adding paths and continue." \
+        "") || INPUT=""
     [[ -z "$INPUT" ]] && break
     INPUT="${INPUT/#\~/$HOME}"
     INPUT="$(realpath -m "$INPUT")"
@@ -3807,19 +4386,18 @@ while true; do
         RETROBAT_PATHS+=("$INPUT")
         echo -e "   ${GREEN}✓${NC} Added: $INPUT"
     else
-        echo -e "   ${YELLOW}⚠${NC} No 'roms' folder at $INPUT — skipping"
+        wt_msg "Path not valid" "No 'roms' folder at:\n\n$INPUT\n\nSkipping this entry."
     fi
 done
 
 [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && echo "Nothing to import." && exit 0
 
 RETROBAT_MOVE=""
-echo "  How should files be transferred?"
-echo -e "    C) Copy  — keep originals (safe, uses extra space)"
-echo -e "    X) Cut   — move files as they're imported (no extra space needed)"
-echo ""
-read -rp "  [C/x]: " MOVE_CHOICE
-[[ "${MOVE_CHOICE,,}" == "x" ]] && RETROBAT_MOVE="yes"
+MOVE_CHOICE=$(wt_menu "Transfer mode" \
+"How should files be transferred from RetroBat to the ES-DE bundle?" \
+    "copy" "Keep originals (safe, uses extra disk space)" \
+    "cut"  "Move files as they're imported (no extra space needed)") || MOVE_CHOICE="copy"
+[[ "$MOVE_CHOICE" == "cut" ]] && RETROBAT_MOVE="yes"
 echo ""
 
 declare -A MEDIA_MAP=(
@@ -3861,6 +4439,204 @@ declare -A SYS_MAP=(
     [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
 )
 FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist zxspectrum zx81 dos atari800 pc vpinball)
+
+# ES-DE system → required standalone emulator (uses install-emulator.sh)
+declare -A SYS_TO_EMU=(
+    [gc]=dolphin           [wii]=dolphin             [wiiware]=dolphin
+    [wiiu]=cemu
+    [ps2]=pcsx2
+    [ps3]=rpcs3            [ps3psn]=rpcs3
+    [ps4]=shadps4
+    [psp]=ppsspp
+    [nds]=melonds
+    [n3ds]=azahar          [3ds]=azahar
+    [switch]=eden
+    [xbox]=xemu
+    [xbox360]=xenia        [xbla]=xenia
+    [vpinball]=vpinball
+    [model2]=supermodel    [model3]=supermodel
+    [dos]=dosbox_x
+    [windows]=_86box       [win98]=_86box
+    [flash]=ruffle
+    [solarus]=solarus
+    [samcoupe]=simcoupe
+    [ngage]=eka2l1
+    # MAME standalone systems (current MAME for software lists)
+    [archimedes]=mame      [apple2gs]=mame          [adam]=mame
+    [dragon32]=mame        [fm7]=mame               [ti99]=mame
+    [supracan]=mame        [scv]=mame               [pv1000]=mame
+    [gamate]=mame          [gmaster]=mame           [gamecom]=mame
+    [videopacplus]=mame    [vsmile]=mame            [spectravideo]=mame
+    [pico]=mame            [satellaview]=mame
+)
+
+# ES-DE system → recommended libretro core (uses install-core.sh; needs RetroArch)
+declare -A SYS_TO_CORE=(
+    [psx]=mednafen_psx_hw
+    [saturn]=mednafen_saturn          [saturnjp]=mednafen_saturn
+    [snes]=snes9x                     [sfc]=snes9x
+    [snesh]=snes9x                    [sgb]=snes9x
+    [nes]=fceumm                      [famicom]=fceumm    [nesh]=fceumm
+    [gb]=gambatte                     [gbh]=gambatte
+    [gbc]=gambatte                    [gbch]=gambatte
+    [gba]=mgba                        [gbah]=mgba
+    [megadrive]=genesis_plus_gx       [megadrivejp]=genesis_plus_gx
+    [genesis]=genesis_plus_gx         [genh]=genesis_plus_gx
+    [mastersystem]=genesis_plus_gx
+    [gamegear]=genesis_plus_gx        [ggh]=genesis_plus_gx
+    [megacd]=genesis_plus_gx          [segacd]=genesis_plus_gx
+    [sg-1000]=genesis_plus_gx         [sg1000]=genesis_plus_gx
+    [sega32x]=picodrive
+    [dreamcast]=flycast               [atomiswave]=flycast
+    [naomi]=flycast                   [naomi2]=flycast
+    [n64]=mupen64plus_next            [n64h]=mupen64plus_next
+    [n64dd]=mupen64plus_next
+    [atari2600]=stella
+    [atari5200]=a5200
+    [atari7800]=prosystem
+    [atarilynx]=handy                 [lynx]=handy
+    [atarist]=hatari
+    [atarijaguar]=virtualjaguar
+    [atarijaguarcd]=virtualjaguar
+    [3do]=opera
+    [colecovision]=bluemsx
+    [intellivision]=freeintv
+    [vectrex]=vecx
+    [neogeo]=fbneo
+    [neogeocd]=neocd
+    [pcengine]=mednafen_pce           [tg16]=mednafen_pce
+    [supergrafx]=mednafen_pce
+    [pcenginecd]=mednafen_pce_fast    [tg-cd]=mednafen_pce_fast
+    [pcfx]=mednafen_pcfx
+    [virtualboy]=mednafen_vb
+    [ngp]=mednafen_ngp                [ngpc]=mednafen_ngp
+    [wonderswan]=mednafen_wswan       [wonderswancolor]=mednafen_wswan
+    [zxspectrum]=fuse                 [zx81]=81
+    [c64]=vice_x64                    [vic20]=vice_xvic   [plus4]=vice_xplus4
+    [amiga]=puae                      [amiga500]=puae
+    [amiga1200]=puae                  [amigacd32]=puae
+    [amstradcpc]=cap32
+    [msx]=bluemsx                     [msx1]=bluemsx
+    [msx2]=bluemsx                    [msxturbor]=bluemsx
+    [scummvm]=scummvm
+    [pico8]=retro8
+    [arcade]=mame2003_plus
+    [cps1]=fbneo                      [cps2]=fbneo        [cps3]=fbneo
+    [pc98]=np2kai
+    [x68000]=px68k
+    [x1]=x1
+    [bbcmicro]=b2
+    [cdimono1]=  # CD-i: no good libretro core; standalone CDi required (not in bundle yet)
+    [pokemini]=pokemini
+    [easyrpg]=easyrpg
+    [odyssey2]=o2em                   [videopac]=o2em
+    [channelf]=freechaf
+    [arduboy]=arduous
+    [uzebox]=uzem
+    [tic80]=tic80
+)
+
+# Bundle-relative file checks
+is_emulator_installed() {
+    local emu="$1"
+    case "$emu" in
+        rpcs3)       compgen -G "$EMUS/rpcs3*" > /dev/null ;;
+        pcsx2)       compgen -G "$EMUS/pcsx2*" > /dev/null ;;
+        duckstation) compgen -G "$EMUS/[dD]uckstation*" > /dev/null ;;
+        ppsspp)      compgen -G "$EMUS/[pP]psspp*" > /dev/null || compgen -G "$EMUS/PPSSPP*" > /dev/null ;;
+        melonds)     compgen -G "$EMUS/[mM]elon*" > /dev/null ;;
+        dolphin)     compgen -G "$EMUS/[dD]olphin*" > /dev/null ;;
+        cemu)        compgen -G "$EMUS/[cC]emu*" > /dev/null || compgen -G "$EMUS/Cemu*" > /dev/null ;;
+        azahar)      compgen -G "$EMUS/[aA]zahar*" > /dev/null ;;
+        xemu)        compgen -G "$EMUS/xemu*" > /dev/null ;;
+        xenia)       compgen -G "$EMUS/[xX]enia*" > /dev/null ;;
+        ryujinx)     compgen -G "$EMUS/[rR]yujinx*" > /dev/null || compgen -G "$EMUS/[rR]yubing*" > /dev/null ;;
+        eden)        compgen -G "$EMUS/[eE]den*" > /dev/null ;;
+        shadps4)     compgen -G "$EMUS/[sS]hadps4*" > /dev/null ;;
+        _86box)      compgen -G "$EMUS/86[bB]ox*" > /dev/null || compgen -G "$EMUS/_86Box*" > /dev/null ;;
+        vpinball)    compgen -G "$EMUS/VPinball*" > /dev/null ;;
+        dosbox_x)    compgen -G "$EMUS/dosbox-x*" > /dev/null || compgen -G "$EMUS/[dD]osBox*" > /dev/null ;;
+        ruffle)      compgen -G "$EMUS/ruffle*" > /dev/null || [[ -f "$EMUS/ruffle" ]] ;;
+        eka2l1)      compgen -G "$EMUS/[eE]ka2l1*" > /dev/null || compgen -G "$EMUS/EKA2L1*" > /dev/null ;;
+        solarus)     compgen -G "$EMUS/solarus*" > /dev/null ;;
+        simcoupe)    compgen -G "$EMUS/[sS]im[cC]oupe*" > /dev/null ;;
+        supermodel)  compgen -G "$EMUS/[sS]upermodel*" > /dev/null ;;
+        mame)        compgen -G "$EMUS/mame*" > /dev/null || compgen -G "$EMUS/MAME*" > /dev/null ;;
+        *)           return 1 ;;
+    esac
+}
+
+is_retroarch_installed() {
+    compgen -G "$EMUS/[rR]etroArch*" > /dev/null || compgen -G "$EMUS/retroarch*" > /dev/null
+}
+
+is_core_installed() {
+    [[ -f "$EMUS/retroarch-cores/${1}_libretro.so" ]]
+}
+
+# Detect missing emulator/core for an ES-DE system, prompt to install, dispatch.
+# Called right after each system's import block finishes.
+ensure_emulator_for() {
+    local esde_sys="$1"
+    local emu="${SYS_TO_EMU[$esde_sys]:-}"
+    local core="${SYS_TO_CORE[$esde_sys]:-}"
+
+    if [[ -n "$emu" ]] && ! is_emulator_installed "$emu"; then
+        echo ""
+        if wt_yesno "Missing emulator: $emu" \
+"$esde_sys ROMs were imported but the $emu emulator is not installed.
+
+Install $emu now?"; then
+            if [[ -x "$BASE/install-emulator.sh" ]]; then
+                "$BASE/install-emulator.sh" "$emu" || warn "install-emulator.sh failed for $emu"
+            else
+                warn "install-emulator.sh not found in bundle"
+            fi
+        else
+            info "Skipped $emu install — $esde_sys games will not launch until you install it"
+        fi
+        echo ""
+    fi
+
+    if [[ -n "$core" ]]; then
+        if ! is_retroarch_installed; then
+            echo ""
+            if wt_yesno "Missing RetroArch + $core" \
+"$esde_sys needs RetroArch + the $core libretro core, but RetroArch is not installed.
+
+Install RetroArch + $core now?"; then
+                if [[ -x "$BASE/install-emulator.sh" ]]; then
+                    "$BASE/install-emulator.sh" retroarch || warn "install-emulator.sh failed for retroarch"
+                else
+                    warn "install-emulator.sh not found in bundle"
+                fi
+                if [[ -x "$BASE/install-core.sh" ]]; then
+                    "$BASE/install-core.sh" "$core" || warn "install-core.sh failed for $core"
+                else
+                    warn "install-core.sh not found in bundle"
+                fi
+            else
+                info "Skipped RetroArch + $core install — $esde_sys games will not launch until you install them"
+            fi
+            echo ""
+        elif ! is_core_installed "$core"; then
+            echo ""
+            if wt_yesno "Missing libretro core: $core" \
+"$esde_sys ROMs were imported but the $core libretro core is not installed.
+
+Install $core now?"; then
+                if [[ -x "$BASE/install-core.sh" ]]; then
+                    "$BASE/install-core.sh" "$core" || warn "install-core.sh failed for $core"
+                else
+                    warn "install-core.sh not found in bundle"
+                fi
+            else
+                info "Skipped $core install — $esde_sys games will not launch until you install it"
+            fi
+            echo ""
+        fi
+    fi
+}
 
 IMPORT_SYSTEMS=0; IMPORT_MEDIA=0; IMPORT_ROMS=0
 
@@ -4011,6 +4787,12 @@ GLFIX
         [[ $COPIED -gt 0 ]] && echo -e " ${GREEN}done ($COPIED items)${NC}" || echo ""
         IMPORT_ROMS=$((IMPORT_ROMS + COPIED))
         echo -e "      ${GREEN}✓ done${NC}"; echo ""
+        # Detect missing emulator/core for this system; prompt + install if user agrees
+        ensure_emulator_for "$ESDE_SYS"
+        # Auto-verify BIOS for the system we just imported (if verifier present)
+        if [[ -x "$BASE/verify-bios.sh" ]]; then
+            "$BASE/verify-bios.sh" "$ESDE_SYS" || true
+        fi
     done
     if [[ "$RETROBAT_MOVE" == "yes" ]]; then
         rm -rf "$RETROBAT_PATH/roms" "$RETROBAT_PATH/bios" 2>/dev/null || true
@@ -4019,13 +4801,1352 @@ GLFIX
 done
 echo ""
 ok "Import complete: $IMPORT_SYSTEMS systems, $IMPORT_MEDIA media types, $IMPORT_ROMS items"
+echo ""
+# Final summary BIOS sweep across everything in the bundle
+if [[ -x "$BASE/verify-bios.sh" ]]; then
+    echo -e "${CYAN}── Final BIOS sweep across all systems ──${NC}"
+    "$BASE/verify-bios.sh" || true
+fi
 CONVSCRIPT
 
 chmod +x "$BASE/convert-retrobat.sh"
 ok "convert-retrobat.sh written to bundle"
 
 #=============================================================================
-# STEP 14: WRITE UPDATE SCRIPT TO BUNDLE
+# STEP 14: WRITE BIOS VERIFIER SCRIPT TO BUNDLE
+#=============================================================================
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Writing verify-bios.sh to bundle..."
+
+cat > "$BASE/verify-bios.sh" << 'VERIFYBIOSSCRIPT'
+#!/usr/bin/env bash
+#=============================================================================
+# Portable ES-DE — BIOS Verifier
+#
+# Verifies BIOS files in $BASE/ROMs/bios against a known-good table.
+# Reports PASS / WARN / FAIL per system with confidence indication.
+#
+# Hashes sourced from emulator source code, Redump, No-Intro, libretro docs,
+# and the Abdess/retrobios database (MIT-licensed, source-verified).
+#
+# Usage:
+#   ./verify-bios.sh                # verify all systems present in ROMs/
+#   ./verify-bios.sh <system>       # verify just one ES-DE system
+#   ./verify-bios.sh --list         # list systems we have BIOS data for
+#   ./verify-bios.sh --table        # dump the entire BIOS table
+#=============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE="$SCRIPT_DIR"
+ROMS="$BASE/ROMs"
+BIOS_DIR="$ROMS/bios"
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
+
+#=============================================================================
+# BIOS Table
+#
+# Format: system|file|req|conf|md5_list|description
+#   req:    REQ | REQ_ANY:<group> | OPT | OPT_BOOT
+#   conf:   HIGH (Redump/source-code) | MED (libretro docs/wiki) | LOW (filename only)
+#   md5:    comma-separated lowercase MD5s, or "-" for filename-only check
+#=============================================================================
+
+declare -a BIOS_TABLE=(
+    # ── Sony PlayStation (psx) — Beetle PSX / Beetle PSX HW / PCSX-ReARMed ──
+    "psx|scph5500.bin|REQ_ANY:region|HIGH|8dd7d5296a650fac7319bce665a6a53c|PS1 BIOS Japan v3.0 (SCPH-5500)"
+    "psx|scph5501.bin|REQ_ANY:region|HIGH|490f666e1afb15b7362b406ed1cea246|PS1 BIOS USA v3.0 (SCPH-5501)"
+    "psx|scph5502.bin|REQ_ANY:region|HIGH|32736f17079d0b2b7024407c39bd3050|PS1 BIOS Europe v3.0 (SCPH-5502)"
+    "psx|scph7001.bin|REQ_ANY:region|HIGH|1e68c231d0896b7eadcad1d7d8e76129|PS1 BIOS USA v4.1 (SCPH-7001)"
+    "psx|scph7003.bin|REQ_ANY:region|HIGH|490f666e1afb15b7362b406ed1cea246|PS1 BIOS USA v4.1 alt (SCPH-7003)"
+    "psx|scph101.bin|REQ_ANY:region|HIGH|6e3735ff4c7dc899ee98981385f6f3d0|PSone BIOS USA v4.4 (SCPH-101)"
+
+    # ── Sony PlayStation 2 (ps2) — PCSX2 ──
+    "ps2|ps2-0230a-20080220.bin|REQ_ANY:region|MED|9b0fcab1ee9e74c20efde6aebd96e80b|PS2 BIOS USA v2.30"
+    "ps2|ps2-0220a-20060905.bin|REQ_ANY:region|MED|9c0d3dcdde9b1e4ac3f08fa1f3a36f0e|PS2 BIOS USA v2.20"
+    "ps2|ps2-0190a-20030822.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA v1.90 (filename only)"
+    "ps2|SCPH-70012_BIOS_V12_USA_200.BIN|REQ_ANY:region|LOW|-|PS2 BIOS slim USA"
+    "ps2|SCPH-77001_BIOS_V14_USA_220.BIN|REQ_ANY:region|LOW|-|PS2 BIOS slim USA (alt)"
+
+    # ── Sega Saturn (saturn, saturnjp) — Beetle Saturn ──
+    "saturn|sega_101.bin|REQ_ANY:region|HIGH|85ec9ca47d8f6807718151cbcca8b964|Saturn BIOS NTSC-J"
+    "saturn|mpr-17933.bin|REQ_ANY:region|HIGH|3240872c70984b6cbfda1586cab68dbe|Saturn BIOS NTSC-U/PAL"
+    "saturnjp|sega_101.bin|REQ_ANY:region|HIGH|85ec9ca47d8f6807718151cbcca8b964|Saturn BIOS NTSC-J"
+    "saturnjp|mpr-17933.bin|REQ_ANY:region|HIGH|3240872c70984b6cbfda1586cab68dbe|Saturn BIOS NTSC-U/PAL (fallback)"
+
+    # ── Sega CD / Mega-CD (segacd, megacd) — Genesis Plus GX / Picodrive ──
+    "segacd|bios_CD_J.bin|REQ_ANY:region|HIGH|278a9397d192149e84e820ac621a8edd|Sega CD BIOS Japan"
+    "segacd|bios_CD_U.bin|REQ_ANY:region|HIGH|2efd74e3232ff260e371b99f84024f7f|Sega CD BIOS USA"
+    "segacd|bios_CD_E.bin|REQ_ANY:region|HIGH|e66fa1dc5820d254611fdcdba0662372|Mega-CD BIOS Europe"
+    "megacd|bios_CD_J.bin|REQ_ANY:region|HIGH|278a9397d192149e84e820ac621a8edd|Mega-CD BIOS Japan"
+    "megacd|bios_CD_U.bin|REQ_ANY:region|HIGH|2efd74e3232ff260e371b99f84024f7f|Sega CD BIOS USA"
+    "megacd|bios_CD_E.bin|REQ_ANY:region|HIGH|e66fa1dc5820d254611fdcdba0662372|Mega-CD BIOS Europe"
+
+    # ── Sega 32X (sega32x) ──
+    # picodrive (the libretro core for 32X in this bundle) does NOT require
+    # 32X_G_BIOS.BIN / 32X_M_BIOS.BIN / 32X_S_BIOS.BIN. Those are needed only
+    # by Gens / Fusion. No BIOS table entries for sega32x intentionally.
+
+    # ── Sega Dreamcast (dreamcast, atomiswave, naomi, naomi2) — Flycast ──
+    # Flycast has built-in HLE BIOS (reios) for Dreamcast — dc_boot.bin and
+    # dc_flash.bin are recommended (date/time, accuracy) but not mandatory.
+    "dreamcast|dc_boot.bin|OPT_BOOT|HIGH|e10c53c2f8b90bab96ead2d368858623|Dreamcast Boot ROM (HLE fallback exists)"
+    "dreamcast|dc_flash.bin|OPT|HIGH|0a93f7940c455905bea6e392dfde92a4|Dreamcast Flash ROM (date/time + region)"
+    "atomiswave|awbios.zip|REQ|HIGH|0ec5ae5b5a5c4959fa8b43fcf8687f7c|Atomiswave BIOS (MAME-style zip)"
+    "naomi|naomi.zip|REQ|HIGH|eb4099aeb42ef089cfe94f8fe95e51f6|NAOMI BIOS set (MAME-style zip)"
+    "naomi|hod2bios.zip|OPT|HIGH|9c755171b222fb1f4e1439d5b709dbf1|NAOMI House of the Dead 2 BIOS (specific game)"
+    "naomi|f355bios.zip|OPT|HIGH|f126d318f135f38ee377fef2acf08d7e|NAOMI F355 Challenge BIOS (specific game)"
+    "naomi|f355dlx.zip|OPT|HIGH|5e83867c751f692a000afdf658dc181f|NAOMI F355 Challenge DX BIOS (specific game)"
+    "naomi|airlbios.zip|OPT|HIGH|3f348c88af99a40fbd11fa435f28c69d|NAOMI Airline Pilots BIOS (specific game)"
+    "naomi2|naomi2.zip|REQ|MED|-|NAOMI 2 BIOS set (zip, treated as NAOMI by libretro flycast)"
+
+    # ── SNK Neo Geo CD (neogeocd) — NeoCD core ──
+    "neogeocd|neocd_z.rom|REQ_ANY:model|HIGH|e7dac420ea7e6fbd4dc1fafef3a05bf2|Neo Geo CDZ BIOS (top-loader)"
+    "neogeocd|neocd_t.rom|REQ_ANY:model|MED|-|Neo Geo CD top-loader BIOS"
+    "neogeocd|neocd_f.rom|REQ_ANY:model|MED|-|Neo Geo CD front-loader BIOS"
+
+    # ── SNK Neo Geo MVS/AES (neogeo) — FBNeo / MAME ──
+    "neogeo|neogeo.zip|REQ|HIGH|-|Neo Geo BIOS set (MAME-style zip, hash varies by version)"
+
+    # ── NEC PC-FX (pcfx) — Beetle PC-FX ──
+    "pcfx|pcfx.rom|REQ|HIGH|e73d2c1f95975e3f06f4c1f7e4dc60d2|PC-FX BIOS"
+
+    # ── NEC TurboGrafx-CD / PC Engine CD (tg-cd, pcenginecd) — Beetle PCE / PCE Fast ──
+    "tg-cd|syscard3.pce|REQ|HIGH|38179df8f4ac870017db21ebcbf53114|TurboGrafx-CD System Card 3.0"
+    "tg-cd|syscard2.pce|OPT|MED|f3e6d4d34c00b53eb6cd9e1eef6ea21f|TG-CD System Card 2.0 (older games)"
+    "tg-cd|syscard1.pce|OPT|MED|-|TG-CD System Card 1.0 (older games)"
+    "pcenginecd|syscard3.pce|REQ|HIGH|38179df8f4ac870017db21ebcbf53114|PC Engine CD System Card 3.0"
+
+    # ── Atari Lynx (atarilynx) — Handy ──
+    "atarilynx|lynxboot.img|REQ|HIGH|fcd403db69f54290b51035d82f835e7b|Atari Lynx Boot ROM"
+
+    # ── Atari 5200 (atari5200) — a5200 core ──
+    "atari5200|5200.rom|REQ|HIGH|281f20ea4320404ec820fb7ec0693b38|Atari 5200 BIOS"
+
+    # ── Atari 7800 (atari7800) — ProSystem ──
+    "atari7800|7800 BIOS (U).rom|OPT_BOOT|MED|0763f1ffb006ddbe32e52d497ee848ae|Atari 7800 BIOS USA (boot screen)"
+    "atari7800|7800 BIOS (E).rom|OPT_BOOT|MED|397bb566584be7b9764e7a68974c4263|Atari 7800 BIOS Europe (boot screen)"
+
+    # ── Atari Jaguar CD (jaguarcd) — Virtual Jaguar ──
+    "jaguarcd|jagcd.rom|REQ|MED|-|Jaguar CD boot ROM"
+
+    # ── 3DO (3do) — Opera core ──
+    "3do|panafz1.bin|REQ_ANY:model|HIGH|f47264dd47fe30f73ab3c010015c155b|3DO Panasonic FZ-1 BIOS"
+    "3do|panafz10.bin|REQ_ANY:model|HIGH|51f2f43ae2f3508a14d9f56597e2d3ce|3DO Panasonic FZ-10 BIOS"
+    "3do|sanyotry.bin|REQ_ANY:model|MED|-|3DO Sanyo Try BIOS"
+    "3do|goldstar.bin|REQ_ANY:model|MED|-|3DO Goldstar GDO-101 BIOS"
+
+    # ── ColecoVision (colecovision) — blueMSX / Gearcoleco ──
+    "colecovision|colecovision.rom|REQ|HIGH|2c66f5911e5b42b8ebe113403548eee7|ColecoVision BIOS"
+
+    # ── Intellivision (intellivision) — FreeIntv ──
+    "intellivision|exec.bin|REQ|HIGH|62e761035cb657903761800f4437b8af|Intellivision Executive ROM"
+    "intellivision|grom.bin|REQ|HIGH|0cd5946c6473e42e8e4c2137785e427f|Intellivision Graphics ROM"
+
+    # ── Commodore Amiga (amiga500, amiga1200, amigacd32) — PUAE ──
+    "amiga500|kick34005.A500|REQ_ANY:revision|HIGH|82a21c1890cae844b3df741f2762d48d|Amiga Kickstart 1.3 (A500)"
+    "amiga500|kick40063.A500|REQ_ANY:revision|HIGH|59886e09c0c61b9e6e6e74b95a40fb33|Amiga Kickstart 3.1 (A500)"
+    "amiga1200|kick40068.A1200|REQ|HIGH|646773759326fbac3b2311fd8c8793ee|Amiga Kickstart 3.1 (A1200)"
+    "amigacd32|kick40060.CD32|REQ|HIGH|5f8924d013dd57a89cf349f4cdedc6b1|CD32 Kickstart"
+    "amigacd32|kick40060.CD32.ext|REQ|HIGH|bb72565701b1b6faece07d68ea5da639|CD32 extended ROM"
+
+    # ── Atari ST (atarist) — Hatari ──
+    "atarist|tos.img|REQ|MED|-|Atari ST TOS image (typically TOS 1.04 or 2.06)"
+
+    # ── Amstrad CPC / GX4000 (amstradcpc, amstradgx4000) — Caprice32 ──
+    "amstradcpc|cpc6128.rom|REQ_ANY:model|MED|-|Amstrad CPC 6128 OS+BASIC"
+    "amstradcpc|cpc664.rom|REQ_ANY:model|MED|-|Amstrad CPC 664 OS+BASIC"
+    "amstradcpc|cpc464.rom|REQ_ANY:model|MED|-|Amstrad CPC 464 OS+BASIC"
+
+    # ── Sharp X68000 (x68000) — PX68k ──
+    "x68000|iplrom.dat|REQ|MED|-|X68000 IPL ROM"
+    "x68000|cgrom.dat|REQ|MED|-|X68000 Character Generator ROM"
+
+    # ── Sharp X1 (x1) — X Millennium ──
+    "x1|ipl.x1|REQ|LOW|-|X1 IPL ROM"
+
+    # ── NEC PC-98 (pc98) — Neko Project II Kai ──
+    "pc98|bios.rom|REQ|MED|-|PC-98 BIOS"
+    "pc98|font.rom|REQ|MED|-|PC-98 font ROM"
+
+    # ── MSX / MSX2 (msx, msx2, msxturbor) — blueMSX ──
+    "msx|MSX.ROM|REQ_ANY:variant|MED|-|MSX system ROM"
+    "msx|MSXJ.ROM|REQ_ANY:variant|LOW|-|MSX Japanese system ROM"
+    "msx2|MSX2.ROM|REQ_ANY:variant|MED|-|MSX2 system ROM"
+    "msx2|MSX2EXT.ROM|REQ|MED|-|MSX2 extended ROM"
+    "msxturbor|MSX2P.ROM|REQ|MED|-|MSX2+ system ROM"
+    "msxturbor|MSX2PEXT.ROM|REQ|MED|-|MSX2+ extended ROM"
+
+    # ── BBC Micro (bbcmicro) — B-em (if used) ──
+    "bbcmicro|os12.rom|REQ|LOW|-|BBC Micro OS 1.20"
+    "bbcmicro|basic2.rom|REQ|LOW|-|BBC BASIC 2"
+
+    # ── Spectravideo (spectravideo) — blueMSX ──
+    "spectravideo|SVI.ROM|REQ|LOW|-|Spectravideo SV-318/328 system ROM"
+
+    # ── Dragon 32 / 64 (dragon32) — MAME standalone ──
+    "dragon32|dragon32.zip|REQ|MED|-|Dragon 32 BIOS (MAME-style zip)"
+
+    # ── Coleco Adam (adam) — MAME standalone ──
+    "adam|adam.zip|REQ|MED|-|Coleco Adam BIOS (MAME-style zip)"
+
+    # ── Fujitsu FM-7 (fm7) — MAME standalone ──
+    "fm7|fm7.zip|REQ|MED|-|FM-7 BIOS (MAME-style zip)"
+
+    # ── Texas Instruments TI-99/4A (ti99) — MAME standalone ──
+    "ti99|ti99_4a.zip|REQ|MED|-|TI-99/4A BIOS (MAME-style zip)"
+
+    # ── Acorn Archimedes (archimedes) — MAME standalone ──
+    "archimedes|aa310.zip|REQ|HIGH|-|Archimedes A310 BIOS (Arthur ROMs + RISC OS, MAME-style zip)"
+
+    # ── Apple IIgs (apple2gs) — MAME standalone ──
+    "apple2gs|apple2gs.zip|REQ|HIGH|-|Apple IIgs ROM03 BIOS (MAME-style zip)"
+
+    # ── Funtech Super A'Can (supracan) — MAME standalone ──
+    "supracan|supracan.zip|OPT|LOW|-|Super A'Can BIOS (optional, MAME-style zip)"
+
+    # ── Epoch Super Cassette Vision (scv) — MAME standalone ──
+    "scv|scv.zip|OPT|LOW|-|Super Cassette Vision BIOS (optional, MAME-style zip)"
+
+    # ── Casio PV-1000 (pv1000) — MAME standalone ──
+    "pv1000|pv1000.zip|OPT|LOW|-|PV-1000 BIOS (optional, MAME-style zip)"
+
+    # ── Nintendo Famicom Disk System / NES disk addon ──
+    "nes|disksys.rom|OPT|HIGH|ca30b50f880eb660a320674ed365ef7a|FDS BIOS (required only for .fds games)"
+    "famicom|disksys.rom|OPT|HIGH|ca30b50f880eb660a320674ed365ef7a|FDS BIOS (required only for .fds games)"
+
+    # ── Nintendo Game Boy Advance (gba) ──
+    "gba|gba_bios.bin|OPT_BOOT|HIGH|a860e8c0b6d573d191e4ec7db1b1e4f6|GBA BIOS (boot logo + some games)"
+
+    # ── Nintendo 64DD (n64dd) ──
+    "n64dd|64DD_IPL.bin|REQ|MED|-|N64DD IPL ROM (required for 64DD emulation)"
+
+    # ── ZX Spectrum (zxspectrum) — Fuse ──
+    "zxspectrum|48.rom|OPT|MED|0e0e6c11c5fb443f6c2a0fde11feb0eb|ZX Spectrum 48K ROM"
+    "zxspectrum|128-0.rom|OPT|MED|3a5d8e08bda1a76e2872d3a31fae3b04|ZX Spectrum 128K ROM 0"
+    "zxspectrum|128-1.rom|OPT|MED|7c2b66c33d8b8be2a6b934d5cd5b0a8a|ZX Spectrum 128K ROM 1"
+)
+
+#=============================================================================
+# ES-DE system name → BIOS table key mapping
+# (some ES-DE names need normalization to our table keys; empty = no BIOS data)
+#=============================================================================
+declare -A ESDE_TO_BIOSKEY=(
+    [megadrive]=""           # no BIOS needed for cart Genesis
+    [megadrivejp]=""
+    [genesis]=""
+    [mastersystem]=""
+    [gamegear]=""
+    [snes]=""                # SNES BIOS optional/cart-only
+    [sfc]=""
+    [snesh]=""
+    [sgb]=""
+    [gb]=""
+    [gbh]=""
+    [gbc]=""
+    [gbch]=""
+    [gba]=gba
+    [gbah]=gba
+    [nes]=nes
+    [nesh]=nes
+    [famicom]=famicom
+    [n64]=""
+    [n64h]=""
+    [n64dd]=n64dd
+    [psx]=psx
+    [ps2]=ps2
+    [saturn]=saturn
+    [saturnjp]=saturnjp
+    [segacd]=segacd
+    [megacd]=megacd
+    [megacdjp]=megacd
+    [sega32x]=""             # picodrive HLE — no BIOS required
+    [dreamcast]=dreamcast
+    [atomiswave]=atomiswave
+    [naomi]=naomi
+    [naomi2]=naomi2
+    [neogeocd]=neogeocd
+    [neogeo]=neogeo
+    [pcfx]=pcfx
+    [tg-cd]=tg-cd
+    [pcenginecd]=pcenginecd
+    [atarilynx]=atarilynx
+    [lynx]=atarilynx
+    [atari5200]=atari5200
+    [atari7800]=atari7800
+    [jaguarcd]=jaguarcd
+    [3do]=3do
+    [colecovision]=colecovision
+    [intellivision]=intellivision
+    [amiga500]=amiga500
+    [amiga1200]=amiga1200
+    [amigacd32]=amigacd32
+    [atarist]=atarist
+    [amstradcpc]=amstradcpc
+    [x68000]=x68000
+    [x1]=x1
+    [pc98]=pc98
+    [msx]=msx
+    [msx1]=msx
+    [msx2]=msx2
+    [msxturbor]=msxturbor
+    [bbcmicro]=bbcmicro
+    [spectravideo]=spectravideo
+    [dragon32]=dragon32
+    [adam]=adam
+    [fm7]=fm7
+    [ti99]=ti99
+    [archimedes]=archimedes
+    [apple2gs]=apple2gs
+    [supracan]=supracan
+    [scv]=scv
+    [pv1000]=pv1000
+    [zxspectrum]=zxspectrum
+    [zx81]=""
+    [c64]=""
+    [vic20]=""
+    [plus4]=""
+    [dos]=""
+    [pico8]=""
+    [vpinball]=""
+    [arcade]=""
+    [mame]=""
+    [model2]=""
+    [model3]=""
+    [cps1]=""
+    [cps2]=""
+    [cps3]=""
+)
+
+#=============================================================================
+# Helper functions
+#=============================================================================
+
+md5_of() {
+    [[ -f "$1" ]] || { echo ""; return; }
+    md5sum "$1" 2>/dev/null | awk '{print tolower($1)}'
+}
+
+list_table_systems() {
+    local seen=""
+    for entry in "${BIOS_TABLE[@]}"; do
+        local sys="${entry%%|*}"
+        [[ ",$seen," == *",$sys,"* ]] && continue
+        seen="$seen,$sys"
+        echo "$sys"
+    done | sort -u
+}
+
+conf_color() {
+    case "$1" in
+        HIGH) echo -e "${GREEN}HIGH${NC}" ;;
+        MED)  echo -e "${YELLOW}MED${NC}" ;;
+        LOW)  echo -e "${DIM}LOW${NC}" ;;
+        *)    echo -e "${DIM}?${NC}" ;;
+    esac
+}
+
+# args: file_relative_to_bios_dir, expected_md5_list (comma-sep, "-" for skip)
+# stdout: "OK_HASH" | "OK_NOHASH" | "MISSING" | "WRONG_HASH:<observed_md5>"
+verify_entry() {
+    local file="$1"
+    local expected="$2"
+    local path="$BIOS_DIR/$file"
+    [[ ! -f "$path" ]] && { echo "MISSING"; return; }
+    if [[ "$expected" == "-" || -z "$expected" ]]; then
+        echo "OK_NOHASH"
+        return
+    fi
+    local actual
+    actual=$(md5_of "$path")
+    local IFS=','
+    for h in $expected; do
+        [[ "$actual" == "$h" ]] && { echo "OK_HASH"; return; }
+    done
+    echo "WRONG_HASH:$actual"
+}
+
+# Returns: 0=pass, 1=warn, 2=fail
+verify_system() {
+    local system="$1"
+    local mapped="${ESDE_TO_BIOSKEY[$system]-$system}"
+
+    if [[ -z "$mapped" ]]; then
+        echo -e "${DIM}── $system ── (no BIOS required or not in table)${NC}"
+        return 0
+    fi
+
+    local entries=()
+    for entry in "${BIOS_TABLE[@]}"; do
+        local s="${entry%%|*}"
+        [[ "$s" == "$mapped" ]] && entries+=("$entry")
+    done
+
+    if (( ${#entries[@]} == 0 )); then
+        echo -e "${DIM}── $system ── (no BIOS data in table)${NC}"
+        return 0
+    fi
+
+    echo -e "${BOLD}── $system ──${NC}"
+
+    local has_fail=0
+    local has_warn=0
+    declare -A req_any_groups
+
+    # Collect REQ_ANY groups
+    for entry in "${entries[@]}"; do
+        IFS='|' read -r _s _file req _conf _md5 _desc <<< "$entry"
+        if [[ "$req" =~ ^REQ_ANY: ]]; then
+            req_any_groups["${req#REQ_ANY:}"]=0
+        fi
+    done
+
+    # Verify each entry
+    for entry in "${entries[@]}"; do
+        IFS='|' read -r _s file req conf md5 desc <<< "$entry"
+        local result
+        result=$(verify_entry "$file" "$md5")
+        local conf_str
+        conf_str=$(conf_color "$conf")
+
+        case "$result" in
+            OK_HASH)
+                echo -e "   ${GREEN}✓${NC} $file  [${conf_str}]  $desc"
+                if [[ "$req" =~ ^REQ_ANY: ]]; then
+                    req_any_groups[${req#REQ_ANY:}]=1
+                fi
+                ;;
+            OK_NOHASH)
+                echo -e "   ${YELLOW}~${NC} $file  [${conf_str}]  $desc ${DIM}(hash unverified)${NC}"
+                if [[ "$req" =~ ^REQ_ANY: ]]; then
+                    req_any_groups[${req#REQ_ANY:}]=1
+                fi
+                ;;
+            MISSING)
+                case "$req" in
+                    REQ)
+                        echo -e "   ${RED}✗${NC} $file  [${conf_str}]  $desc ${RED}(MISSING — required)${NC}"
+                        has_fail=1
+                        ;;
+                    REQ_ANY:*)
+                        echo -e "   ${DIM}·${NC} $file  [${conf_str}]  $desc ${DIM}(missing — group fallback)${NC}"
+                        ;;
+                    OPT|OPT_BOOT)
+                        echo -e "   ${DIM}·${NC} $file  [${conf_str}]  $desc ${DIM}(optional, missing)${NC}"
+                        ;;
+                esac
+                ;;
+            WRONG_HASH:*)
+                local observed="${result#WRONG_HASH:}"
+                echo -e "   ${RED}✗${NC} $file  [${conf_str}]  $desc"
+                echo -e "      ${RED}wrong file?${NC} observed MD5 ${RED}$observed${NC}  expected ${GREEN}$md5${NC}"
+                case "$req" in
+                    REQ)             has_fail=1 ;;
+                    REQ_ANY:*)       : ;;
+                    OPT|OPT_BOOT)    has_warn=1 ;;
+                esac
+                ;;
+        esac
+    done
+
+    # Evaluate REQ_ANY groups
+    for group in "${!req_any_groups[@]}"; do
+        if [[ "${req_any_groups[$group]}" != "1" ]]; then
+            echo -e "   ${RED}✗${NC} group [${BOLD}$group${NC}] — none of the alternatives present"
+            has_fail=1
+        fi
+    done
+
+    if (( has_fail )); then
+        echo -e "   ${RED}${BOLD}FAIL${NC} — system will not boot until missing/wrong BIOS is fixed"
+        echo ""
+        return 2
+    elif (( has_warn )); then
+        echo -e "   ${YELLOW}${BOLD}WARN${NC} — system should work; optional files missing/mismatched"
+        echo ""
+        return 1
+    else
+        echo -e "   ${GREEN}${BOLD}PASS${NC} — required BIOS in place"
+        echo ""
+        return 0
+    fi
+}
+
+verify_all() {
+    local total_pass=0 total_warn=0 total_fail=0 total_skip=0
+    while IFS= read -r sys; do
+        if [[ -d "$ROMS/$sys" ]] && [[ -n "$(ls -A "$ROMS/$sys" 2>/dev/null)" ]]; then
+            verify_system "$sys"
+            case $? in
+                0) total_pass=$((total_pass + 1)) ;;
+                1) total_warn=$((total_warn + 1)) ;;
+                2) total_fail=$((total_fail + 1)) ;;
+            esac
+        else
+            total_skip=$((total_skip + 1))
+        fi
+    done < <(list_table_systems)
+
+    echo -e "${BOLD}Summary:${NC} ${GREEN}$total_pass PASS${NC}  ${YELLOW}$total_warn WARN${NC}  ${RED}$total_fail FAIL${NC}  ${DIM}$total_skip not present${NC}"
+    (( total_fail > 0 )) && return 2
+    (( total_warn > 0 )) && return 1
+    return 0
+}
+
+#=============================================================================
+# Main
+#=============================================================================
+
+case "${1:-}" in
+    --list)
+        echo "Systems with BIOS data in the table:"
+        list_table_systems | sed 's/^/   /'
+        exit 0
+        ;;
+    --table)
+        echo "BIOS table (system|file|req|conf|md5|description):"
+        printf '%s\n' "${BIOS_TABLE[@]}"
+        exit 0
+        ;;
+    -h|--help)
+        cat << 'HELP'
+
+Portable ES-DE — BIOS Verifier
+
+Usage:
+   ./verify-bios.sh                 verify all systems present in ROMs/
+   ./verify-bios.sh <system>        verify a specific ES-DE system
+   ./verify-bios.sh --list          list systems we have BIOS data for
+   ./verify-bios.sh --table         dump the entire BIOS table
+
+States:
+   PASS  required BIOS present and hash-verified
+   WARN  system will work; optional BIOS missing or hash mismatched
+   FAIL  system will not boot — required BIOS missing or hash mismatched
+
+Confidence:
+   HIGH  hash sourced from emulator source code / Redump / MAME DAT
+   MED   hash sourced from libretro docs / community wiki
+   LOW   filename-only check (no canonical hash available)
+HELP
+        exit 0
+        ;;
+    "")
+        echo ""
+        echo -e "${CYAN}Portable ES-DE — BIOS Verifier${NC}"
+        echo ""
+        if [[ ! -d "$BIOS_DIR" ]]; then
+            echo -e "${RED}✗${NC} BIOS directory not found: $BIOS_DIR"
+            exit 1
+        fi
+        verify_all
+        exit $?
+        ;;
+    *)
+        echo ""
+        if [[ ! -d "$BIOS_DIR" ]]; then
+            echo -e "${RED}✗${NC} BIOS directory not found: $BIOS_DIR"
+            exit 1
+        fi
+        verify_system "$1"
+        exit $?
+        ;;
+esac
+VERIFYBIOSSCRIPT
+
+chmod +x "$BASE/verify-bios.sh"
+ok "verify-bios.sh written to bundle"
+
+#=============================================================================
+# STEP 15: WRITE INSTALL-CORE.SH TO BUNDLE
+#=============================================================================
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Writing install-core.sh to bundle..."
+
+cat > "$BASE/install-core.sh" << 'INSTALLCORESCRIPT'
+#!/usr/bin/env bash
+#=============================================================================
+# Portable ES-DE — Libretro Core Installer
+# Downloads a single libretro core from the buildbot, into the bundle.
+# Usage: ./install-core.sh <core_name>
+#   e.g. ./install-core.sh mednafen_psx_hw
+#=============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE="$SCRIPT_DIR"
+EMUS="$BASE/Emulators"
+CORE_DIR="$EMUS/retroarch-cores"
+CORE_BASE_URL="https://buildbot.libretro.com/nightly/linux/x86_64/latest"
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
+warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
+fail() { echo -e "   ${RED}✗${NC} $1"; }
+info() { echo -e "   ${CYAN}→${NC} $1"; }
+
+install_core() {
+    local core_name="$1"
+    local zip_name="${core_name}_libretro.so.zip"
+    local so_name="${core_name}_libretro.so"
+    mkdir -p "$CORE_DIR"
+    if [[ -f "$CORE_DIR/$so_name" ]]; then
+        ok "Core $core_name already installed"
+        return 0
+    fi
+    info "Downloading $core_name from libretro buildbot..."
+    local tmp="/tmp/$zip_name"
+    if curl -sfL -o "$tmp" "$CORE_BASE_URL/$zip_name"; then
+        if unzip -qo "$tmp" -d "$CORE_DIR" 2>/dev/null; then
+            rm -f "$tmp"
+            ok "Installed $core_name"
+            return 0
+        fi
+    fi
+    rm -f "$tmp"
+    fail "Failed to install core $core_name (network or core unavailable on Linux x86_64 buildbot)"
+    return 1
+}
+
+case "${1:-}" in
+    "")     echo "Usage: $0 <core_name>"; echo "Example: $0 mednafen_psx_hw"; exit 1 ;;
+    -h|--help)
+            echo "Portable ES-DE — Libretro Core Installer"
+            echo "Usage: $0 <core_name>"
+            echo "Examples:"
+            echo "   $0 mednafen_psx_hw       # PS1 (high accuracy)"
+            echo "   $0 snes9x                # SNES"
+            echo "   $0 flycast               # Dreamcast / NAOMI / Atomiswave"
+            exit 0 ;;
+    *)      install_core "$1" ;;
+esac
+INSTALLCORESCRIPT
+
+chmod +x "$BASE/install-core.sh"
+ok "install-core.sh written to bundle"
+
+#=============================================================================
+# STEP 16: WRITE INSTALL-EMULATOR.SH TO BUNDLE
+#=============================================================================
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Writing install-emulator.sh to bundle..."
+
+cat > "$BASE/install-emulator.sh" << 'INSTALLEMUSCRIPT'
+#!/usr/bin/env bash
+#=============================================================================
+# Portable ES-DE — Standalone Emulator Installer
+# Downloads a single standalone emulator into the bundle.
+# Usage: ./install-emulator.sh <emulator_name>
+#   e.g. ./install-emulator.sh dolphin
+#=============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE="$SCRIPT_DIR"
+EMUS="$BASE/Emulators"
+mkdir -p "$EMUS"
+
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
+ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
+warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
+fail() { echo -e "   ${RED}✗${NC} $1"; }
+info() { echo -e "   ${CYAN}→${NC} $1"; }
+
+DOWNLOAD_ERRORS=0
+
+#=============================================================================
+# Download helpers (shared with setup-portable-esde.sh)
+#=============================================================================
+github_appimage() {
+    local repo="$1" pattern="$2" outfile="$3"
+    if [[ -f "$outfile" ]]; then
+        ok "$(basename "$outfile") already exists, skipping"
+        return 0
+    fi
+    info "Querying GitHub: $repo ..."
+    local url
+    url=$(curl -sfL "https://api.github.com/repos/$repo/releases?per_page=10" \
+        | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+        | grep -P "$pattern" \
+        | head -1) || true
+    if [[ -z "$url" ]]; then
+        fail "No match for pattern in $repo releases"
+        return 1
+    fi
+    info "Downloading $(basename "$url") ..."
+    if curl -#fL -o "$outfile" "$url"; then
+        chmod +x "$outfile"
+        ok "$(basename "$outfile") downloaded"
+    else
+        fail "Download failed: $url"
+        rm -f "$outfile"
+        return 1
+    fi
+}
+
+download_direct() {
+    local url="$1" outfile="$2" label="$3"
+    if [[ -f "$outfile" ]]; then
+        ok "$label already exists, skipping"
+        return 0
+    fi
+    info "Downloading $label ..."
+    if curl -#fL -o "$outfile" "$url"; then
+        chmod +x "$outfile"
+        ok "$label downloaded"
+    else
+        fail "Download failed: $label"
+        rm -f "$outfile"
+        return 1
+    fi
+}
+
+download_rpcs3() {
+    local outdir="$1"
+    if compgen -G "$outdir/rpcs3*.AppImage" > /dev/null 2>&1; then
+        ok "RPCS3 already exists, skipping"
+        return 0
+    fi
+    info "Downloading RPCS3 (latest nightly) ..."
+    if (cd "$outdir" && curl -#fJLO "https://rpcs3.net/latest-linux-x64"); then
+        chmod +x "$outdir"/rpcs3*.AppImage 2>/dev/null || true
+        ok "RPCS3 downloaded"
+    else
+        fail "RPCS3 download failed"
+        return 1
+    fi
+}
+
+#=============================================================================
+# Emulator install functions
+# Used by both the main install flow below AND by the bundle's
+# install-emulator.sh (a heredoc copy of these functions for on-demand
+# installation when convert-retrobat.sh imports a system whose emulator
+# isn't yet installed).
+#=============================================================================
+
+install_retroarch() {
+    download_direct \
+        "https://github.com/hizzlekizzle/RetroArch-AppImage/releases/download/Linux_LTS_Nightlies/RetroArch-Linux-x86_64-Nightly.AppImage" \
+        "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage" \
+        "RetroArch" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_rpcs3() {
+    download_rpcs3 "$EMUS" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_pcsx2() {
+    github_appimage "PCSX2/pcsx2" \
+        "linux-appimage-x64.*\.AppImage$" \
+        "$EMUS/pcsx2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_duckstation() {
+    github_appimage "stenzek/duckstation" \
+        "DuckStation.*x64.*\.AppImage$" \
+        "$EMUS/DuckStation-x64.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_ppsspp() {
+    github_appimage "hrydgard/ppsspp" \
+        "PPSSPP.*x86_64.*\.AppImage$" \
+        "$EMUS/PPSSPP-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_melonds() {
+    github_appimage "pkgforge-dev/melonDS-AppImage-Enhanced" \
+        "melonDS.*x86_64.*\.AppImage$" \
+        "$EMUS/melonDS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_dolphin() {
+    github_appimage "pkgforge-dev/Dolphin-emu-AppImage" \
+        "Dolphin_Emulator.*x86_64.*\.AppImage$" \
+        "$EMUS/dolphin-emu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_cemu() {
+    github_appimage "cemu-project/Cemu" \
+        "Cemu.*\.AppImage$" \
+        "$EMUS/Cemu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_azahar() {
+    if compgen -G "$EMUS/azahar*.AppImage" > /dev/null 2>&1; then
+        ok "Azahar already exists, skipping"
+    else
+        AZAHAR_URL=$(curl -sfL "https://api.github.com/repos/azahar-emu/azahar/releases?per_page=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*azahar\.AppImage(?!-)' \
+            | head -1) || true
+        if [[ -n "$AZAHAR_URL" ]]; then
+            info "Downloading Azahar ..."
+            if curl -#fL -o "$EMUS/azahar.AppImage" "$AZAHAR_URL"; then
+                chmod +x "$EMUS/azahar.AppImage"
+                ok "Azahar downloaded"
+            else
+                fail "Azahar download failed"
+                rm -f "$EMUS/azahar.AppImage"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            fail "Could not find Azahar AppImage"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install_xemu() {
+    github_appimage "xemu-project/xemu" \
+        "xemu-[0-9].*x86_64\.AppImage$" \
+        "$EMUS/xemu-latest.AppImage" || {
+            github_appimage "xemu-project/xemu" \
+                "xemu.*x86_64\.AppImage$" \
+                "$EMUS/xemu-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        } || true
+}
+
+install_xenia() {
+    if [[ -f "$EMUS/xenia_canary" ]]; then
+        ok "Xenia Canary already exists, skipping"
+    else
+        XENIA_URL="https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_linux.tar.xz"
+        info "Downloading Xenia Canary (official build) ..."
+        XENIA_TMPDIR="$EMUS/xenia_tmp"
+        mkdir -p "$XENIA_TMPDIR"
+        if curl -#fL "$XENIA_URL" | tar -xJ -C "$XENIA_TMPDIR" 2>/dev/null; then
+            # Locate the xenia_canary binary (usually deep inside build/...)
+            XENIA_BIN=$(find "$XENIA_TMPDIR" -type f -name xenia_canary -executable 2>/dev/null | head -1)
+            if [[ -n "$XENIA_BIN" ]]; then
+                mv "$XENIA_BIN" "$EMUS/xenia_canary"
+                chmod +x "$EMUS/xenia_canary"
+                ok "Xenia Canary extracted"
+            else
+                fail "Could not find xenia_canary binary inside archive"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+            rm -rf "$XENIA_TMPDIR"
+        else
+            fail "Xenia Canary download failed"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            rm -rf "$XENIA_TMPDIR"
+        fi
+    fi
+}
+
+install_ryujinx() {
+    # Ryubing is hosted on a self-managed Forgejo instance, not GitHub
+    # Downloads from git.ryujinx.app via their GitHub mirror releases
+    if compgen -G "$EMUS/ryujinx*.AppImage" > /dev/null 2>&1; then
+        ok "Ryubing already exists, skipping"
+    else
+        info "Downloading Ryubing ..."
+        # Try GitHub mirror first
+        RYUBING_URL=$(curl -sfL "https://api.github.com/repos/Ryubing/Ryujinx/releases?per_page=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -P "x64\.AppImage$" \
+            | head -1) || true
+        # Fallback: direct download from ryujinx.app
+        if [[ -z "$RYUBING_URL" ]]; then
+            RYUBING_URL=$(curl -sfL "https://git.ryujinx.app/api/v1/repos/ryubing/ryujinx/releases?limit=5" \
+                | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+                | grep -P "x64\.AppImage$" \
+                | head -1) || true
+        fi
+        if [[ -n "$RYUBING_URL" ]]; then
+            RYUBING_FNAME=$(basename "$RYUBING_URL")
+            if curl -#fL -o "$EMUS/$RYUBING_FNAME" "$RYUBING_URL"; then
+                chmod +x "$EMUS/$RYUBING_FNAME"
+                ok "Ryubing downloaded: $RYUBING_FNAME"
+            else
+                fail "Ryubing download failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                rm -f "$EMUS/$RYUBING_FNAME"
+            fi
+        else
+            warn "Ryubing URL not found — download manually from https://git.ryujinx.app/ryubing/ryujinx"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install_eden() {
+    # Eden is hosted on git.eden-emu.dev (Gitea instance, not GitHub)
+    # Stable releases: git.eden-emu.dev/eden-emu/eden
+    # Nightly builds:  git.eden-emu.dev/eden-ci/nightly
+    if compgen -G "$EMUS/Eden*.AppImage" > /dev/null 2>&1; then
+        ok "Eden already exists, skipping"
+    else
+        info "Downloading Eden ..."
+        # Try stable release first via Gitea API
+        EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-emu/eden/releases?limit=5&token=" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
+            | grep -iv "arm\|zsync\|deb\|room" \
+            | head -1) || true
+        # Fallback: nightly builds
+        if [[ -z "$EDEN_URL" ]]; then
+            EDEN_URL=$(curl -sfL "https://git.eden-emu.dev/api/v1/repos/eden-ci/nightly/releases?limit=3" \
+                | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+                | grep -iP "amd64.*\.AppImage$|x86_64.*\.AppImage$" \
+                | grep -iv "arm\|zsync\|deb\|room" \
+                | head -1) || true
+        fi
+        if [[ -n "$EDEN_URL" ]]; then
+            EDEN_FNAME=$(basename "$EDEN_URL")
+            if curl -#fL -o "$EMUS/$EDEN_FNAME" "$EDEN_URL"; then
+                chmod +x "$EMUS/$EDEN_FNAME"
+                ok "Eden downloaded: $EDEN_FNAME"
+            else
+                fail "Eden download failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                rm -f "$EMUS/$EDEN_FNAME"
+            fi
+        else
+            warn "Eden URL not found — download manually from https://git.eden-emu.dev/eden-emu/eden/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install_shadps4() {
+    if [[ -f "$EMUS/shadps4" ]] || [[ -f "$EMUS/shadps4-qt" ]]; then
+        ok "shadPS4 already exists, skipping"
+    else
+        # shadPS4 ships as tar.gz/zip for Linux — try Qt build first, then headless
+        # shadPS4 releases: shadps4-linux-sdl-*.zip containing Shadps4-sdl.AppImage
+        SHADPS4_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=5" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "shadps4-linux-sdl.*\.zip$|linux.*x86.?64.*\.(tar\.(gz|xz)|zip)$" \
+            | grep -iv "debug\|symbols\|arm\|qt" \
+            | grep -v "Pre-release" \
+            | head -1) || true
+        if [[ -n "$SHADPS4_URL" ]]; then
+            info "Downloading shadPS4 ..."
+            SHADPS4_TMPDIR=$(mktemp -d)
+            SHADPS4_FILE="$SHADPS4_TMPDIR/shadps4-dl"
+            if curl -#fL -o "$SHADPS4_FILE" "$SHADPS4_URL"; then
+                # Detect archive type by content, not extension
+                FILE_TYPE=$(file "$SHADPS4_FILE" | tr '[:upper:]' '[:lower:]')
+                if echo "$FILE_TYPE" | grep -q "zip"; then
+                    unzip -qo "$SHADPS4_FILE" -d "$SHADPS4_TMPDIR/extract" 2>/dev/null || true
+                elif echo "$FILE_TYPE" | grep -q "xz\|lzma"; then
+                    tar -xJf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+                else
+                    tar -xzf "$SHADPS4_FILE" -C "$SHADPS4_TMPDIR" 2>/dev/null || true
+                fi
+                # Find the main shadPS4 executable (qt preferred over headless)
+                SHADPS4_BIN=$(find "$SHADPS4_TMPDIR" -type f \( -name "shadps4-qt" -o -name "shadps4" -o -iname "shadps4*.AppImage" -o -iname "Shadps4*.AppImage" \) 2>/dev/null | grep -v "\.so" | head -1)
+                if [[ -n "$SHADPS4_BIN" ]]; then
+                    # Copy the binary and any sibling shared libs it needs
+                    BIN_DIR=$(dirname "$SHADPS4_BIN")
+                    cp "$SHADPS4_BIN" "$EMUS/shadps4"
+                    chmod +x "$EMUS/shadps4"
+                    # Copy .so files from same dir (shadPS4 bundles Qt libs)
+                    find "$BIN_DIR" -maxdepth 1 -name "*.so*" -exec cp {} "$EMUS/" \; 2>/dev/null || true
+                    find "$BIN_DIR" -maxdepth 1 -type d -exec cp -r {} "$EMUS/" \; 2>/dev/null || true
+                    ok "shadPS4 downloaded"
+                else
+                    fail "Could not find shadPS4 binary inside archive"
+                    DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                fi
+            else
+                fail "shadPS4 download failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+            rm -rf "$SHADPS4_TMPDIR"
+        else
+            warn "shadPS4 download URL not found — check https://github.com/shadps4-emu/shadPS4/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install__86box() {
+    github_appimage "86Box/86Box" \
+        "86Box.*x86_64.*\.AppImage$" \
+        "$EMUS/86Box-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_vpinball() {
+    if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+        ok "VPinball already exists, skipping"
+    else
+        # vpinball releases: BGFX and GL are separate zips, each containing one binary
+        # plus shared support dirs (scripts/, shaders/, assets/, pinmame/, etc.)
+        # Real filename format: VPinballX_BGFX-10.8.1-3788-2151290-linux-x64-Release.zip
+        VPINBALL_TMP=$(mktemp -d)
+        VPINBALL_GOT=0
+        VPINBALL_COUNT_FILE=$(mktemp)
+        echo 0 > "$VPINBALL_COUNT_FILE"
+
+        # Fetch BGFX and GL zip URLs from the latest release only
+        VPINBALL_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=1"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"         | grep -iv "debug\|symbols") || true
+
+        if [[ -z "$VPINBALL_URLS" ]]; then
+            warn "VPinball download URL not found — check https://github.com/vpinball/vpinball/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        else
+            # Download and extract each zip — VPinball zips contain a tar.gz inside
+            while IFS= read -r VPURL; do
+                [[ -z "$VPURL" ]] && continue
+                VPZIP=$(basename "$VPURL")
+                info "Downloading $VPZIP ..."
+                if curl -#fL -o "$VPINBALL_TMP/$VPZIP" "$VPURL"; then
+                    # Step 1: unzip to get the tar.gz inside
+                    unzip -qo "$VPINBALL_TMP/$VPZIP" -d "$VPINBALL_TMP" 2>/dev/null || true
+                    # Step 2: extract any tar.gz that came out of the zip
+                    for TGZ in "$VPINBALL_TMP"/*.tar.gz "$VPINBALL_TMP"/*.tar.xz; do
+                        [[ -f "$TGZ" ]] || continue
+                        mkdir -p "$VPINBALL_TMP/extract"
+                        tar -xzf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null ||                     tar -xJf "$TGZ" -C "$VPINBALL_TMP/extract" 2>/dev/null || true
+                        rm -f "$TGZ"
+                    done
+                    echo $(( $(cat "$VPINBALL_COUNT_FILE") + 1 )) > "$VPINBALL_COUNT_FILE"
+                else
+                    warn "Failed to download $VPZIP"
+                fi
+            done <<< "$VPINBALL_URLS"
+            VPINBALL_GOT=$(cat "$VPINBALL_COUNT_FILE")
+            rm -f "$VPINBALL_COUNT_FILE"
+
+            if [[ $VPINBALL_GOT -gt 0 ]]; then
+                # Copy binaries — search at any depth after extraction
+                for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
+                    FOUND=$(find "$VPINBALL_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
+                    if [[ -n "$FOUND" ]]; then
+                        cp "$FOUND" "$EMUS/$BIN"
+                        chmod +x "$EMUS/$BIN"
+                        ok "  Installed: $BIN"
+                    fi
+                done
+                # Copy all support subdirectories (scripts, shaders, assets, pinmame, etc.)
+                EXTRACT_ROOT="$VPINBALL_TMP/extract"
+                [[ ! -d "$EXTRACT_ROOT" ]] && EXTRACT_ROOT="$VPINBALL_TMP"
+                find "$EXTRACT_ROOT" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
+                    DNAME=$(basename "$D")
+                    # Skip the extract dir itself and temp root
+                    [[ "$DNAME" == "extract" ]] && continue
+                    [[ ! -d "$EMUS/$DNAME" ]] && mkdir -p "$EMUS/$DNAME"
+                    cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null || true
+                done
+                ok "VPinball downloaded ($VPINBALL_GOT zip(s) extracted)"
+            else
+                fail "VPinball downloads all failed"
+                DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        fi
+        rm -rf "$VPINBALL_TMP"
+    fi
+    echo ""
+
+}
+
+install_dosbox_x() {
+    if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1; then
+        ok "DOSBox-X already exists, skipping"
+    else
+        DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/DOSBox-X-AppImage/releases?per_page=3" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "\.AppImage$" \
+            | grep -iv "arm\|aarch" | head -1) || true
+        if [[ -n "$DOSBOXX_URL" ]]; then
+            info "Downloading DOSBox-X..."
+            FNAME=$(basename "$DOSBOXX_URL")
+            if curl -#fL -o "$EMUS/$FNAME" "$DOSBOXX_URL"; then
+                chmod +x "$EMUS/$FNAME"
+                cat > "$EMUS/dosbox-x-portable.sh" << 'DBXWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x*.AppImage' | head -1)
+exec "$BIN" "$@"
+DBXWRAP
+                chmod +x "$EMUS/dosbox-x-portable.sh"
+                ok "DOSBox-X downloaded"
+            else
+                fail "DOSBox-X download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            warn "DOSBox-X not found — check https://github.com/pkgforge-dev/DOSBox-X-AppImage/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+}
+
+install_ruffle() {
+    if [[ -f "$EMUS/ruffle" ]] || compgen -G "$EMUS/ruffle*.AppImage" > /dev/null 2>&1; then
+        ok "Ruffle already exists, skipping"
+    else
+        RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "linux.*x86.?64.*\.tar\.gz$"         | grep -iv "debug\|arm" | head -1) || true
+        if [[ -n "$RUFFLE_URL" ]]; then
+            info "Downloading Ruffle..."
+            RUFFLE_TMP=$(mktemp -d)
+            if curl -#fL "$RUFFLE_URL" | tar -xz -C "$RUFFLE_TMP" 2>/dev/null; then
+                RUFFLE_BIN=$(find "$RUFFLE_TMP" -name "ruffle" -type f | head -1)
+                if [[ -n "$RUFFLE_BIN" ]]; then
+                    cp "$RUFFLE_BIN" "$EMUS/ruffle"
+                    chmod +x "$EMUS/ruffle"
+                    cat > "$EMUS/ruffle-portable.sh" << 'RUFFLEWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+exec "$SCRIPT_DIR/ruffle" "$@"
+RUFFLEWRAP
+                    chmod +x "$EMUS/ruffle-portable.sh"
+                    ok "Ruffle downloaded"
+                else
+                    fail "Ruffle binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                fi
+            else
+                fail "Ruffle download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+            rm -rf "$RUFFLE_TMP"
+        else
+            warn "Ruffle URL not found — check https://github.com/ruffle-rs/ruffle/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+
+}
+
+install_eka2l1() {
+    if compgen -G "$EMUS/eka2l1*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/EKA2L1*.AppImage" > /dev/null 2>&1; then
+        ok "EKA2L1 already exists, skipping"
+    else
+        # The continuous tag is the only release tag — fetch by tag, not "latest"
+        EKA2L1_URL=$(curl -sfL "https://api.github.com/repos/EKA2L1/EKA2L1/releases/tags/continous" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "linux.*\.AppImage$" \
+            | grep -iv "arm\|aarch" \
+            | head -1) || true
+        if [[ -n "$EKA2L1_URL" ]]; then
+            info "Downloading EKA2L1..."
+            EKA2L1_FNAME=$(basename "$EKA2L1_URL")
+            if curl -#fL -o "$EMUS/$EKA2L1_FNAME" "$EKA2L1_URL"; then
+                chmod +x "$EMUS/$EKA2L1_FNAME"
+                cat > "$EMUS/eka2l1-portable.sh" << 'EKA2L1WRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'eka2l1*.AppImage' -o -iname 'EKA2L1*.AppImage' 2>/dev/null | head -1)
+exec "$BIN" "$@"
+EKA2L1WRAP
+                chmod +x "$EMUS/eka2l1-portable.sh"
+                ok "EKA2L1 downloaded ($EKA2L1_FNAME)"
+            else
+                fail "EKA2L1 download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+                rm -f "$EMUS/$EKA2L1_FNAME"
+            fi
+        else
+            warn "EKA2L1 URL not found — check https://github.com/EKA2L1/EKA2L1/releases/tag/continous"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+
+}
+
+install_solarus() {
+    if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
+        ok "Solarus already exists, skipping"
+    else
+        # Known stable direct URL — update version number when new releases come out
+        SOLARUS_URL="https://gitlab.com/api/v4/projects/solarus-games%2Fsolarus/packages/generic/solarus/2.0.4/solarus-launcher-v2.0.4-linux-x64.tar.gz"
+        info "Downloading Solarus..."
+        # Solarus ships as a tar.gz containing a standalone binary
+        SOLARUS_TMP=$(mktemp -d)
+        if curl -#fL "$SOLARUS_URL" | tar -xz -C "$SOLARUS_TMP" 2>/dev/null; then
+            SOLARUS_BIN=$(find "$SOLARUS_TMP" -type f -name "solarus*" ! -name "*.so*" 2>/dev/null | head -1)
+            if [[ -n "$SOLARUS_BIN" ]]; then
+                cp "$SOLARUS_BIN" "$EMUS/solarus-run"
+                chmod +x "$EMUS/solarus-run"
+                # Copy any bundled data dirs
+                find "$SOLARUS_TMP" -mindepth 1 -maxdepth 2 -type d | while read -r D; do
+                    cp -rn "$D" "$EMUS/" 2>/dev/null || true
+                done
+                cat > "$EMUS/solarus-portable.sh" << 'SOLARUSWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+exec "$SCRIPT_DIR/solarus-run" "$@"
+SOLARUSWRAP
+                chmod +x "$EMUS/solarus-portable.sh"
+                ok "Solarus downloaded"
+            else
+                fail "Solarus binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            warn "Solarus download failed — check https://www.solarus-games.org/download/"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+        rm -rf "$SOLARUS_TMP"
+    fi
+
+}
+
+install_simcoupe() {
+    if [[ -f "$EMUS/simcoupe" ]]; then
+        ok "SimCoupe already exists, skipping"
+    else
+        # Version-pinned direct URL — check https://simonowen.com/simcoupe/ for updates
+        SIMCOUPE_URL="https://github.com/simonowen/simcoupe/releases/download/v1.2.15/simcoupe_1.2.15_linux_amd64.tar.gz"
+        info "Downloading SimCoupe..."
+        SIMCOUPE_TMP=$(mktemp -d)
+        if curl -#fL "$SIMCOUPE_URL" | tar -xz -C "$SIMCOUPE_TMP" 2>/dev/null; then
+            SIMCOUPE_BIN=$(find "$SIMCOUPE_TMP" -name "simcoupe" -type f 2>/dev/null | head -1)
+            if [[ -n "$SIMCOUPE_BIN" ]]; then
+                cp "$SIMCOUPE_BIN" "$EMUS/simcoupe"
+                chmod +x "$EMUS/simcoupe"
+                cat > "$EMUS/simcoupe-portable.sh" << 'SIMWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+# SimCoupe writes its config/saves to ~/.simcoupe/ — redirect HOME so
+# everything stays in the bundle (true portability).
+export HOME="$BASE_DIR"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+mkdir -p "$BASE_DIR/.simcoupe"
+exec "$SCRIPT_DIR/simcoupe" "$@"
+SIMWRAP
+                chmod +x "$EMUS/simcoupe-portable.sh"
+                ok "SimCoupe downloaded"
+            else
+                fail "SimCoupe binary not found in archive"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            warn "SimCoupe download failed — check https://simonowen.com/simcoupe/"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+        rm -rf "$SIMCOUPE_TMP"
+    fi
+
+}
+
+install_supermodel() {
+    if compgen -G "$EMUS/supermodel*.AppImage" > /dev/null 2>&1 || [[ -f "$EMUS/supermodel" ]]; then
+        ok "Supermodel already exists, skipping"
+    else
+        SUPERMODEL_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/Supermodel-AppImage/releases?per_page=3"         | grep -oP '"browser_download_url":\s*"\K[^"]*'         | grep -iP "\.AppImage$"         | grep -iv "arm\|aarch" | head -1) || true
+        if [[ -n "$SUPERMODEL_URL" ]]; then
+            info "Downloading Supermodel..."
+            FNAME=$(basename "$SUPERMODEL_URL")
+            if curl -#fL -o "$EMUS/$FNAME" "$SUPERMODEL_URL"; then
+                chmod +x "$EMUS/$FNAME"
+                cat > "$EMUS/supermodel-portable.sh" << 'SUPERWRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'supermodel*.AppImage' | head -1)
+[[ -z "$BIN" ]] && BIN="$SCRIPT_DIR/supermodel"
+exec "$BIN" "$@"
+SUPERWRAP
+                chmod +x "$EMUS/supermodel-portable.sh"
+                ok "Supermodel downloaded"
+            else
+                fail "Supermodel download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            warn "Supermodel URL not found — check https://github.com/pkgforge-dev/Supermodel-AppImage/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+
+}
+
+install_mame() {
+    if compgen -G "$EMUS/MAME*.AppImage" > /dev/null 2>&1 || compgen -G "$EMUS/mame*.AppImage" > /dev/null 2>&1; then
+        ok "Standalone MAME already exists, skipping"
+    else
+        MAME_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/MAME-AppImage/releases?per_page=3" \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iP "\.AppImage$" \
+            | grep -iv "arm\|aarch" | head -1) || true
+        if [[ -n "$MAME_URL" ]]; then
+            info "Downloading standalone MAME..."
+            FNAME=$(basename "$MAME_URL")
+            if curl -#fL -o "$EMUS/$FNAME" "$MAME_URL"; then
+                chmod +x "$EMUS/$FNAME"
+                ok "Standalone MAME downloaded ($FNAME)"
+            else
+                fail "Standalone MAME download failed"; DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+            fi
+        else
+            warn "Standalone MAME URL not found — check https://github.com/pkgforge-dev/MAME-AppImage/releases"
+            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
+        fi
+    fi
+
+}
+
+
+#=============================================================================
+# Dispatcher
+#=============================================================================
+case "${1:-}" in
+    "")
+        echo "Usage: $0 <emulator_name>"
+        echo "Available: retroarch rpcs3 pcsx2 duckstation ppsspp melonds dolphin cemu azahar xemu xenia ryujinx eden shadps4 _86box vpinball dosbox_x ruffle eka2l1 solarus simcoupe supermodel mame"
+        exit 1
+        ;;
+    -h|--help)
+        echo "Portable ES-DE — Standalone Emulator Installer"
+        echo ""
+        echo "Usage: $0 <emulator_name>"
+        echo ""
+        echo "Available emulators:"
+        for n in retroarch rpcs3 pcsx2 duckstation ppsspp melonds dolphin cemu azahar xemu xenia ryujinx eden shadps4 _86box vpinball dosbox_x ruffle eka2l1 solarus simcoupe supermodel mame; do echo "   $n"; done
+        exit 0
+        ;;
+    rpcs3)         install_rpcs3 ;;
+    retroarch)     install_retroarch ;;
+    pcsx2)         install_pcsx2 ;;
+    duckstation)         install_duckstation ;;
+    ppsspp)         install_ppsspp ;;
+    melonds)         install_melonds ;;
+    dolphin)         install_dolphin ;;
+    cemu)         install_cemu ;;
+    azahar)         install_azahar ;;
+    xemu)         install_xemu ;;
+    xenia)         install_xenia ;;
+    ryujinx)         install_ryujinx ;;
+    eden)         install_eden ;;
+    shadps4)         install_shadps4 ;;
+    _86box)         install__86box ;;
+    vpinball)         install_vpinball ;;
+    dosbox_x)         install_dosbox_x ;;
+    ruffle)         install_ruffle ;;
+    eka2l1)         install_eka2l1 ;;
+    solarus)         install_solarus ;;
+    simcoupe)         install_simcoupe ;;
+    supermodel)         install_supermodel ;;
+    mame)         install_mame ;;
+    *)
+        fail "Unknown emulator: $1"
+        echo "Run '$0 --help' to see available emulators"
+        exit 1
+        ;;
+esac
+
+exit $DOWNLOAD_ERRORS
+INSTALLEMUSCRIPT
+
+chmod +x "$BASE/install-emulator.sh"
+ok "install-emulator.sh written to bundle"
+
+#=============================================================================
+# STEP 17: WRITE UPDATE SCRIPT TO BUNDLE
 #=============================================================================
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Writing update.sh to bundle..."
@@ -4048,6 +6169,14 @@ CYAN='\033[0;36m'; BOLD='\033[1m'; NC='\033[0m'
 ok()   { echo -e "   ${GREEN}✓${NC} $1"; }
 warn() { echo -e "   ${YELLOW}⚠${NC} $1"; }
 info() { echo -e "   ${CYAN}→${NC} $1"; }
+
+# Whiptail UI helpers (bundle requires whiptail — installed by setup)
+if ! command -v whiptail >/dev/null 2>&1; then
+    echo "whiptail is required but not found in PATH."
+    echo "Install with: sudo apt install whiptail   (or 'sudo dnf install newt' on Fedora)"
+    exit 1
+fi
+wt_yesno() { whiptail --title "$1" --yesno "$2" 14 78; }
 
 echo ""
 echo -e "${BOLD}╔════════════════════════════════════════════╗${NC}"
@@ -4084,8 +6213,7 @@ check_and_update() {
     echo -e " ${YELLOW}[update available]${NC}"
     echo -e "      Current: $current_name"
     echo -e "      Latest:  $latest_name"
-    read -rp "      Update? [y/N]: " CONFIRM
-    if [[ "${CONFIRM,,}" == "y" ]]; then
+    if wt_yesno "Update" "Update?"; then
         info "Downloading $latest_name ..."
         if curl -#fL -o "$EMUS/$new_name.tmp" "$latest_url"; then
             mv "$EMUS/$new_name.tmp" "$EMUS/$latest_name"
@@ -4113,8 +6241,7 @@ if [[ -n "$ESDE_CURRENT" ]]; then
     if [[ -n "$ESDE_URL" ]]; then
         echo -e " ${CYAN}[visit https://es-de.org/ to check version]${NC}"
         echo -e "      Installed: $(basename "$ESDE_CURRENT")"
-        read -rp "      Re-download latest ES-DE? [y/N]: " ESDE_CONFIRM
-        if [[ "${ESDE_CONFIRM,,}" == "y" ]]; then
+        if wt_yesno "Update" "Re-download latest ES-DE?"; then
             if curl -#fL -o "$SCRIPT_DIR/ES-DE_x64.AppImage.tmp" "$ESDE_URL"; then
                 mv "$SCRIPT_DIR/ES-DE_x64.AppImage.tmp" "$SCRIPT_DIR/ES-DE_x64.AppImage"
                 chmod +x "$SCRIPT_DIR/ES-DE_x64.AppImage"
@@ -4139,8 +6266,7 @@ RPCS3_CURRENT=$(find "$EMUS" -maxdepth 1 -name 'rpcs3*.AppImage' | head -1)
 if [[ -n "$RPCS3_CURRENT" ]]; then
     printf "   %-32s" "RPCS3 (PS3)"
     echo -e " ${CYAN}[nightly — always latest when re-downloaded]${NC}"
-    read -rp "      Re-download latest? [y/N]: " RPCS3_CONFIRM
-    if [[ "${RPCS3_CONFIRM,,}" == "y" ]]; then
+    if wt_yesno "Update" "Re-download latest?"; then
         if (cd "$EMUS" && curl -#fJLO "https://rpcs3.net/latest-linux-x64"); then
             RPCS3_NEW=$(find "$EMUS" -maxdepth 1 -name 'rpcs3*.AppImage' | sort -r | head -1)
             [[ "$RPCS3_NEW" != "$RPCS3_CURRENT" ]] && chmod +x "$RPCS3_NEW" && rm -f "$RPCS3_CURRENT"
@@ -4157,8 +6283,7 @@ RA_CURRENT=$(find "$EMUS" -maxdepth 1 -name 'RetroArch*.AppImage' | head -1)
 if [[ -n "$RA_CURRENT" ]]; then
     printf "   %-32s" "RetroArch"
     echo -e " ${CYAN}[nightly — always latest when re-downloaded]${NC}"
-    read -rp "      Re-download latest nightly? [y/N]: " RA_CONFIRM
-    if [[ "${RA_CONFIRM,,}" == "y" ]]; then
+    if wt_yesno "Update" "Re-download latest nightly?"; then
         RA_URL="https://github.com/hizzlekizzle/RetroArch-AppImage/releases/download/Linux_LTS_Nightlies/RetroArch-Linux-x86_64-Nightly.AppImage"
         if curl -#fL -o "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage.tmp" "$RA_URL"; then
             mv "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage.tmp" "$EMUS/RetroArch-Linux-x86_64-Nightly.AppImage"
@@ -4207,8 +6332,7 @@ SHADPS4_CURRENT=$(find "$EMUS" -maxdepth 1 -name 'shadps4' -type f 2>/dev/null |
 if [[ -n "$SHADPS4_CURRENT" ]]; then
     printf "   %-32s" "shadPS4 (PS4)"
     echo -e " ${CYAN}[zip release — re-download to update]${NC}"
-    read -rp "      Re-download latest? [y/N]: " SHAD_CONFIRM
-    if [[ "${SHAD_CONFIRM,,}" == "y" ]]; then
+    if wt_yesno "Update" "Re-download latest?"; then
         SHAD_URL=$(curl -sfL "https://api.github.com/repos/shadps4-emu/shadPS4/releases?per_page=3"             | grep -oP '"browser_download_url":\s*"\K[^"]*'             | grep -iP "linux.*x86.?64.*\.(tar\.(gz|xz)|zip)$"             | grep -iv "debug\|symbols\|arm" | head -1) || true
         if [[ -n "$SHAD_URL" ]]; then
             SHAD_TMP=$(mktemp -d)
@@ -4243,8 +6367,7 @@ fi
 if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
     printf "   %-32s" "VPinball (Visual Pinball)"
     echo -e " ${CYAN}[zip release — re-download to update]${NC}"
-    read -rp "      Re-download latest? [y/N]: " VPIN_CONFIRM
-    if [[ "${VPIN_CONFIRM,,}" == "y" ]]; then
+    if wt_yesno "Update" "Re-download latest?"; then
         VPIN_URLS=$(curl -sfL "https://api.github.com/repos/vpinball/vpinball/releases?per_page=1"             | grep -oP '"browser_download_url":\s*"\K[^"]*'             | grep -iP "VPinballX_(BGFX|GL)-.*linux.*x64.*\.zip$"             | grep -iv "debug\|symbols") || true
         if [[ -n "$VPIN_URLS" ]]; then
             VPIN_TMP=$(mktemp -d)
@@ -4285,8 +6408,7 @@ check_and_update "Supermodel (Model 3)" "Supermodel*.AppImage"     "$(github_lat
 if [[ -f "$EMUS/ruffle" ]]; then
     printf "   %-32s" "Ruffle (Flash)"
     echo -e " ${CYAN}[tar.gz release — re-download to update]${NC}"
-    read -rp "      Re-download latest? [y/N]: " RUFFLE_CONFIRM
-    if [[ "${RUFFLE_CONFIRM,,}" == "y" ]]; then
+    if wt_yesno "Update" "Re-download latest?"; then
         RUFFLE_URL=$(curl -sfL "https://api.github.com/repos/ruffle-rs/ruffle/releases?per_page=3"             | grep -oP '"browser_download_url":\s*"\K[^"]*'             | grep -iP "linux.*x86.?64.*\.tar\.gz$" | grep -iv "debug\|arm" | head -1) || true
         if [[ -n "$RUFFLE_URL" ]]; then
             RUFFLE_TMP=$(mktemp -d)
@@ -4320,8 +6442,7 @@ check_and_update "Ryubing (Switch)" "ryujinx*.AppImage"     "$(github_latest_url
 
 echo ""
 echo -e "${CYAN}RetroArch Cores:${NC}"
-read -rp "   Update all cores from buildbot.libretro.com? [y/N]: " CORES_CONFIRM
-if [[ "${CORES_CONFIRM,,}" == "y" ]]; then
+if wt_yesno "Update" "Update all cores from buildbot.libretro.com?"; then
     CORE_DIR="$EMUS/retroarch-cores"
     CORE_URL="https://buildbot.libretro.com/nightly/linux/x86_64/latest"
     UPDATED=0; FAILED=0
@@ -4352,7 +6473,7 @@ chmod +x "$BASE/update.sh"
 ok "update.sh written to bundle"
 
 #=============================================================================
-# STEP 15: DESKTOP SHORTCUT
+# STEP 18: DESKTOP SHORTCUT
 #=============================================================================
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Desktop shortcut..."
@@ -4409,7 +6530,7 @@ else
 fi
 
 #=============================================================================
-# STEP 16: SUMMARY
+# STEP 19: SUMMARY
 #=============================================================================
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Summary"
