@@ -2104,7 +2104,7 @@ input_autodetect_enable = "true"
 input_autoconfigure_joypad_init = "true"
 # Where to find joypad autoconfig profiles. The ":" prefix is RetroArch's
 # "relative to the directory containing this retroarch.cfg" — resolves to
-# $BASE/.config/retroarch/autoconfig/. The AppImage extracts profiles here
+# \$BASE/.config/retroarch/autoconfig/. The AppImage extracts profiles here
 # on first launch; setting this path explicitly stops RA from falling back
 # to /usr/share/libretro/autoconfig which doesn't exist on portable installs.
 input_joypad_autoconfig_dir = ":/autoconfig"
@@ -2112,6 +2112,24 @@ input_joypad_autoconfig_dir = ":/autoconfig"
 input_player1_joypad_index = "0"
 # Start + Select toggles the menu (alternative: hotkey + X)
 input_menu_toggle_gamepad_combo = "2"
+
+# ── Hotkey bindings (RetroPad logical button numbers — work across all pads) ──
+# Hotkey enable = Select. While holding Select, the action buttons below
+# trigger their hotkey instead of their normal in-game function.
+# RetroPad indices: 0=B(south)  1=Y(west)   2=Select  3=Start
+#                   4=Up        5=Down       6=Left    7=Right
+#                   8=A(east)   9=X(north)  10=L1     11=R1
+#                  12=L2       13=R2        14=L3     15=R3
+input_enable_hotkey_btn       = "2"   # hold Select to activate hotkeys
+input_exit_emulator_btn       = "3"   # Select + Start  → exit to ES-DE
+input_menu_toggle_btn         = "9"   # Select + X(N)   → Quick Menu
+input_save_state_btn          = "11"  # Select + R1     → save state
+input_load_state_btn          = "10"  # Select + L1     → load state
+input_state_slot_increase_btn = "7"   # Select + Right  → next state slot
+input_state_slot_decrease_btn = "6"   # Select + Left   → prev state slot
+input_hold_fast_forward_btn   = "13"  # Select + R2     → fast-forward (hold)
+input_reset_btn               = "0"   # Select + B(S)   → reset game
+input_screenshot_btn          = "8"   # Select + A(E)   → screenshot
 
 # ── Saving ──
 savestate_auto_save = "false"
