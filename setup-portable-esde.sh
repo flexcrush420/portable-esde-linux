@@ -1030,7 +1030,7 @@ ROM_DIRS=(
     triforce j2me openbor pcarcade type-x
     ps4 windows9x windows3x
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
-    archimedes adam dragon32 fm7 supracan bbcmicro apple2
+    archimedes adam dragon32 fm7 supracan bbcmicro apple2 fbneo
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -2095,7 +2095,22 @@ menu_show_online_updater = "true"
 menu_show_core_updater = "true"
 
 # ── Input ──
+# Linux: udev is the modern, hot-pluggable, accurate joypad driver. The dinput
+# / sdl2 drivers exist as fallbacks but have known timing + hotplug issues.
+input_driver = "udev"
+joypad_driver = "udev"
+# Autodetect joypads on plug-in AND scan already-connected pads at startup
 input_autodetect_enable = "true"
+input_autoconfigure_joypad_init = "true"
+# Where to find joypad autoconfig profiles. The ":" prefix is RetroArch's
+# "relative to the directory containing this retroarch.cfg" — resolves to
+# $BASE/.config/retroarch/autoconfig/. The AppImage extracts profiles here
+# on first launch; setting this path explicitly stops RA from falling back
+# to /usr/share/libretro/autoconfig which doesn't exist on portable installs.
+input_joypad_autoconfig_dir = ":/autoconfig"
+# Map first plugged joypad to player 1
+input_player1_joypad_index = "0"
+# Start + Select toggles the menu (alternative: hotkey + X)
 input_menu_toggle_gamepad_combo = "2"
 
 # ── Saving ──
@@ -2144,6 +2159,23 @@ cap32_model = "6128+"
 cap32_ram = "128"
 CAP32OPT
     ok "Caprice32.opt written → cap32_model = \"6128+\" for GX4000/.cpr support"
+fi
+
+# FinalBurn Neo: enable patched romsets (decrypted CPS3 / Capcom sets common in
+# community packs) and hiscore saving. The default-off patched-romsets check
+# rejects ROMs whose CRC doesn't match the canonical set, which catches the
+# decrypted versions that ship in most retro arcade packs — turning the flag on
+# is the difference between "every CPS3 game errors out" and "they just work".
+# Per-game tweaks (region, controls, dipswitches) can still be set in the
+# RA quick-menu Options → Save Game Overrides path.
+mkdir -p "$BASE/.config/retroarch/config/FinalBurn Neo"
+FBNEO_OPT="$BASE/.config/retroarch/config/FinalBurn Neo/FinalBurn Neo.opt"
+if [[ ! -f "$FBNEO_OPT" ]]; then
+    cat > "$FBNEO_OPT" <<'FBNEOOPT'
+fbneo-allow-patched-romsets = "enabled"
+fbneo-hiscores = "enabled"
+FBNEOOPT
+    ok "FinalBurn Neo.opt written → patched-romsets + hiscores enabled"
 fi
 
 ok "Portable emulator wrappers written (HOME=$BASE handles config routing)"
