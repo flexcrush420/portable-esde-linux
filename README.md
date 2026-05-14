@@ -198,6 +198,7 @@ The importer accepts three input shapes per path:
 Per system, the importer:
 
 - Maps RetroBat media types to ES-DE's folder structure (thumbnails → 3dboxes, box2d → covers, etc.)
+- Also handles EmulationStation/Batocera-style flat layouts where media files use type suffixes (e.g. `<rom>-image.png`, `<rom>-marquee.png`, `<rom>-Video.mp4`)
 - Cleans gamelists (strips incompatible tags, flattens paths for category-organised systems)
 - Handles system name differences (`snesh` → own hack system, `sfc` → `snes`, etc.)
 - Runs `verify-bios.sh` for that system to report PASS/WARN/FAIL
@@ -236,6 +237,32 @@ Hacked and homebrewed ROMs get their own dedicated sidebar entries rather than b
 | `genh` | Sega Genesis (Hacks & Homebrew) |
 | `n64h` | Nintendo 64 (Hacks & Homebrew) |
 | `ggh` | Game Gear (Hacks & Homebrew) |
+
+---
+
+## In-game controls
+
+The bundle pre-configures two universal RetroArch shortcuts that work on any controller after autoconfig matches your pad. No setup required — they're ready as soon as you launch a game.
+
+| Shortcut | Action |
+|---|---|
+| **L3 + R3** (click both analog sticks) | Open the RetroArch Quick Menu |
+| **Hold Start for 2 seconds** | Exit the game, return to ES-DE |
+| **Escape** (keyboard) | Same as Hold Start — exits to ES-DE |
+
+The Hold-Start option also works on pads without clickable analog sticks — 8BitDo retro pads, arcade sticks, classic SNES-style controllers.
+
+For **per-button hotkeys** (Save State, Load State, Fast Forward, Screenshot, Rewind, etc.), these need a one-time per-controller binding via the RetroArch menu, because RetroArch's `*_btn` hotkeys use physical button indices that vary per pad. To set them up:
+
+1. Launch any game
+2. Open the Quick Menu (L3 + R3, or Hold Start 2s, or Escape)
+3. Navigate to **Settings → Input → Hotkeys**
+4. Bind **Hotkey Enable** to a button (usually Select), then bind each action — e.g. Save State → R1, Load State → L1, Fast Forward → R2
+5. Bindings persist across all games for that controller
+
+Once set, hotkeys work as **Hotkey Enable + action button** (e.g. Select + R1 = save state). Repeat once per controller.
+
+**Non-RetroArch standalones** (Dolphin, PCSX2, RPCS3, melonDS, etc.) each have their own controller-configuration UIs accessed from within the emulator's own menus — usually under Options → Controllers, Input → Controller Setup, or similar.
 
 ---
 
