@@ -1002,7 +1002,7 @@ download_cores() {
 # STEP 1: DIRECTORY STRUCTURE
 #=============================================================================
 STEP=1
-TOTAL_STEPS=20
+TOTAL_STEPS=21
 
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Creating directory structure..."
 
@@ -2377,6 +2377,53 @@ cat > "$BASE/.config/Cemu/settings.xml" << CEMUCFG
 CEMUCFG
 
 ok "Emulator configs written (fullscreen + $RES_LABEL resolution)"
+
+#=============================================================================
+# STEP 4b: DOWNLOAD JOYPAD AUTOCONFIG PROFILES
+# The RetroArch AppImage doesn't reliably extract bundled controller profiles
+# into the portable HOME, leaving .config/retroarch/autoconfig/ empty and
+# pads detected-but-unmapped (every input_player1_*_btn = "nul"). Pull the
+# canonical profile bundle from libretro/retroarch-joypad-autoconfig as a
+# safety net so any common pad just works on first launch.
+#=============================================================================
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading joypad autoconfig profiles..."
+
+if emu_selected retroarch; then
+    AUTOCONFIG_DIR="$BASE/.config/retroarch/autoconfig"
+    mkdir -p "$AUTOCONFIG_DIR"
+    # Idempotent: skip if udev/ already populated from a prior run
+    EXISTING_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
+    if (( EXISTING_UDEV > 50 )); then
+        ok "Joypad autoconfig profiles already present ($EXISTING_UDEV udev profiles), skipping"
+    else
+        info "Fetching profiles from libretro/retroarch-joypad-autoconfig..."
+        AUTOCONFIG_TMP=$(mktemp -d)
+        AUTOCONFIG_URL="https://github.com/libretro/retroarch-joypad-autoconfig/archive/refs/heads/master.tar.gz"
+        if curl -sfL "$AUTOCONFIG_URL" | tar -xz --strip-components=1 -C "$AUTOCONFIG_TMP" 2>/dev/null; then
+            # Copy each driver subfolder (udev/, sdl2/, dinput/, etc.) into autoconfig dir
+            shopt -s dotglob nullglob
+            for driver_dir in "$AUTOCONFIG_TMP"/*/; do
+                [[ -d "$driver_dir" ]] || continue
+                driver_name=$(basename "$driver_dir")
+                # Skip non-driver folders that may be in the repo root
+                [[ "$driver_name" == ".git" ]] && continue
+                mkdir -p "$AUTOCONFIG_DIR/$driver_name"
+                cp -rn "$driver_dir"/*.cfg "$AUTOCONFIG_DIR/$driver_name/" 2>/dev/null || true
+            done
+            shopt -u dotglob nullglob
+            NEW_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
+            ok "Installed $NEW_UDEV udev joypad profiles (plus sdl2/dinput/xinput fallbacks)"
+        else
+            warn "Failed to download autoconfig profiles (network issue?)"
+            info "If your pad isn't auto-mapped, configure manually:"
+            info "  RetroArch → Settings → Input → Port 1 Controls → Set All Controls"
+        fi
+        rm -rf "$AUTOCONFIG_TMP"
+    fi
+else
+    info "Skipped (retroarch deselected — no joypad profiles needed)"
+fi
 
 #=============================================================================
 # STEP 5: LAUNCH SCRIPT
