@@ -58,7 +58,7 @@ chmod +x setup-portable-esde.sh
 
 If `whiptail` isn't installed, the script will offer to install it for you (one-line `apt`/`dnf`/`pacman`/`zypper` invocation — only the first prompt is plain text; everything else is in a TUI).
 
-After that, you'll click through a series of whiptail dialogs:
+After that, you'll click through a series of dialogs:
 
 1. **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
 2. **Which theme** to use — Art Book Next, Carbon, IISU Interpreted, Linear (ES-DE built-in), Meringue, or Slick Remixed
