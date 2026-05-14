@@ -12,7 +12,7 @@ A fully self-contained retro gaming bundle — no installation needed.
 
 ## What you get
 
-| Component | System | Notes |
+| Application | System | Notes |
 |---|---|---|
 | **ES-DE** | Frontend | Portable mode — no system installation |
 | **RetroArch** | 76 libretro cores | NES, SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME, MSX, Amiga, CPC, X68000, and many more |
