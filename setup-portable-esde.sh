@@ -278,8 +278,15 @@ EMULATOR_CHECKLIST=(
     "eka2l1|EKA2L1 — Symbian / N-Gage"
 )
 
+# Section divider tags used in CORE_CHECKLIST to group cores visually.
+# Detected and skipped at install time (they're labels, not installable items).
+declare -A IS_SECTION_HEADER=(
+    [Nintendo]=1 [Sega]=1 [Sony]=1 [Atari]=1 [NEC]=1 [SNK]=1
+    [Arcade]=1 [Portable]=1 [Computers]=1 [Consoles]=1 [Fantasy]=1 [Other]=1
+)
+
 CORE_CHECKLIST=(
-    "_HDR_NINTENDO|─── Nintendo ───"
+    "Nintendo|─── Nintendo ───"
     "fceumm|FCEUmm — NES / Famicom / FDS"
     "mesen|Mesen — NES/Famicom (high accuracy, alt)"
     "snes9x|Snes9x — Super Nintendo / Super Famicom"
@@ -289,16 +296,16 @@ CORE_CHECKLIST=(
     "mupen64plus_next|Mupen64Plus-Next — Nintendo 64"
     "pokemini|PokéMini — Pokémon Mini"
     "gw|GW — Game & Watch (alt to MAME)"
-    "_HDR_SEGA|─── Sega ───"
+    "Sega|─── Sega ───"
     "genesis_plus_gx|Genesis Plus GX — Genesis/MD/MS/GG/SG-1000/CD"
     "picodrive|Picodrive — 32X / Sega CD (alt)"
     "flycast|Flycast — Dreamcast"
     "mednafen_saturn|Beetle Saturn — Sega Saturn"
     "kronos|Kronos — Saturn (high accuracy, alt)"
-    "_HDR_SONY|─── Sony ───"
+    "Sony|─── Sony ───"
     "mednafen_psx|Beetle PSX — PS1 (high accuracy)"
     "mednafen_psx_hw|Beetle PSX HW — PS1 (hardware renderer)"
-    "_HDR_ATARI|─── Atari ───"
+    "Atari|─── Atari ───"
     "stella|Stella — Atari 2600"
     "a5200|a5200 — Atari 5200"
     "atari800|Atari800 — 800/5200/XEGS"
@@ -306,27 +313,27 @@ CORE_CHECKLIST=(
     "handy|Handy — Atari Lynx"
     "hatari|Hatari — Atari ST"
     "virtualjaguar|Virtual Jaguar — Atari Jaguar"
-    "_HDR_NEC|─── NEC ───"
+    "NEC|─── NEC ───"
     "mednafen_pce|Beetle PCE — PCE/TG-16/SuperGrafx"
     "mednafen_pce_fast|Beetle PCE Fast — PCE CD/TG-CD"
     "mednafen_pcfx|Beetle PC-FX — PC-FX"
     "mednafen_supergrafx|Beetle SuperGrafx"
     "np2kai|Neko Project II Kai — NEC PC-9800"
-    "_HDR_SNK|─── SNK ───"
+    "SNK|─── SNK ───"
     "mednafen_ngp|Beetle NeoPop — NGP/NGPC"
     "fbneo|FinalBurn Neo — Arcade/Neo Geo/Neo Geo CD"
     "neocd|NeoCD — Neo Geo CD (dedicated)"
-    "_HDR_ARCADE|─── Arcade / MAME ───"
+    "Arcade|─── Arcade / MAME ───"
     "mame|MAME — current (Archimedes, Model2/3, LCDs, etc.)"
     "mame2003_plus|MAME 2003-Plus — arcade (post-2003 sets)"
     "mame2010|MAME 2010 — v0.139 (deeper BIOS fallback)"
-    "_HDR_PORTABLE|─── Other handhelds / portables ───"
+    "Portable|─── Other handhelds / portables ───"
     "mednafen_vb|Beetle VB — Virtual Boy"
     "mednafen_wswan|Beetle WonderSwan — WS/WSC"
     "potator|Potator — Watara Supervision"
     "sameduck|SameDuck — Mega Duck"
     "arduous|Arduous — Arduboy"
-    "_HDR_COMPUTERS|─── Home computers ───"
+    "Computers|─── Home computers ───"
     "fuse|Fuse — ZX Spectrum"
     "81|EightyOne — ZX81"
     "vice_x64|VICE x64 — Commodore 64"
@@ -340,7 +347,7 @@ CORE_CHECKLIST=(
     "x1|X1 — Sharp X1"
     "px68k|PX68k — Sharp X68000"
     "b2|B2 — BBC Micro / BBC Master"
-    "_HDR_CONSOLES_MISC|─── Other consoles ───"
+    "Consoles|─── Other consoles ───"
     "o2em|O2EM — Odyssey²/Videopac"
     "vecx|VecX — GCE Vectrex"
     "freechaf|FreeChaF — Fairchild Channel F"
@@ -349,14 +356,14 @@ CORE_CHECKLIST=(
     "opera|Opera — 3DO Interactive Multiplayer"
     "amiarcadia|Amiarcadia — Emerson Arcadia 2001"
     "jollycv|JollyCV — VTech CreatiVision"
-    "_HDR_FANTASY|─── Fantasy consoles / engines ───"
+    "Fantasy|─── Fantasy consoles / engines ───"
     "retro8|Retro8 — PICO-8-compatible"
     "tic80|TIC-80 — fantasy console"
     "wasm4|WASM-4 — fantasy console"
     "lowresnx|LowRes NX — fantasy console"
     "lutro|Lutro — Lua game engine"
     "easyrpg|EasyRPG — RPG Maker 2000/2003"
-    "_HDR_OTHER|─── Other ───"
+    "Other|─── Other ───"
     "scummvm|ScummVM — point-and-click adventures"
     "dosbox_pure|DOSBox Pure — DOS (libretro fallback)"
 )
@@ -485,7 +492,7 @@ tui_select_components() {
         SELECTED_CORES=()
         for entry in "${CORE_CHECKLIST[@]}"; do
             key="${entry%%|*}"
-            [[ "$key" == _HDR_* ]] && continue
+            [[ -n "${IS_SECTION_HEADER[$key]:-}" ]] && continue
             SELECTED_CORES["$key"]=0
         done
         wt_msg "RetroArch deselected" \
@@ -499,7 +506,7 @@ Skipping the libretro cores picker — no cores will be installed (they all requ
     args=()
     for entry in "${CORE_CHECKLIST[@]}"; do
         key="${entry%%|*}"; desc="${entry#*|}"
-        if [[ "$key" == _HDR_* ]]; then
+        if [[ -n "${IS_SECTION_HEADER[$key]:-}" ]]; then
             args+=("$key" "$desc" "OFF")
         else
             state="ON"
@@ -512,11 +519,11 @@ Skipping the libretro cores picker — no cores will be installed (they all requ
     SELECTED_CORES=()
     for entry in "${CORE_CHECKLIST[@]}"; do
         key="${entry%%|*}"
-        [[ "$key" == _HDR_* ]] && continue
+        [[ -n "${IS_SECTION_HEADER[$key]:-}" ]] && continue
         SELECTED_CORES["$key"]=0
     done
     while IFS= read -r key; do
-        [[ -z "$key" || "$key" == _HDR_* ]] && continue
+        [[ -z "$key" || -n "${IS_SECTION_HEADER[$key]:-}" ]] && continue
         SELECTED_CORES["$key"]=1
     done <<< "$selections"
 
@@ -2110,26 +2117,22 @@ input_autoconfigure_joypad_init = "true"
 input_joypad_autoconfig_dir = ":/autoconfig"
 # Map first plugged joypad to player 1
 input_player1_joypad_index = "0"
-# Start + Select toggles the menu (alternative: hotkey + X)
-input_menu_toggle_gamepad_combo = "2"
 
-# ── Hotkey bindings (RetroPad logical button numbers — work across all pads) ──
-# Hotkey enable = Select. While holding Select, the action buttons below
-# trigger their hotkey instead of their normal in-game function.
-# RetroPad indices: 0=B(south)  1=Y(west)   2=Select  3=Start
-#                   4=Up        5=Down       6=Left    7=Right
-#                   8=A(east)   9=X(north)  10=L1     11=R1
-#                  12=L2       13=R2        14=L3     15=R3
-input_enable_hotkey_btn       = "2"   # hold Select to activate hotkeys
-input_exit_emulator_btn       = "3"   # Select + Start  → exit to ES-DE
-input_menu_toggle_btn         = "9"   # Select + X(N)   → Quick Menu
-input_save_state_btn          = "11"  # Select + R1     → save state
-input_load_state_btn          = "10"  # Select + L1     → load state
-input_state_slot_increase_btn = "7"   # Select + Right  → next state slot
-input_state_slot_decrease_btn = "6"   # Select + Left   → prev state slot
-input_hold_fast_forward_btn   = "13"  # Select + R2     → fast-forward (hold)
-input_reset_btn               = "0"   # Select + B(S)   → reset game
-input_screenshot_btn          = "8"   # Select + A(E)   → screenshot
+# ── Hotkey combos (universal — work across every pad after autoconfig) ──
+# These are RetroArch's built-in preset combos, hardcoded to RetroPad logical
+# buttons. Unlike "_btn" hotkey bindings (which need per-pad physical indices),
+# combo presets just work everywhere. Per-button hotkeys for save state, fast
+# forward, etc. require per-pad mapping via the RA quick menu — not solvable
+# globally without losing cross-pad portability.
+#
+# Combo values:
+#   0=disabled  1=Down+Y+L1+R1  2=L3+R3  3=L1+R1+Start+Select
+#   4=Hold Start 2sec  5=L3+R1  6=L1+R1+Start+RStick(Up)
+input_menu_toggle_gamepad_combo = "2"   # L3 + R3        → open Quick Menu
+input_quit_gamepad_combo        = "4"   # Hold Start 2s  → exit to ES-DE
+
+# ── Keyboard exit (explicit, in case RA auto-cleared it) ──
+input_exit_emulator = "escape"
 
 # ── Saving ──
 savestate_auto_save = "false"
