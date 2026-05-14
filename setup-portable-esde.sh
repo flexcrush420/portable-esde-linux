@@ -3685,6 +3685,61 @@ else
         [videos]=videos
     )
 
+    # EmulationStation / Batocera-style suffix → ES-DE folder map
+    # Used by try_import_es_layout for packs that store all media flat in
+    # one folder with -image / -thumb / -marquee / -Video filename suffixes.
+    declare -A ES_SUFFIX_MAP=(
+        [image]=screenshots     [screenshot]=screenshots
+        [thumb]=covers          [thumbnail]=covers
+        [box]=covers            [boxart]=covers          [box2d]=covers
+        [marquee]=marquees
+        [fanart]=fanart
+        [wheel]=wheels
+        [titlescreen]=titlescreens
+        [manual]=manuals
+        [video]=videos
+        [mix]=miximages         [miximage]=miximages
+        [cart]=physicalmedia    [cartridge]=physicalmedia
+    )
+
+    # Try to import ES/Batocera-suffix media from a flat folder.
+    # args: source_dir, dest_root, move_mode (yes=cut, else copy)
+    # returns 0 if ES-style suffixes were detected and routed, 1 if not.
+    try_import_es_layout() {
+        local src="$1" dest="$2" move="$3"
+        [[ ! -d "$src" ]] && return 1
+        # Detect: any file with -<suffix>.<ext> matching our map?
+        local has_es=0
+        while IFS= read -r f; do
+            local name="${f##*/}"; local stem="${name%.*}"
+            [[ "$stem" == *-* ]] || continue
+            local sl="${stem##*-}"; sl="${sl,,}"
+            if [[ -n "${ES_SUFFIX_MAP[$sl]:-}" ]]; then has_es=1; break; fi
+        done < <(find "$src" -maxdepth 1 -type f 2>/dev/null)
+        (( has_es == 0 )) && return 1
+
+        local n=0 skipped=0
+        while IFS= read -r f; do
+            local name="${f##*/}"; local stem="${name%.*}"; local ext="${name##*.}"
+            if [[ "$stem" != *-* ]]; then skipped=$((skipped + 1)); continue; fi
+            local rom_base="${stem%-*}"; local suffix="${stem##*-}"
+            local sl="${suffix,,}"
+            local esde_folder="${ES_SUFFIX_MAP[$sl]:-}"
+            [[ -z "$esde_folder" ]] && { skipped=$((skipped + 1)); continue; }
+            mkdir -p "$dest/$esde_folder"
+            local dest_path="$dest/$esde_folder/$rom_base.$ext"
+            if [[ "$move" == "yes" ]]; then
+                mv -n "$f" "$dest_path" 2>/dev/null && n=$((n + 1))
+            else
+                cp -n "$f" "$dest_path" 2>/dev/null && n=$((n + 1))
+            fi
+        done < <(find "$src" -maxdepth 1 -type f 2>/dev/null)
+
+        local mode_label="copied"; [[ "$move" == "yes" ]] && mode_label="moved"
+        echo -e "      ${GREEN}✓${NC} ES-layout: $n files $mode_label from $(basename "$src")/ → typed folders$([[ $skipped -gt 0 ]] && echo " ($skipped skipped)")"
+        return 0
+    }
+
     # System name mapping: ONLY where RetroBat name ≠ ES-DE name.
     # Hack systems (snesh, nesh, gbh, gbch, gbah, genh, n64h, ggh) are defined
     # as their own ES-DE systems via custom_systems/es_systems.xml.
@@ -4055,9 +4110,19 @@ else
                     fi
                 done
             else
-                # Flat-layout packs (e.g. vpinball RetroBat packs) put media subfolders
-                # directly inside the ROM dir rather than inside a media/ subdirectory.
-                # Handle: videos/ images/ marquee/ box2d/ etc. sitting at ROM dir root.
+                # Non-RetroBat layouts. Two shapes are common:
+                #   (a) ES/Batocera-style with suffixes — images/<rom>-image.png,
+                #       images/<rom>-thumb.png, videos/<rom>-Video.mp4
+                #   (b) Simple flat with media subfolders directly in ROM dir
+                #       and un-suffixed filenames — vpinball-style RetroBat packs
+                es_detected=0
+                [[ -d "$SYS_DIR/images" ]] && try_import_es_layout "$SYS_DIR/images" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
+                [[ -d "$SYS_DIR/videos" ]] && try_import_es_layout "$SYS_DIR/videos" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
+                [[ -d "$SYS_DIR/manuals" ]] && try_import_es_layout "$SYS_DIR/manuals" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
+                (( es_detected )) && IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+
+                # Fall back to simple flat copy only if no ES-suffixed media was found
+                if (( ! es_detected )); then
                 for RB_TYPE in "${!MEDIA_MAP[@]}"; do
                     SRC="$SYS_DIR/$RB_TYPE"
                     if [[ -d "$SRC" ]]; then
@@ -4079,6 +4144,7 @@ else
                         IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
                     fi
                 done
+                fi  # close: if (( ! es_detected ))
             fi
 
             # Gamelist — clean, flatten paths for category-folder systems, merge with existing
@@ -4404,6 +4470,59 @@ declare -A MEDIA_MAP=(
     [thumbnails]=3dboxes [box2d]=covers [fanarts]=fanart [marquee]=marquees
     [images]=screenshots [titles]=titlescreens [cartridges]=physicalmedia [videos]=videos
 )
+
+# EmulationStation / Batocera-style suffix → ES-DE folder map
+declare -A ES_SUFFIX_MAP=(
+    [image]=screenshots     [screenshot]=screenshots
+    [thumb]=covers          [thumbnail]=covers
+    [box]=covers            [boxart]=covers          [box2d]=covers
+    [marquee]=marquees
+    [fanart]=fanart
+    [wheel]=wheels
+    [titlescreen]=titlescreens
+    [manual]=manuals
+    [video]=videos
+    [mix]=miximages         [miximage]=miximages
+    [cart]=physicalmedia    [cartridge]=physicalmedia
+)
+
+# Try to import ES/Batocera-suffix media from a flat folder.
+# args: source_dir, dest_root, move_mode (yes=cut, else copy)
+# returns 0 if ES-style suffixes were detected and routed, 1 if not.
+try_import_es_layout() {
+    local src="$1" dest="$2" move="$3"
+    [[ ! -d "$src" ]] && return 1
+    local has_es=0
+    while IFS= read -r f; do
+        local name="${f##*/}"; local stem="${name%.*}"
+        [[ "$stem" == *-* ]] || continue
+        local sl="${stem##*-}"; sl="${sl,,}"
+        if [[ -n "${ES_SUFFIX_MAP[$sl]:-}" ]]; then has_es=1; break; fi
+    done < <(find "$src" -maxdepth 1 -type f 2>/dev/null)
+    (( has_es == 0 )) && return 1
+
+    local n=0 skipped=0
+    while IFS= read -r f; do
+        local name="${f##*/}"; local stem="${name%.*}"; local ext="${name##*.}"
+        if [[ "$stem" != *-* ]]; then skipped=$((skipped + 1)); continue; fi
+        local rom_base="${stem%-*}"; local suffix="${stem##*-}"
+        local sl="${suffix,,}"
+        local esde_folder="${ES_SUFFIX_MAP[$sl]:-}"
+        [[ -z "$esde_folder" ]] && { skipped=$((skipped + 1)); continue; }
+        mkdir -p "$dest/$esde_folder"
+        local dest_path="$dest/$esde_folder/$rom_base.$ext"
+        if [[ "$move" == "yes" ]]; then
+            mv -n "$f" "$dest_path" 2>/dev/null && n=$((n + 1))
+        else
+            cp -n "$f" "$dest_path" 2>/dev/null && n=$((n + 1))
+        fi
+    done < <(find "$src" -maxdepth 1 -type f 2>/dev/null)
+
+    local mode_label="copied"; [[ "$move" == "yes" ]] && mode_label="moved"
+    echo -e "      ${GREEN}✓${NC} ES-layout: $n files $mode_label from $(basename "$src")/ → typed folders$([[ $skipped -gt 0 ]] && echo " ($skipped skipped)")"
+    return 0
+}
+
 declare -A SYS_MAP=(
     # SNES
     [snesna]=snes           [snes-msu]=snes         [sufami]=snes
@@ -4682,7 +4801,16 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
                 fi
             done
         else
-            # Flat-layout packs (e.g. vpinball) put media subfolders directly in the ROM dir
+            # Non-RetroBat layouts. Two shapes are common:
+            #   (a) ES/Batocera-style with suffixes — images/<rom>-image.png,
+            #       images/<rom>-thumb.png, videos/<rom>-Video.mp4
+            #   (b) Simple flat with media subfolders directly in ROM dir
+            es_detected=0
+            [[ -d "$SYS_DIR/images" ]] && try_import_es_layout "$SYS_DIR/images" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
+            [[ -d "$SYS_DIR/videos" ]] && try_import_es_layout "$SYS_DIR/videos" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
+            [[ -d "$SYS_DIR/manuals" ]] && try_import_es_layout "$SYS_DIR/manuals" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
+            (( es_detected )) && IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+            if (( ! es_detected )); then
             for RB_TYPE in "${!MEDIA_MAP[@]}"; do
                 SRC="$SYS_DIR/$RB_TYPE"
                 if [[ -d "$SRC" ]]; then
@@ -4699,6 +4827,7 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
                     IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
                 fi
             done
+            fi  # close: if (( ! es_detected ))
         fi
         GAMELIST_SRC="$SYS_DIR/gamelist.xml"
         if [[ -f "$GAMELIST_SRC" ]]; then
