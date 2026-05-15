@@ -2112,9 +2112,22 @@ input_joypad_driver = "udev"
 input_autodetect_enable = "true"
 # Where to find joypad autoconfig profiles. The ":" prefix is RetroArch's
 # "relative to the directory containing this retroarch.cfg" — resolves to
-# \$BASE/.config/retroarch/autoconfig/. STEP 4b downloads profiles here.
+# \$BASE/.config/retroarch/autoconfig/udev/. STEP 4b downloads profiles into
+# that driver-specific subdirectory.
+#
+# CRITICAL: this MUST match the layout produced by STEP 4b. The libretro
+# autoconfig repo is organized by driver (udev/, sdl2/, dinput/, xinput/),
+# and STEP 4b preserves that layout. RetroArch's autoconfig scanner is NOT
+# recursive — it reads .cfg files directly from this directory and does
+# not descend into subfolders. Pointing at ":/autoconfig" (without /udev)
+# scans an empty directory and leaves every pad detected-but-unmapped.
+#
+# This path is pinned to "udev" because input_joypad_driver above is "udev"
+# (the modern Linux default). If you change the joypad driver, change this
+# path to the matching driver subdir.
+#
 # NOTE: setting name is "joypad_autoconfig_dir" — NOT "input_joypad_autoconfig_dir".
-joypad_autoconfig_dir = ":/autoconfig"
+joypad_autoconfig_dir = ":/autoconfig/udev"
 # Map first plugged joypad to player 1
 input_player1_joypad_index = "0"
 
@@ -2525,6 +2538,17 @@ fi
 
 cd "$SCRIPT_DIR"
 export HOME="$SCRIPT_DIR"
+
+# ── Self-heal: joypad_autoconfig_dir migration ──
+# An earlier script version pointed joypad_autoconfig_dir at ":/autoconfig"
+# while STEP 4b placed the .cfg profiles inside ":/autoconfig/udev/". Since
+# RetroArch's autoconfig scanner is NOT recursive, this left every pad
+# detected-but-unmapped on every launch. Fix existing installs in place.
+RA_CFG="$SCRIPT_DIR/.config/retroarch/retroarch.cfg"
+if [[ -f "$RA_CFG" ]] && grep -q '^joypad_autoconfig_dir = ":/autoconfig"$' "$RA_CFG"; then
+    sed -i 's|^joypad_autoconfig_dir = ":/autoconfig"$|joypad_autoconfig_dir = ":/autoconfig/udev"|' "$RA_CFG"
+    echo "Migrated joypad_autoconfig_dir → :/autoconfig/udev (pad autoconfig was broken)"
+fi
 
 # Apply desired theme before launch — ES-DE may overwrite settings on exit
 # so we also re-apply after. Belt and suspenders.
