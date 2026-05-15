@@ -2417,27 +2417,69 @@ if emu_selected retroarch; then
     if (( EXISTING_UDEV > 50 )); then
         ok "Joypad autoconfig profiles already present ($EXISTING_UDEV udev profiles), skipping"
     else
-        info "Fetching profiles from libretro/retroarch-joypad-autoconfig..."
         AUTOCONFIG_TMP=$(mktemp -d)
         AUTOCONFIG_URL="https://github.com/libretro/retroarch-joypad-autoconfig/archive/refs/heads/master.tar.gz"
-        if curl -sfL "$AUTOCONFIG_URL" | tar -xz --strip-components=1 -C "$AUTOCONFIG_TMP" 2>/dev/null; then
-            # Copy each driver subfolder (udev/, sdl2/, dinput/, etc.) into autoconfig dir
+        EXTRACT_DIR=""
+
+        # Try curl + tar first (fastest, no git dependency)
+        info "Fetching profiles from libretro/retroarch-joypad-autoconfig (~2 MB)..."
+        if curl -fL --connect-timeout 15 --max-time 120 \
+                -o "$AUTOCONFIG_TMP/autoconfig.tar.gz" "$AUTOCONFIG_URL" 2>/dev/null; then
+            if tar -xzf "$AUTOCONFIG_TMP/autoconfig.tar.gz" -C "$AUTOCONFIG_TMP" 2>/dev/null; then
+                EXTRACT_DIR=$(find "$AUTOCONFIG_TMP" -maxdepth 1 -type d \
+                              -name 'retroarch-joypad-autoconfig*' 2>/dev/null | head -1)
+            else
+                warn "tar extraction failed"
+            fi
+        else
+            warn "curl download failed (HTTP error, network issue, or rate-limit)"
+        fi
+
+        # Fallback: try git clone if curl/tar path didn't yield a usable extract dir
+        if [[ -z "$EXTRACT_DIR" || ! -d "$EXTRACT_DIR/udev" ]] && command -v git >/dev/null 2>&1; then
+            info "Falling back to git clone..."
+            rm -rf "$AUTOCONFIG_TMP"
+            AUTOCONFIG_TMP=$(mktemp -d)
+            if git clone --depth 1 --quiet \
+                 https://github.com/libretro/retroarch-joypad-autoconfig.git \
+                 "$AUTOCONFIG_TMP/autoconfig" 2>/dev/null; then
+                EXTRACT_DIR="$AUTOCONFIG_TMP/autoconfig"
+            else
+                warn "git clone also failed"
+            fi
+        fi
+
+        # Did we end up with a valid extract dir?
+        if [[ -n "$EXTRACT_DIR" && -d "$EXTRACT_DIR/udev" ]]; then
+            # Copy each driver subdir (udev/, sdl2/, dinput/, xinput/, etc.) into autoconfig dir
             shopt -s dotglob nullglob
-            for driver_dir in "$AUTOCONFIG_TMP"/*/; do
+            for driver_dir in "$EXTRACT_DIR"/*/; do
                 [[ -d "$driver_dir" ]] || continue
                 driver_name=$(basename "$driver_dir")
-                # Skip non-driver folders that may be in the repo root
+                # Skip non-driver folders that might be in the repo root
                 [[ "$driver_name" == ".git" ]] && continue
+                # Skip files-only or empty driver dirs
+                cfg_count=$(find "$driver_dir" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
+                (( cfg_count == 0 )) && continue
                 mkdir -p "$AUTOCONFIG_DIR/$driver_name"
-                cp -rn "$driver_dir"/*.cfg "$AUTOCONFIG_DIR/$driver_name/" 2>/dev/null || true
+                cp -n "$driver_dir"*.cfg "$AUTOCONFIG_DIR/$driver_name/" 2>/dev/null || true
             done
             shopt -u dotglob nullglob
+
             NEW_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
-            ok "Installed $NEW_UDEV udev joypad profiles (plus sdl2/dinput/xinput fallbacks)"
+            if (( NEW_UDEV > 0 )); then
+                ok "Installed $NEW_UDEV udev joypad profiles (plus sdl2/dinput/xinput fallbacks)"
+            else
+                fail "Extraction yielded no profiles — check $AUTOCONFIG_DIR/udev/ contents"
+            fi
         else
-            warn "Failed to download autoconfig profiles (network issue?)"
-            info "If your pad isn't auto-mapped, configure manually:"
-            info "  RetroArch → Settings → Input → Port 1 Controls → Set All Controls"
+            fail "Could not download or clone autoconfig profiles"
+            info "Manual fix — run this in the bundle root:"
+            info "  curl -fL https://github.com/libretro/retroarch-joypad-autoconfig/archive/refs/heads/master.tar.gz \\"
+            info "    | tar xz --strip-components=1 -C .config/retroarch/autoconfig"
+            info "Or use git:"
+            info "  git clone --depth 1 https://github.com/libretro/retroarch-joypad-autoconfig.git \\"
+            info "    /tmp/ac && cp -r /tmp/ac/* .config/retroarch/autoconfig/ && rm -rf /tmp/ac"
         fi
         rm -rf "$AUTOCONFIG_TMP"
     fi
