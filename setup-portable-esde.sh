@@ -2411,9 +2411,10 @@ echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Downloading joypad autoconfig profiles
 
 if emu_selected retroarch; then
     AUTOCONFIG_DIR="$BASE/.config/retroarch/autoconfig"
-    mkdir -p "$AUTOCONFIG_DIR"
-    # Idempotent: skip if udev/ already populated from a prior run
-    EXISTING_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
+    mkdir -p "$AUTOCONFIG_DIR/udev"   # ensure udev/ exists so the find below doesn't error
+    # Idempotent: skip if udev/ already populated from a prior run.
+    # The `|| echo 0` guards against pipefail aborting on transient find errors.
+    EXISTING_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l || echo 0)
     if (( EXISTING_UDEV > 50 )); then
         ok "Joypad autoconfig profiles already present ($EXISTING_UDEV udev profiles), skipping"
     else
@@ -2421,18 +2422,18 @@ if emu_selected retroarch; then
         AUTOCONFIG_URL="https://github.com/libretro/retroarch-joypad-autoconfig/archive/refs/heads/master.tar.gz"
         EXTRACT_DIR=""
 
-        # Try curl + tar first (fastest, no git dependency)
+        # Try curl + tar first (fastest, no git dependency). Errors print to console for diagnostics.
         info "Fetching profiles from libretro/retroarch-joypad-autoconfig (~2 MB)..."
         if curl -fL --connect-timeout 15 --max-time 120 \
-                -o "$AUTOCONFIG_TMP/autoconfig.tar.gz" "$AUTOCONFIG_URL" 2>/dev/null; then
-            if tar -xzf "$AUTOCONFIG_TMP/autoconfig.tar.gz" -C "$AUTOCONFIG_TMP" 2>/dev/null; then
+                -o "$AUTOCONFIG_TMP/autoconfig.tar.gz" "$AUTOCONFIG_URL"; then
+            if tar -xzf "$AUTOCONFIG_TMP/autoconfig.tar.gz" -C "$AUTOCONFIG_TMP"; then
                 EXTRACT_DIR=$(find "$AUTOCONFIG_TMP" -maxdepth 1 -type d \
-                              -name 'retroarch-joypad-autoconfig*' 2>/dev/null | head -1)
+                              -name 'retroarch-joypad-autoconfig*' 2>/dev/null | head -1 || true)
             else
                 warn "tar extraction failed"
             fi
         else
-            warn "curl download failed (HTTP error, network issue, or rate-limit)"
+            warn "curl download failed (exit $?)"
         fi
 
         # Fallback: try git clone if curl/tar path didn't yield a usable extract dir
@@ -2440,33 +2441,34 @@ if emu_selected retroarch; then
             info "Falling back to git clone..."
             rm -rf "$AUTOCONFIG_TMP"
             AUTOCONFIG_TMP=$(mktemp -d)
-            if git clone --depth 1 --quiet \
+            if git clone --depth 1 \
                  https://github.com/libretro/retroarch-joypad-autoconfig.git \
-                 "$AUTOCONFIG_TMP/autoconfig" 2>/dev/null; then
+                 "$AUTOCONFIG_TMP/autoconfig"; then
                 EXTRACT_DIR="$AUTOCONFIG_TMP/autoconfig"
             else
-                warn "git clone also failed"
+                warn "git clone also failed (exit $?)"
             fi
         fi
 
         # Did we end up with a valid extract dir?
         if [[ -n "$EXTRACT_DIR" && -d "$EXTRACT_DIR/udev" ]]; then
-            # Copy each driver subdir (udev/, sdl2/, dinput/, xinput/, etc.) into autoconfig dir
+            # Copy each driver subdir (udev/, sdl2/, dinput/, xinput/, etc.) into autoconfig dir.
+            # Disable pipefail locally so a missing-glob doesn't abort the whole step.
+            set +o pipefail
             shopt -s dotglob nullglob
             for driver_dir in "$EXTRACT_DIR"/*/; do
                 [[ -d "$driver_dir" ]] || continue
                 driver_name=$(basename "$driver_dir")
-                # Skip non-driver folders that might be in the repo root
                 [[ "$driver_name" == ".git" ]] && continue
-                # Skip files-only or empty driver dirs
-                cfg_count=$(find "$driver_dir" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
+                cfg_count=$(find "$driver_dir" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l || echo 0)
                 (( cfg_count == 0 )) && continue
                 mkdir -p "$AUTOCONFIG_DIR/$driver_name"
                 cp -n "$driver_dir"*.cfg "$AUTOCONFIG_DIR/$driver_name/" 2>/dev/null || true
             done
             shopt -u dotglob nullglob
+            set -o pipefail
 
-            NEW_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l)
+            NEW_UDEV=$(find "$AUTOCONFIG_DIR/udev" -maxdepth 1 -name '*.cfg' 2>/dev/null | wc -l || echo 0)
             if (( NEW_UDEV > 0 )); then
                 ok "Installed $NEW_UDEV udev joypad profiles (plus sdl2/dinput/xinput fallbacks)"
             else
@@ -2476,7 +2478,8 @@ if emu_selected retroarch; then
             fail "Could not download or clone autoconfig profiles"
             info "Manual fix — run this in the bundle root:"
             info "  curl -fL https://github.com/libretro/retroarch-joypad-autoconfig/archive/refs/heads/master.tar.gz \\"
-            info "    | tar xz --strip-components=1 -C .config/retroarch/autoconfig"
+            info "    -o /tmp/ac.tar.gz && tar xzf /tmp/ac.tar.gz -C /tmp/ \\"
+            info "    && cp -r /tmp/retroarch-joypad-autoconfig-master/* .config/retroarch/autoconfig/"
             info "Or use git:"
             info "  git clone --depth 1 https://github.com/libretro/retroarch-joypad-autoconfig.git \\"
             info "    /tmp/ac && cp -r /tmp/ac/* .config/retroarch/autoconfig/ && rm -rf /tmp/ac"
