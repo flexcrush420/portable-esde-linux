@@ -247,15 +247,15 @@ The bundle pre-configures two universal RetroArch shortcuts that work on any con
 | Shortcut | Action |
 |---|---|
 | **L3 + R3** (click both analog sticks) | Open the RetroArch Quick Menu |
-| **Hold Start for 2 seconds** | Exit the game, return to ES-DE |
-| **Escape** (keyboard) | Same as Hold Start — exits to ES-DE |
+| **L1 + R1 + Start + Select** | Exit the game, return to ES-DE |
+| **Escape** (keyboard) | Same as the L1+R1+Start+Select combo — exits to ES-DE |
 
-The Hold-Start option also works on pads without clickable analog sticks — 8BitDo retro pads, arcade sticks, classic SNES-style controllers.
+The four-button combo is intentional — easy to remember (all four shoulder/center buttons at once), works on every pad including arcade sticks and 8BitDo retro pads that lack clickable analog sticks, and impossible to trigger accidentally during gameplay.
 
 For **per-button hotkeys** (Save State, Load State, Fast Forward, Screenshot, Rewind, etc.), these need a one-time per-controller binding via the RetroArch menu, because RetroArch's `*_btn` hotkeys use physical button indices that vary per pad. To set them up:
 
 1. Launch any game
-2. Open the Quick Menu (L3 + R3, or Hold Start 2s, or Escape)
+2. Open the Quick Menu (L3 + R3, or L1+R1+Start+Select, or Escape)
 3. Navigate to **Settings → Input → Hotkeys**
 4. Bind **Hotkey Enable** to a button (usually Select), then bind each action — e.g. Save State → R1, Load State → L1, Fast Forward → R2
 5. Bindings persist across all games for that controller
