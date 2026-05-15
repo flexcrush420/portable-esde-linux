@@ -3273,7 +3273,8 @@ install_vpinball() {
 }
 
 install_dosbox_x() {
-    if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1; then
+    if compgen -G "$EMUS/[dD]os[bB]ox-[xX]*.AppImage" > /dev/null 2>&1 \
+       || compgen -G "$EMUS/DOSBox-X*.AppImage" > /dev/null 2>&1; then
         ok "DOSBox-X already exists, skipping"
     else
         DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/DOSBox-X-AppImage/releases?per_page=3" \
@@ -3291,7 +3292,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
-BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x*.AppImage' | head -1)
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'dosbox-x*.AppImage' | head -1)
 exec "$BIN" "$@"
 DBXWRAP
                 chmod +x "$EMUS/dosbox-x-portable.sh"
@@ -3383,7 +3384,8 @@ EKA2L1WRAP
 }
 
 install_solarus() {
-    if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
+    if [[ -x "$EMUS/solarus-run" ]] || [[ -x "$EMUS/solarus-portable.sh" ]] \
+       || compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
         ok "Solarus already exists, skipping"
     else
         # Known stable direct URL — update version number when new releases come out
@@ -6117,7 +6119,8 @@ install_vpinball() {
 }
 
 install_dosbox_x() {
-    if compgen -G "$EMUS/dosbox-x*.AppImage" > /dev/null 2>&1; then
+    if compgen -G "$EMUS/[dD]os[bB]ox-[xX]*.AppImage" > /dev/null 2>&1 \
+       || compgen -G "$EMUS/DOSBox-X*.AppImage" > /dev/null 2>&1; then
         ok "DOSBox-X already exists, skipping"
     else
         DOSBOXX_URL=$(curl -sfL "https://api.github.com/repos/pkgforge-dev/DOSBox-X-AppImage/releases?per_page=3" \
@@ -6135,7 +6138,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
-BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'dosbox-x*.AppImage' | head -1)
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'dosbox-x*.AppImage' | head -1)
 exec "$BIN" "$@"
 DBXWRAP
                 chmod +x "$EMUS/dosbox-x-portable.sh"
@@ -6227,7 +6230,8 @@ EKA2L1WRAP
 }
 
 install_solarus() {
-    if compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
+    if [[ -x "$EMUS/solarus-run" ]] || [[ -x "$EMUS/solarus-portable.sh" ]] \
+       || compgen -G "$EMUS/solarus*.AppImage" > /dev/null 2>&1; then
         ok "Solarus already exists, skipping"
     else
         # Known stable direct URL — update version number when new releases come out
