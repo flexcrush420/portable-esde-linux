@@ -2105,16 +2105,16 @@ menu_show_core_updater = "true"
 # Linux: udev is the modern, hot-pluggable, accurate joypad driver. The dinput
 # / sdl2 drivers exist as fallbacks but have known timing + hotplug issues.
 input_driver = "udev"
-joypad_driver = "udev"
-# Autodetect joypads on plug-in AND scan already-connected pads at startup
+# NOTE: setting name is "input_joypad_driver" — NOT "joypad_driver". RA silently
+# drops the latter on cfg rewrite (verified against libretro's stock retroarch.cfg).
+input_joypad_driver = "udev"
+# Autodetect joypads on plug-in (scans both existing and hot-plugged pads when true)
 input_autodetect_enable = "true"
-input_autoconfigure_joypad_init = "true"
 # Where to find joypad autoconfig profiles. The ":" prefix is RetroArch's
 # "relative to the directory containing this retroarch.cfg" — resolves to
-# \$BASE/.config/retroarch/autoconfig/. The AppImage extracts profiles here
-# on first launch; setting this path explicitly stops RA from falling back
-# to /usr/share/libretro/autoconfig which doesn't exist on portable installs.
-input_joypad_autoconfig_dir = ":/autoconfig"
+# \$BASE/.config/retroarch/autoconfig/. STEP 4b downloads profiles here.
+# NOTE: setting name is "joypad_autoconfig_dir" — NOT "input_joypad_autoconfig_dir".
+joypad_autoconfig_dir = ":/autoconfig"
 # Map first plugged joypad to player 1
 input_player1_joypad_index = "0"
 
@@ -2125,11 +2125,10 @@ input_player1_joypad_index = "0"
 # forward, etc. require per-pad mapping via the RA quick menu — not solvable
 # globally without losing cross-pad portability.
 #
-# Combo values:
-#   0=disabled  1=Down+Y+L1+R1  2=L3+R3  3=L1+R1+Start+Select
-#   4=Hold Start 2sec  5=L3+R1  6=L1+R1+Start+RStick(Up)
-input_menu_toggle_gamepad_combo = "2"   # L3 + R3        → open Quick Menu
-input_quit_gamepad_combo        = "4"   # Hold Start 2s  → exit to ES-DE
+# Combo values (universal RA presets, older + stable across builds):
+#   0=disabled  1=Down+Y+L1+R1  2=L3+R3  3=L1+R1+Start+Select  4=Hold Start 2s
+input_menu_toggle_gamepad_combo = "2"   # L3 + R3                  → open Quick Menu
+input_quit_gamepad_combo        = "3"   # L1+R1+Start+Select       → exit to ES-DE
 
 # ── Keyboard exit (explicit, in case RA auto-cleared it) ──
 input_exit_emulator = "escape"
