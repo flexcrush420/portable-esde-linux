@@ -324,7 +324,7 @@ A few cosmetic log lines that are **normal and can be ignored**:
 
 - `[ERROR] [Wayland]: Failed to connect to Wayland server.` on X11 sessions — RetroArch probes Wayland before honoring the configured X11 context driver. Falls back to GLX immediately; no functional impact.
 - `[WARN] [GL]: Stock GLSL shaders will be used.` — RetroArch's standard message when no custom shader pipeline is loaded. Stock GLSL is the correct default; warning is informational.
-- `[INFO] [Autoconf]: <PadName> (vid/pid) not configured, using fallback.` — SDL2 is providing the gamepad mapping via its internal GameController DB, which is the universal-coverage answer.
+- `[INFO] [Autoconf]: <PadName> (vid/pid) not configured, using fallback.` — SDL2 is providing the gamepad mapping via its internal GameController DB, which provides universal compatibility..
 
 ---
 
