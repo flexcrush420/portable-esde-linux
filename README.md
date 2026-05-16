@@ -33,7 +33,7 @@ A fully self-contained retro gaming bundle — no installation needed.
 | **xemu** | Original Xbox | |
 | **Xenia Canary** | Xbox 360 | |
 | | | |
-| **MAME** | Arcade + obscure systems | Standalone — used as fallback for ADAM, Apple IIgs, Archimedes, Dragon32, FM-7, TI-99/4A, Super A'Can, etc. |
+| **MAME** | Arcade + Retro Systems | Standalone — used as fallback for ADAM, Apple IIgs, Archimedes, Dragon32, FM-7, TI-99/4A, Super A'Can, etc. |
 | **Supermodel** | Sega Model 3 | Community AppImage via pkgforge-dev |
 | **DOSBox-X** | DOS games | |
 | **86Box** | Win 9x / Retro PC | Configure with your own Windows ISO |
