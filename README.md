@@ -15,7 +15,7 @@ A fully self-contained retro gaming bundle — no installation needed.
 | Application | System | Notes |
 |---|---|---|
 | **ES-DE** | Frontend | Portable mode — no system installation |
-| **RetroArch** | 76 libretro cores | NES, SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME, MSX, Amiga, CPC, X68000, and many more |
+| **RetroArch** | ~70 libretro cores | NES, SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME, MSX, Amiga, CPC, X68000, and many more |
 | | | |
 | **DuckStation** | PlayStation 1 | |
 | **PCSX2** | PlayStation 2 | |
@@ -109,10 +109,11 @@ ES-DE-Portable/
 │   ├── custom_systems/         ← Hack system definitions (snesh, nesh, etc.)
 │   ├── settings/               ← ES-DE configuration
 │   ├── gamelists/              ← Game metadata
+│   ├── logs/                   ← ES-DE log (es_log.txt)
 │   └── themes/                 ← Downloaded theme
 ├── Emulators/
 │   ├── RetroArch*.AppImage
-│   ├── retroarch-cores/        ← Up to 76 .so core files
+│   ├── retroarch-cores/        ← ~70 .so core files
 │   ├── PCSX2*.AppImage
 │   └── ...                     ← All other emulators
 ├── ROMs/
@@ -121,7 +122,11 @@ ES-DE-Portable/
 │   ├── ps4/ win98/             ← Newer systems
 │   └── bios/                   ← BIOS files go here
 ├── downloaded_media/           ← Scraped artwork and videos
-└── Saves/                      ← Save files and states
+└── Saves/
+    ├── files/                  ← SRAM saves
+    ├── states/                 ← Save states
+    ├── screenshots/            ← Captures
+    └── logs/                   ← RetroArch log (retroarch.log)
 ```
 
 ---
@@ -242,7 +247,7 @@ Hacked and homebrewed ROMs get their own dedicated sidebar entries rather than b
 
 ## In-game controls
 
-The bundle pre-configures two universal RetroArch shortcuts that work on any controller after autoconfig matches your pad. No setup required — they're ready as soon as you launch a game.
+The bundle pre-configures two universal RetroArch shortcuts that work on any controller recognized by SDL2's gamepad database — which covers virtually every DS4, DualSense, Xbox One / Series, 8BitDo, Switch Pro, and the vast majority of clones via their hardware GUID. No manual mapping required.
 
 | Shortcut | Action |
 |---|---|
@@ -274,7 +279,7 @@ Run the included update script anytime to check for newer versions:
 ./update.sh
 ```
 
-It checks every standalone emulator against its latest GitHub release, shows you what's changed, and asks (via whiptail) before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All 76 RetroArch cores can also be updated in one go from buildbot.libretro.com.
+It checks every standalone emulator against its latest GitHub release, shows you what's changed, and asks (via whiptail) before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All ~70 RetroArch cores can also be updated in one go from buildbot.libretro.com.
 
 To update ES-DE itself, the update script will prompt you to re-download from es-de.org when a new version is detected.
 
@@ -311,9 +316,21 @@ Some emulators require one-time setup that can't be scripted due to legal/firmwa
 
 ---
 
+## Troubleshooting
+
+RetroArch writes a verbose log to `Saves/logs/retroarch.log` on every launch (single rotating file, overwritten per session). ES-DE writes its own log to `ES-DE/logs/es_log.txt`. Both are the right place to look when something isn't behaving — grep for `[ERROR]`, `[WARN]`, or `[Autoconf]` lines.
+
+A few cosmetic log lines that are **normal and can be ignored**:
+
+- `[ERROR] [Wayland]: Failed to connect to Wayland server.` on X11 sessions — RetroArch probes Wayland before honoring the configured X11 context driver. Falls back to GLX immediately; no functional impact.
+- `[WARN] [GL]: Stock GLSL shaders will be used.` — RetroArch's standard message when no custom shader pipeline is loaded. Stock GLSL is the correct default; warning is informational.
+- `[INFO] [Autoconf]: <PadName> (vid/pid) not configured, using fallback.` — SDL2 is providing the gamepad mapping via its internal GameController DB, which is the universal-coverage answer.
+
+---
+
 ## Compatibility
 
-Tested on **Linux Mint** and **Ubuntu**. Should work on any distro with bash 4.0+, curl, python3, unzip, and whiptail (or one of the immutable-distro paths above).
+Actively tested on **Linux Mint** and **Ubuntu** with X11 sessions on NVIDIA proprietary drivers. Should work on any modern distro (Arch, Fedora, openSUSE, Pop!_OS, etc.) and both **X11 and Wayland** sessions — the display server is auto-detected at setup time and the matching RetroArch video context is written into `retroarch.cfg`. Requires bash 4.0+, curl, python3, unzip, and whiptail (or one of the immutable-distro paths above).
 
 ---
 
