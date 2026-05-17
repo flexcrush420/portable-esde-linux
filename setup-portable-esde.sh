@@ -4666,9 +4666,9 @@ cat > "$BASE/import-collection.sh" << 'CONVSCRIPT'
 # Portable ES-DE — Collection Importer
 # Import a RetroBat install, a ROM-pack collection, or a single-system
 # folder into the bundle. Run anytime after setup.
-# Usage: ./import-collection.sh [--dry-run]
-#   --dry-run   scan sources and report what WOULD be imported;
-#               copies/moves/modifies NOTHING.
+# Usage: ./import-collection.sh [-test]
+#   -test   scan sources and report what WOULD be imported;
+#           copies/moves/modifies NOTHING.
 #=============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE="$SCRIPT_DIR"
@@ -4676,14 +4676,14 @@ ROMS="$BASE/ROMs"
 ESDE_DATA="$BASE/ES-DE"
 MEDIA_BASE="$BASE/downloaded_media"
 
-# --dry-run: scan sources and report what WOULD happen, copying/moving nothing.
+# -test: scan sources and report what WOULD happen, copying/moving nothing.
 DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
-        --dry-run|--dry|-n) DRY_RUN=true ;;
+        -test|--test|-t|--dry-run|--dry|-n) DRY_RUN=true ;;
         -h|--help)
-            echo "Usage: ./import-collection.sh [--dry-run]"
-            echo "  --dry-run   scan sources, report what would import, change nothing"
+            echo "Usage: ./import-collection.sh [-test]"
+            echo "  -test   scan sources, report what would import, change nothing"
             exit 0 ;;
     esac
 done
@@ -4710,7 +4710,7 @@ wt_msg()  { whiptail --title "$1" --msgbox "$2" 14 78; }
 
 echo ""
 echo -e "${CYAN}Collection Importer → ES-DE${NC}"
-$DRY_RUN && echo -e "${YELLOW}── DRY RUN — nothing will be copied, moved, or modified ──${NC}"
+$DRY_RUN && echo -e "${YELLOW}── TEST MODE — nothing will be copied, moved, or modified ──${NC}"
 echo ""
 
 RETROBAT_PATHS=()
@@ -4924,7 +4924,12 @@ declare -A SYS_TO_CORE=(
     [msx2]=bluemsx                    [msxturbor]=bluemsx
     [scummvm]=scummvm
     [pico8]=retro8
-    [arcade]=mame2003_plus
+    # arcade = FBNeo-curated arcade (es_systems.xml routes arcade to FBNeo by
+    # default); mame = full current MAME, the system for modern romsets like
+    # RGS 0.2xx sets. They are NOT interchangeable — a 0.265 romset only runs
+    # on current MAME, not FBNeo and not mame2003_plus (each is romset-locked).
+    [arcade]=fbneo
+    [mame]=mame
     [cps1]=fbneo                      [cps2]=fbneo        [cps3]=fbneo
     [pc98]=np2kai
     [x68000]=px68k
@@ -5073,7 +5078,7 @@ enumerate_system_dirs() {
 dry_run_report() {
     local path="$1"
     echo ""
-    echo -e "${BOLD}${CYAN}═══ DRY RUN — $path ═══${NC}"
+    echo -e "${BOLD}${CYAN}═══ TEST — $path ═══${NC}"
     echo ""
 
     if [[ -d "$path/roms" ]]; then
@@ -5234,8 +5239,8 @@ if $DRY_RUN; then
         "$BASE/verify-bios.sh" || true
         echo ""
     fi
-    ok "Dry run complete — nothing was copied, moved, or modified."
-    echo "   Re-run without --dry-run to perform the actual import."
+    ok "Test complete — nothing was copied, moved, or modified."
+    echo "   Re-run without -test to perform the actual import."
     exit 0
 fi
 
