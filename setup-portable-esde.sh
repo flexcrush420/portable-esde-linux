@@ -4666,9 +4666,9 @@ cat > "$BASE/import-collection.sh" << 'CONVSCRIPT'
 # Portable ES-DE — Collection Importer
 # Import a RetroBat install, a ROM-pack collection, or a single-system
 # folder into the bundle. Run anytime after setup.
-# Usage: ./import-collection.sh [--dry-run]
-#   --dry-run   scan sources and report what WOULD be imported;
-#               copies/moves/modifies NOTHING.
+# Usage: ./import-collection.sh [-test]
+#   -test   scan sources and report what WOULD be imported;
+#           copies/moves/modifies NOTHING.
 #=============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE="$SCRIPT_DIR"
@@ -4676,14 +4676,14 @@ ROMS="$BASE/ROMs"
 ESDE_DATA="$BASE/ES-DE"
 MEDIA_BASE="$BASE/downloaded_media"
 
-# --dry-run: scan sources and report what WOULD happen, copying/moving nothing.
+# -test: scan sources and report what WOULD happen, copying/moving nothing.
 DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
-        --dry-run|--dry|-n) DRY_RUN=true ;;
+        -test|--test|-t|--dry-run|--dry|-n) DRY_RUN=true ;;
         -h|--help)
-            echo "Usage: ./import-collection.sh [--dry-run]"
-            echo "  --dry-run   scan sources, report what would import, change nothing"
+            echo "Usage: ./import-collection.sh [-test]"
+            echo "  -test   scan sources, report what would import, change nothing"
             exit 0 ;;
     esac
 done
@@ -4710,7 +4710,7 @@ wt_msg()  { whiptail --title "$1" --msgbox "$2" 14 78; }
 
 echo ""
 echo -e "${CYAN}Collection Importer → ES-DE${NC}"
-$DRY_RUN && echo -e "${YELLOW}── DRY RUN — nothing will be copied, moved, or modified ──${NC}"
+$DRY_RUN && echo -e "${YELLOW}── TEST MODE — nothing will be copied, moved, or modified ──${NC}"
 echo ""
 
 RETROBAT_PATHS=()
@@ -4924,7 +4924,12 @@ declare -A SYS_TO_CORE=(
     [msx2]=bluemsx                    [msxturbor]=bluemsx
     [scummvm]=scummvm
     [pico8]=retro8
-    [arcade]=mame2003_plus
+    # arcade = FBNeo-curated arcade (es_systems.xml routes arcade to FBNeo by
+    # default); mame = full current MAME, the system for modern romsets like
+    # RGS 0.2xx sets. They are NOT interchangeable — a 0.265 romset only runs
+    # on current MAME, not FBNeo and not mame2003_plus (each is romset-locked).
+    [arcade]=fbneo
+    [mame]=mame
     [cps1]=fbneo                      [cps2]=fbneo        [cps3]=fbneo
     [pc98]=np2kai
     [x68000]=px68k
@@ -5073,7 +5078,7 @@ enumerate_system_dirs() {
 dry_run_report() {
     local path="$1"
     echo ""
-    echo -e "${BOLD}${CYAN}═══ DRY RUN — $path ═══${NC}"
+    echo -e "${BOLD}${CYAN}═══ TEST — $path ═══${NC}"
     echo ""
 
     if [[ -d "$path/roms" ]]; then
@@ -5154,9 +5159,22 @@ dry_run_report() {
             local vpm
             vpm=$(find "$path" -type d -iname VPinMAME -print -quit 2>/dev/null)
             if [[ -n "$vpm" && -d "$vpm/roms" ]]; then
-                local vpmn
+                local vpmn vproot
                 vpmn=$(find "$vpm/roms" -maxdepth 1 -type f -name '*.zip' 2>/dev/null | wc -l)
                 echo "     PinMAME:  $vpmn ROM zip(s) in VPinMAME/ → would import to pinmame/roms/"
+                vproot=$(dirname "$vpm")
+                if [[ -d "$vproot/Music" ]]; then
+                    local mn
+                    mn=$(find "$vproot/Music" -type f 2>/dev/null | wc -l)
+                    echo "     Music:    $mn file(s) in Music/ → would import to Emulators/Music/"
+                fi
+                local vpscr="$vproot/Scripts"
+                [[ ! -d "$vpscr" ]] && vpscr="$vpm/Scripts"
+                if [[ -d "$vpscr" ]]; then
+                    local sn
+                    sn=$(find "$vpscr" -maxdepth 1 -type f -iname '*.vbs' 2>/dev/null | wc -l)
+                    echo "     Scripts:  $sn .vbs library file(s) → would import to ROMs/vpinball/"
+                fi
             else
                 echo -e "     PinMAME:  ${YELLOW}no VPinMAME folder — solid-state/DMD tables won't run without ROMs${NC}"
             fi
@@ -5221,8 +5239,8 @@ if $DRY_RUN; then
         "$BASE/verify-bios.sh" || true
         echo ""
     fi
-    ok "Dry run complete — nothing was copied, moved, or modified."
-    echo "   Re-run without --dry-run to perform the actual import."
+    ok "Test complete — nothing was copied, moved, or modified."
+    echo "   Re-run without -test to perform the actual import."
     exit 0
 fi
 
@@ -5417,8 +5435,46 @@ GLFIX
                     cp -rn "$VPM/$VSUB/." "$ROMS/vpinball/pinmame/$VSUB/" 2>/dev/null || true
                     echo -e " ${GREEN}$(find "$ROMS/vpinball/pinmame/$VSUB" -maxdepth 1 -type f 2>/dev/null | wc -l) files${NC}"
                 done
+                # VPROOT = emulators/vpinball/ — Music/ and Scripts/ sit beside
+                # VPinMAME/. Music: classic VPinball keeps one Music/ folder next
+                # to the VPX binary (Emulators/), tables PlayMusic against it.
+                # Scripts: the core.vbs / manufacturer .vbs library — tables do
+                # GetTextFile("core.vbs"), resolved relative to the table dir,
+                # so the library belongs in ROMs/vpinball/ alongside the .vpx.
+                VPROOT=$(dirname "$VPM")
+                if [[ -d "$VPROOT/Music" ]]; then
+                    mkdir -p "$BASE/Emulators/Music"
+                    echo -n "        Emulators/Music ..."
+                    cp -rn "$VPROOT/Music/." "$BASE/Emulators/Music/" 2>/dev/null || true
+                    echo -e " ${GREEN}$(find "$BASE/Emulators/Music" -type f 2>/dev/null | wc -l) files${NC}"
+                fi
+                VPSCR="$VPROOT/Scripts"
+                [[ ! -d "$VPSCR" ]] && VPSCR="$VPM/Scripts"
+                if [[ -d "$VPSCR" ]]; then
+                    echo -n "        ROMs/vpinball/ (script library) ..."
+                    SCRN=0
+                    while IFS= read -r -d '' SVB; do
+                        cp -n "$SVB" "$ROMS/vpinball/" 2>/dev/null && SCRN=$((SCRN + 1)) || true
+                    done < <(find "$VPSCR" -maxdepth 1 -type f -iname '*.vbs' -print0 2>/dev/null)
+                    echo -e " ${GREEN}$SCRN .vbs files${NC}"
+                fi
             else
                 warn "vpinball: no VPinMAME folder in source — PinMAME tables will need ROMs added to ROMs/vpinball/pinmame/roms/ manually"
+            fi
+            # Offer to fetch per-table Linux script patches. Some VPX tables
+            # need a patched .vbs sidecar to run under Standalone; the fetcher
+            # downloads any whose name exactly matches a patch in the repo.
+            if [[ -x "$BASE/fetch-vpx-patches.sh" ]]; then
+                if wt_yesno "Table script patches" \
+"Some VPX tables need a patched script to run under VPinball Standalone.
+
+Download available patches now from the jsm174/vpx-standalone-scripts
+project? Matches tables by exact name, needs an internet connection, and
+can be re-run anytime via ./fetch-vpx-patches.sh"; then
+                    echo ""
+                    "$BASE/fetch-vpx-patches.sh" || true
+                    echo ""
+                fi
             fi
         fi
         echo -e "      ${GREEN}✓ done${NC}"; echo ""
@@ -5997,6 +6053,138 @@ VERIFYBIOSSCRIPT
 
 chmod +x "$BASE/verify-bios.sh"
 ok "verify-bios.sh written to bundle"
+
+# Deploy fetch-vpx-patches.sh — pulls VPX Standalone sidecar scripts for
+# tables that have a community patch in jsm174/vpx-standalone-scripts.
+cat > "$BASE/fetch-vpx-patches.sh" << 'FETCHVPXSCRIPT'
+#!/usr/bin/env bash
+# fetch-vpx-patches.sh — download VPX Standalone "sidecar" scripts for tables
+# that have a community patch in jsm174/vpx-standalone-scripts.
+#
+# Some older / Windows-authored VPX tables won't run correctly under VPinball
+# Standalone (incomplete VBScript support). The fix is a patched .vbs placed
+# next to the .vpx with the IDENTICAL name — VPinball picks it up automatically.
+#
+# This tool matches the .vpx tables in ROMs/vpinball/ against the repo by
+# EXACT filename. An exact match means it's the same table release, so the
+# patch is correct. No match -> nothing downloaded (never a wrong patch).
+# Tables that already have a sidecar .vbs are skipped, so it's re-runnable.
+#
+# Usage:  ./fetch-vpx-patches.sh
+
+set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VPX_DIR="$SCRIPT_DIR/ROMs/vpinball"
+REPO="jsm174/vpx-standalone-scripts"
+BRANCH="master"
+RAW="https://raw.githubusercontent.com/$REPO/$BRANCH"
+
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; RED='\033[0;31m'; NC='\033[0m'
+
+echo -e "${CYAN}VPX Standalone — sidecar script fetcher${NC}"
+echo "Source: github.com/$REPO"
+echo ""
+
+if [[ ! -d "$VPX_DIR" ]]; then
+    echo "No ROMs/vpinball/ folder found — nothing to do."
+    exit 0
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+    echo -e "${RED}python3 is required but not found in PATH.${NC}"
+    exit 1
+fi
+
+VPX_COUNT=$(find "$VPX_DIR" -maxdepth 1 -type f -name '*.vpx' 2>/dev/null | wc -l)
+if [[ "$VPX_COUNT" -eq 0 ]]; then
+    echo "No .vpx tables in ROMs/vpinball/ — nothing to do."
+    exit 0
+fi
+echo "Tables in bundle: $VPX_COUNT"
+
+# Pull the repo file tree (one API call; raw downloads below don't count
+# against the API rate limit).
+TREE=$(mktemp)
+trap 'rm -f "$TREE"' EXIT
+echo -n "Fetching patch index ... "
+if ! curl -fsSL "https://api.github.com/repos/$REPO/git/trees/$BRANCH?recursive=1" -o "$TREE" 2>/dev/null \
+        || [[ ! -s "$TREE" ]]; then
+    echo -e "${YELLOW}failed${NC}"
+    echo "Could not reach GitHub (offline, or API rate-limited — limit is 60/hour"
+    echo "unauthenticated). Try again later."
+    exit 1
+fi
+echo -e "${GREEN}done${NC}"
+
+# Match .vpx basenames against repo .vbs files. Emit  url<TAB>destpath  lines
+# for tables that (a) have an exact-name patch and (b) don't already have a
+# sidecar .vbs in place.
+MATCHES=$(python3 - "$VPX_DIR" "$TREE" "$RAW" <<'PYEOF'
+import sys, json, os, urllib.parse
+vpx_dir, tree_file, raw = sys.argv[1], sys.argv[2], sys.argv[3]
+try:
+    with open(tree_file, encoding='utf-8') as fh:
+        tree = json.load(fh)
+except Exception:
+    sys.exit(0)
+
+# repo: map  "<TableName>" (no .vbs)  ->  repo path.  Only exact ".vbs"
+# blobs — not .vbs.original / .vbs.patch / .vbs.dmd variants.
+patches = {}
+for ent in tree.get('tree', []):
+    p = ent.get('path', '')
+    if ent.get('type') == 'blob' and p.endswith('.vbs'):
+        patches[os.path.basename(p)[:-4]] = p
+
+for f in sorted(os.listdir(vpx_dir)):
+    if not f.endswith('.vpx'):
+        continue
+    base = f[:-4]
+    if base not in patches:
+        continue
+    if os.path.exists(os.path.join(vpx_dir, base + '.vbs')):
+        continue   # already has a sidecar — leave it
+    url = raw + '/' + urllib.parse.quote(patches[base])
+    print(url + '\t' + os.path.join(vpx_dir, base + '.vbs'))
+PYEOF
+)
+
+if [[ -z "$MATCHES" ]]; then
+    echo ""
+    echo "No new patches to fetch — either no exact-name matches, or every"
+    echo "matching table already has its sidecar .vbs in place."
+    echo "(Patches match by exact table filename; packs using different table"
+    echo " releases than the repo simply won't match. That's expected.)"
+    exit 0
+fi
+
+N=$(printf '%s\n' "$MATCHES" | grep -c .)
+echo ""
+echo "Matched $N table(s) with an available patch — downloading:"
+echo ""
+
+OK=0; FAIL=0
+while IFS=$'\t' read -r URL DEST; do
+    [[ -z "$URL" ]] && continue
+    NAME=$(basename "$DEST")
+    echo -n "  $NAME ... "
+    if curl -fsSL "$URL" -o "$DEST" 2>/dev/null && [[ -s "$DEST" ]]; then
+        echo -e "${GREEN}ok${NC}"
+        OK=$((OK + 1))
+    else
+        echo -e "${YELLOW}failed${NC}"
+        rm -f "$DEST"
+        FAIL=$((FAIL + 1))
+    fi
+done <<< "$MATCHES"
+
+echo ""
+echo -e "${GREEN}Done — $OK sidecar script(s) installed into ROMs/vpinball/.${NC}"
+[[ "$FAIL" -gt 0 ]] && echo -e "${YELLOW}$FAIL download(s) failed — re-run to retry.${NC}"
+echo "Re-run anytime: new patches are added to the repo regularly, and any"
+echo "tables you add later will be picked up on the next run."
+FETCHVPXSCRIPT
+chmod +x "$BASE/fetch-vpx-patches.sh"
+ok "fetch-vpx-patches.sh written to bundle"
 
 #=============================================================================
 # STEP 15: WRITE INSTALL-CORE.SH TO BUNDLE
