@@ -4753,6 +4753,21 @@ declare -A CONV_SKIP=( [media]=1 [bios]=1 [emulators]=1 [saves]=1
     [screenshots]=1 [cheats]=1 [records]=1 [sounds]=1 [decorations]=1
     [library]=1 [system]=1 [music]=1 )
 
+# Emulator SUPPORT folders that may sit INSIDE a system's ROM dir but are not
+# games (In Progress #1). When a non-flat source ships these as top-level
+# subdirs they must not be copied into ROMs/<system>/ as if each were a game
+# folder. These names are MAME/standalone-emulator support dirs; no real
+# romset is named after any of them, so skipping them is safe for every
+# system. Game folders proper (CHD romsets, multi-disc sets) are unaffected.
+declare -A SUPPORT_SKIP=(
+    [samples]=1 [artwork]=1 [cfg]=1 [nvram]=1 [snap]=1 [cheat]=1
+    [hash]=1 [hi]=1 [inp]=1 [sta]=1 [diff]=1 [comments]=1 [folders]=1
+    [ctrlr]=1 [ini]=1 [crosshair]=1 [plugins]=1 [language]=1 [fonts]=1
+    [software]=1 [ui]=1 [bgfx]=1 [shader]=1 [glsl]=1 [hlsl]=1
+    [memcards]=1 [memcard]=1 [savestates]=1 [savestate]=1 [states]=1
+    [patches]=1 [textures]=1 [overlays]=1 )
+# Note: 'pgm' is deliberately NOT in this list — it is a real arcade romset.
+
 # Yield system directories for a source path, one per line. A "collection"
 # (RetroBat install or ROM pack) has a roms/ subfolder containing system
 # subdirs. A "single-system folder" has no roms/ — the folder itself IS the
@@ -4768,6 +4783,67 @@ enumerate_system_dirs() {
     else
         printf '%s\n' "$p"
     fi
+}
+
+# ── Unrecognized-system picker (In Progress #9) ───────────────────────────
+# A romset folder whose name is neither an ES-DE system nor a SYS_MAP alias
+# has no emulator/core mapping — it would import as bare ROMs with no launch
+# command. resolve_system_or_ask() resolves the folder name to a canonical
+# ES-DE system; if it cannot, it shows a whiptail menu offering three paths:
+#   1. pick a known ES-DE system to import the folder as,
+#   2. skip the folder entirely,
+#   3. import as-is (ROMs land in ROMs/<foldername>/ with NO launch command).
+# The chosen system is remembered for the rest of the run via PICKER_CHOICE
+# so the same folder name is not asked twice. In -test/DRY_RUN mode no menu
+# is shown (the dry-run report already flags unknowns); the function just
+# echoes the unresolved name so the report stays accurate.
+declare -A PICKER_CHOICE=()        # rb_sys -> resolved esde_sys (or "__SKIP__")
+# Is a name a system the importer can actually route (has emu OR core)?
+_is_known_system() {
+    local s="$1"
+    [[ -n "${SYS_TO_EMU[$s]:-}" || -n "${SYS_TO_CORE[$s]:-}" ]]
+}
+resolve_system_or_ask() {
+    # $1 = RB_SYS (source folder name). Echoes the resolved system name, or
+    # the literal __SKIP__ if the user chose to skip this folder.
+    local rb="$1" mapped
+    mapped="${SYS_MAP[$rb]:-$rb}"
+    # Already routable (directly or via SYS_MAP)? Done.
+    if _is_known_system "$mapped"; then printf '%s\n' "$mapped"; return 0; fi
+    # Remembered from earlier in this run?
+    if [[ -n "${PICKER_CHOICE[$rb]:-}" ]]; then
+        printf '%s\n' "${PICKER_CHOICE[$rb]}"; return 0
+    fi
+    # Dry-run: never prompt — echo the name unresolved so the report flags it.
+    if $DRY_RUN; then printf '%s\n' "$mapped"; return 0; fi
+    # Build the sorted list of routable ES-DE systems for the menu.
+    local -a known=()
+    local k
+    for k in "${!SYS_TO_CORE[@]}" "${!SYS_TO_EMU[@]}"; do known+=("$k"); done
+    # de-dup + sort
+    local -a sys_sorted=()
+    while IFS= read -r k; do [[ -n "$k" ]] && sys_sorted+=("$k"); done \
+        < <(printf '%s\n' "${known[@]}" | sort -u)
+    # Menu: special actions first, then every known system.
+    local -a menu=( "__SKIP__"   "Skip this folder — do not import it"
+                    "__ASIS__"   "Import as-is into ROMs/$rb/ (NO launch command)" )
+    for k in "${sys_sorted[@]}"; do menu+=( "$k" "Import '$rb' as the $k system" ); done
+    local choice
+    choice=$(wt_menu "Unrecognized system: '$rb'" \
+"The folder '$rb' is not a known ES-DE system and has no SYS_MAP alias, so
+it has no emulator/core mapping.
+
+Choose how to import it:
+ • pick a system below to import '$rb' as that system, or
+ • Skip it, or
+ • Import as-is (ROMs copied but not launchable until you add a mapping)." \
+        "${menu[@]}") || choice="__SKIP__"
+    [[ -z "$choice" ]] && choice="__SKIP__"
+    case "$choice" in
+        __ASIS__) choice="$rb" ;;   # import under its own name, unmapped
+    esac
+    PICKER_CHOICE[$rb]="$choice"
+    printf '%s\n' "$choice"
 }
 
 # ── Dry-run reporter ──────────────────────────────────────────────────────
@@ -4906,9 +4982,11 @@ dry_run_report() {
     fi
     if [[ ${#unknown_systems[@]} -gt 0 ]]; then
         echo ""
-        warn "Unrecognized system(s) — will import as ROMs but have NO launch command:"
+        warn "Unrecognized system(s) — no emulator/core mapping:"
         local u; for u in "${unknown_systems[@]}"; do echo "     - $u"; done
-        echo "     (Fix: add a mapping to SYS_TO_EMU or SYS_TO_CORE, or rename the folder.)"
+        echo "     During a real import you'll be prompted (per folder) to pick a"
+        echo "     system, skip it, or import it as-is. To make the mapping"
+        echo "     permanent instead, add it to SYS_MAP / SYS_TO_EMU / SYS_TO_CORE."
     fi
     echo ""
     return 0
@@ -4941,7 +5019,14 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         [[ -d "$SYS_DIR" ]] || continue
         RB_SYS=$(basename "$SYS_DIR")
         [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
-        ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
+        # Resolve to a canonical ES-DE system. If the folder name is not a
+        # known system or SYS_MAP alias, this pops a whiptail picker (skip /
+        # import-as-is / choose a system) — In Progress #9.
+        ESDE_SYS=$(resolve_system_or_ask "$RB_SYS")
+        if [[ "$ESDE_SYS" == "__SKIP__" ]]; then
+            echo -e "   ${YELLOW}$RB_SYS — skipped (user choice)${NC}"
+            continue
+        fi
         ESDE_ROM_DIR="$ROMS/$ESDE_SYS"
         ESDE_MEDIA_DIR="$MEDIA_BASE/$ESDE_SYS"
         ESDE_GAMELIST_DIR="$ESDE_DATA/gamelists/$ESDE_SYS"
@@ -5137,6 +5222,12 @@ GLFIX
                 # screenshots, mix, bezel, etc.).
                 case "$DIRKEY" in media|images|videos|manuals) continue ;; esac
                 [[ -n "${MEDIA_MAP[$DIRKEY]:-}" || -n "${MEDIA_SKIP[$DIRKEY]:-}" ]] && continue
+                # Skip emulator support folders (samples/artwork/cfg/nvram/...)
+                # so they aren't copied as if each were a game folder — #1.
+                if [[ -n "${SUPPORT_SKIP[$DIRKEY]:-}" ]]; then
+                    echo ""; echo -e "        ${YELLOW}$DIRNAME/ skipped${NC} (emulator support folder, not a game)"
+                    continue
+                fi
                 echo ""; echo -n "        $DIRNAME [$TRANSFER_LABEL...]"
                 if [[ "$RETROBAT_MOVE" == "yes" ]]; then
                     mv -n "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || cp -rn "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || true
