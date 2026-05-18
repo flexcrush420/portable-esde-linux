@@ -969,6 +969,7 @@ ROM_DIRS=(
     ps4 windows9x windows3x
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
     archimedes adam dragon32 fm7 supracan bbcmicro apple2 fbneo
+    gx4000 markiii multivision amigacdtv snes-msu msu-md sufami msx1
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -2028,6 +2029,101 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "casloopy -rompath \"%GAMEDIRRAW%;%ROMPATH%/loopy;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
     <platform>loopy</platform>
     <theme>loopy</theme>
+  </system>
+
+  <!-- ── Logo de-merge: systems split out from combined folders so each
+       uses its own Art Book Next logo instead of borrowing the parent's.
+       <theme> is set to the theme's logo name; emulator/core matches the
+       parent system the games actually run on. ── -->
+  <system>
+    <name>gx4000</name>
+    <fullname>Amstrad GX4000</fullname>
+    <path>%ROMPATH%/gx4000</path>
+    <extension>.dsk .DSK .cpr .CPR .cdt .CDT .zip .ZIP .7z .7Z</extension>
+    <command label="Caprice32">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/cap32_libretro.so %ROM%</command>
+    <platform>amstradcpc</platform>
+    <theme>gx4000</theme>
+  </system>
+
+  <system>
+    <name>markiii</name>
+    <fullname>Sega Mark III</fullname>
+    <path>%ROMPATH%/markiii</path>
+    <extension>.sms .SMS .bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
+    <platform>mastersystem</platform>
+    <theme>mark3</theme>
+  </system>
+
+  <system>
+    <name>multivision</name>
+    <fullname>Tsukuda Original Othello Multivision</fullname>
+    <path>%ROMPATH%/multivision</path>
+    <extension>.sg .SG .bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
+    <platform>sg-1000</platform>
+    <theme>multivision</theme>
+  </system>
+
+  <system>
+    <name>amigacdtv</name>
+    <fullname>Commodore CDTV</fullname>
+    <path>%ROMPATH%/amigacdtv</path>
+    <extension>.adf .ADF .hdf .HDF .lha .LHA .iso .ISO .cue .CUE .ccd .CCD .nrg .NRG .m3u .M3U .zip .ZIP .7z .7Z</extension>
+    <command label="PUAE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/puae_libretro.so %ROM%</command>
+    <platform>cdtv</platform>
+    <theme>cdtv</theme>
+  </system>
+
+  <system>
+    <name>snes-msu</name>
+    <fullname>Super Nintendo (MSU-1)</fullname>
+    <path>%ROMPATH%/snes-msu</path>
+    <extension>.sfc .smc .bs .st .zip .7z .SFC .SMC .ZIP .7Z</extension>
+    <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
+    <platform>snes</platform>
+    <theme>snes-msu1</theme>
+  </system>
+
+  <system>
+    <name>msu-md</name>
+    <fullname>Sega Mega Drive (MSU-MD)</fullname>
+    <path>%ROMPATH%/msu-md</path>
+    <extension>.md .bin .smd .gen .zip .7z .MD .BIN .SMD .GEN .ZIP .7Z</extension>
+    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
+    <platform>megadrive</platform>
+    <theme>msu-md</theme>
+  </system>
+
+  <system>
+    <name>sufami</name>
+    <fullname>SNES Sufami Turbo</fullname>
+    <path>%ROMPATH%/sufami</path>
+    <extension>.sfc .smc .st .bs .zip .7z .SFC .SMC .ZIP .7Z</extension>
+    <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
+    <platform>snes</platform>
+    <theme>sufami</theme>
+  </system>
+
+  <system>
+    <name>msx1</name>
+    <fullname>MSX1</fullname>
+    <path>%ROMPATH%/msx1</path>
+    <extension>.rom .ri .mx1 .mx2 .col .dsk .cas .sg .sc .m3u .zip .7z .ROM .RI .MX1 .MX2 .COL .DSK .CAS .SG .SC .M3U .ZIP .7Z</extension>
+    <command label="blueMSX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bluemsx_libretro.so %ROM%</command>
+    <platform>msx</platform>
+    <theme>msx1</theme>
+  </system>
+
+  <system>
+    <name>fbneo</name>
+    <fullname>FinalBurn Neo</fullname>
+    <path>%ROMPATH%/fbneo</path>
+    <extension>.zip .ZIP .7z .7Z .chd .CHD</extension>
+    <command label="FB Neo">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fbneo_libretro.so %ROM%</command>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/fbneo;%ROMPATH%/bios\""</command>
+    <platform>arcade</platform>
+    <theme>fbneo</theme>
   </system>
 
 </systemList>
@@ -4104,12 +4200,19 @@ try_import_es_layout() {
 }
 
 declare -A SYS_MAP=(
+    # NOTE — logo de-merge: snes-msu, sufami, msu-md, markiii, gx4000,
+    # amigacdtv, multivision, msx1 and fbneo are NO LONGER remapped here.
+    # Each is now its own ES-DE system (custom_systems/es_systems.xml) with
+    # its own Art Book Next logo, so the importer must leave the folder name
+    # unchanged and let it route to itself. snesna stays merged into snes
+    # (same hardware, regional tag only); nes-msu stays merged into nes
+    # pending the ProjectNested investigation (see In Progress #11).
     # SNES
-    [snesna]=snes           [snes-msu]=snes         [sufami]=snes
+    [snesna]=snes
     # NES
     [nes_aladdin]=nes       [nes_hd]=nes            [nes-msu]=nes
     # Mega Drive
-    [nomad]=genesis         [megadrive-msu]=megadrive [msu-md]=megadrive
+    [nomad]=genesis         [megadrive-msu]=megadrive
     # Game Boy
     [gb2players]=gb         [gba2players]=gba       [gbc2players]=gbc
     # GameCube / Wii
@@ -4119,7 +4222,7 @@ declare -A SYS_MAP=(
     # Atari
     [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd [lynx]=atarilynx
     # Sega
-    [sg1000]=sg-1000        [sc3000]=sg-1000         [markiii]=mastersystem
+    [sg1000]=sg-1000        [sc3000]=sg-1000
     [dreamcast-jp]=dreamcast [saturn-jp]=saturnjp
     # NEC
     [tgcd]=tg-cd
@@ -4128,16 +4231,15 @@ declare -A SYS_MAP=(
     # Philips
     [cdi]=cdimono1
     # Easy roadmap: route to already-supported systems
-    [gx4000]=amstradcpc     [amigacdtv]=amiga
-    [hbmame]=mame           [multivision]=sg-1000
+    [hbmame]=mame
     # Bandai
     [wswan]=wonderswan      [wswanc]=wonderswancolor
     # Commodore
     [c20]=vic20             [cplus4]=plus4          [amiga4000]=amiga
     # MSX
-    [msx1]=msx              [msx2+]=msx2
+    [msx2+]=msx2
     # Arcade
-    [fbneo]=arcade          [cave]=arcade
+    [cave]=arcade
     [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
 )
 FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist zxspectrum zx81 dos atari800 pc vpinball)
@@ -4239,6 +4341,16 @@ declare -A SYS_TO_CORE=(
     # on current MAME, not FBNeo and not mame2003_plus (each is romset-locked).
     [arcade]=fbneo
     [mame]=mame
+    # Logo-de-merge split systems — each is its own ES-DE system now, so the
+    # importer needs an explicit core so it routes/installs correctly.
+    [fbneo]=fbneo                     # FinalBurn Neo (split from arcade)
+    [gx4000]=cap32                    # Amstrad GX4000 (split from amstradcpc)
+    [markiii]=genesis_plus_gx         # Sega Mark III (split from mastersystem)
+    [multivision]=genesis_plus_gx     # Tsukuda Multivision (split from sg-1000)
+    [amigacdtv]=puae                  # Commodore CDTV (split from amiga)
+    [snes-msu]=snes9x                 # SNES MSU-1 (split from snes)
+    [sufami]=snes9x                   # SNES Sufami Turbo (split from snes)
+    [msu-md]=genesis_plus_gx          # Mega Drive MSU-MD (split from megadrive)
     # apple2 launches via the mame libretro core (apple2e driver) per its
     # es_systems.xml entry — route it so the importer installs that core.
     [apple2]=mame
