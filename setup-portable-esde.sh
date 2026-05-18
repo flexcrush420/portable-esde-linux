@@ -897,6 +897,23 @@ download_cores() {
         [potator]="Watara Supervision"
         [b2]="BBC Micro / BBC Master"
         [retro8]="PICO-8 (retro8 - free PICO-8-compatible core)"
+
+        # EASY systems batch — 14 single-core systems. Each verified present
+        # on the libretro Linux x86_64 buildbot (core-info repo).
+        [bk]="Elektronika BK-0010/0011"
+        [vice_x128]="Commodore 128"
+        [cannonball]="CannonBall (OutRun engine)"
+        [pd777]="Epoch Cassette Vision"
+        [nxengine]="Cave Story (NXEngine)"
+        [dice]="DICE (discrete-logic arcade)"
+        [dinothawr]="Dinothawr"
+        [ep128emu_core]="Enterprise 64/128"
+        [openlara]="OpenLara (Tomb Raider engine)"
+        [m2000]="Philips P2000T"
+        [vice_xpet]="Commodore PET"
+        [prboom]="PrBoom (DOOM engine)"
+        [tyrquake]="Quake (TyrQuake engine)"
+        [theodore]="Thomson MO/TO"
     )
 
     local total=${#CORES[@]}
@@ -970,6 +987,9 @@ ROM_DIRS=(
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
     archimedes adam dragon32 fm7 supracan bbcmicro apple2 fbneo
     gx4000 markiii multivision amigacdtv snes-msu msu-md sufami msx1
+    aquarius atom coco electron gp32 pegasus socrates tutor vis
+    bk c128 cannonball cassettevision cavestory dice dinothawr enterprise
+    openlara p2000t pet prboom quake thomson
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -2124,6 +2144,281 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/fbneo;%ROMPATH%/bios\""</command>
     <platform>arcade</platform>
     <theme>fbneo</theme>
+  </system>
+
+
+  <!-- ── EASY systems batch: 9 MAME-driver computers/consoles.
+       core: mame (already bundled). Multi-media machines get one
+       labelled command per slot (Tape/Diskette/Cartridge/...). ── -->
+
+  <system>
+    <name>aquarius</name>
+    <fullname>Mattel Aquarius</fullname>
+    <path>%ROMPATH%/aquarius</path>
+    <extension>.bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "aquarius -rompath \"%GAMEDIRRAW%;%ROMPATH%/aquarius;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "aquarius -rompath \"%GAMEDIRRAW%;%ROMPATH%/aquarius;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% aquarius -rompath "%GAMEDIRRAW%;%ROMPATH%/aquarius;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
+    <platform>aquarius</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>atom</name>
+    <fullname>Acorn Atom</fullname>
+    <path>%ROMPATH%/atom</path>
+    <extension>.atm .ATM .tap .TAP .uef .UEF .wav .WAV .csw .CSW .dsk .DSK .40t .40T .bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "atom -rompath \"%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "atom -rompath \"%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Tape] (Standalone)">%EMULATOR_MAME% atom -rompath "%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios" -cass "%ROMRAW%"</command>
+    <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "atom -rompath \"%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "atom -rompath \"%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (Standalone)">%EMULATOR_MAME% atom -rompath "%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
+    <command label="MAME [Quickload]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "atom -rompath \"%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios\" -quik \"%ROMRAW%\""</command>
+    <command label="MAME [Quickload] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "atom -rompath \"%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios\" -quik \"%ROMRAW%\""</command>
+    <command label="MAME [Quickload] (Standalone)">%EMULATOR_MAME% atom -rompath "%GAMEDIRRAW%;%ROMPATH%/atom;%ROMPATH%/bios" -quik "%ROMRAW%"</command>
+    <platform>atom</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>coco</name>
+    <fullname>TRS-80 Color Computer</fullname>
+    <path>%ROMPATH%/coco</path>
+    <extension>.ccc .CCC .rom .ROM .bin .BIN .dsk .DSK .dmk .DMK .jvc .JVC .os9 .OS9 .vdk .VDK .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "coco -rompath \"%GAMEDIRRAW%;%ROMPATH%/coco;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "coco -rompath \"%GAMEDIRRAW%;%ROMPATH%/coco;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% coco -rompath "%GAMEDIRRAW%;%ROMPATH%/coco;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
+    <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "coco -rompath \"%GAMEDIRRAW%;%ROMPATH%/coco;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "coco -rompath \"%GAMEDIRRAW%;%ROMPATH%/coco;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (Standalone)">%EMULATOR_MAME% coco -rompath "%GAMEDIRRAW%;%ROMPATH%/coco;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
+    <platform>coco</platform>
+    <theme>coco</theme>
+  </system>
+
+  <system>
+    <name>electron</name>
+    <fullname>Acorn Electron</fullname>
+    <path>%ROMPATH%/electron</path>
+    <extension>.uef .UEF .csw .CSW .wav .WAV .ssd .SSD .bbc .BBC .img .IMG .dsd .DSD .adf .ADF .rom .ROM .bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Tape]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "electron -rompath \"%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Tape] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "electron -rompath \"%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios\" -cass \"%ROMRAW%\""</command>
+    <command label="MAME [Tape] (Standalone)">%EMULATOR_MAME% electron -rompath "%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios" -cass "%ROMRAW%"</command>
+    <command label="MAME [Diskette]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "electron -rompath \"%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "electron -rompath \"%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Diskette] (Standalone)">%EMULATOR_MAME% electron -rompath "%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "electron -rompath \"%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "electron -rompath \"%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% electron -rompath "%GAMEDIRRAW%;%ROMPATH%/electron;%ROMPATH%/bios" -cart1 "%ROMRAW%"</command>
+    <platform>electron</platform>
+    <theme>electron</theme>
+  </system>
+
+  <system>
+    <name>gp32</name>
+    <fullname>Game Park 32</fullname>
+    <path>%ROMPATH%/gp32</path>
+    <extension>.smc .SMC .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "gp32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/gp32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "gp32 -rompath \"%GAMEDIRRAW%;%ROMPATH%/gp32;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% gp32 -rompath "%GAMEDIRRAW%;%ROMPATH%/gp32;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
+    <platform>gp32</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>pegasus</name>
+    <fullname>Aamber Pegasus</fullname>
+    <path>%ROMPATH%/pegasus</path>
+    <extension>.bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "pegasus -rompath \"%GAMEDIRRAW%;%ROMPATH%/pegasus;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "pegasus -rompath \"%GAMEDIRRAW%;%ROMPATH%/pegasus;%ROMPATH%/bios\" -cart1 \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% pegasus -rompath "%GAMEDIRRAW%;%ROMPATH%/pegasus;%ROMPATH%/bios" -cart1 "%ROMRAW%"</command>
+    <command label="MAME [ROM]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "pegasus -rompath \"%GAMEDIRRAW%;%ROMPATH%/pegasus;%ROMPATH%/bios\" -rom1 \"%ROMRAW%\""</command>
+    <command label="MAME [ROM] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "pegasus -rompath \"%GAMEDIRRAW%;%ROMPATH%/pegasus;%ROMPATH%/bios\" -rom1 \"%ROMRAW%\""</command>
+    <command label="MAME [ROM] (Standalone)">%EMULATOR_MAME% pegasus -rompath "%GAMEDIRRAW%;%ROMPATH%/pegasus;%ROMPATH%/bios" -rom1 "%ROMRAW%"</command>
+    <platform>pegasus</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>socrates</name>
+    <fullname>VTech Socrates</fullname>
+    <path>%ROMPATH%/socrates</path>
+    <extension>.bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "socrates -rompath \"%GAMEDIRRAW%;%ROMPATH%/socrates;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "socrates -rompath \"%GAMEDIRRAW%;%ROMPATH%/socrates;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% socrates -rompath "%GAMEDIRRAW%;%ROMPATH%/socrates;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
+    <platform>socrates</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>tutor</name>
+    <fullname>Tomy Tutor</fullname>
+    <path>%ROMPATH%/tutor</path>
+    <extension>.bin .BIN .rom .ROM .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [Cartridge]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "tutor -rompath \"%GAMEDIRRAW%;%ROMPATH%/tutor;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "tutor -rompath \"%GAMEDIRRAW%;%ROMPATH%/tutor;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME [Cartridge] (Standalone)">%EMULATOR_MAME% tutor -rompath "%GAMEDIRRAW%;%ROMPATH%/tutor;%ROMPATH%/bios" -cart "%ROMRAW%"</command>
+    <platform>tutor</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>vis</name>
+    <fullname>Tandy VIS</fullname>
+    <path>%ROMPATH%/vis</path>
+    <extension>.chd .CHD .iso .ISO .cue .CUE .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [CD-ROM]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "vis -rompath \"%GAMEDIRRAW%;%ROMPATH%/vis;%ROMPATH%/bios\" -cdrom \"%ROMRAW%\""</command>
+    <command label="MAME [CD-ROM] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "vis -rompath \"%GAMEDIRRAW%;%ROMPATH%/vis;%ROMPATH%/bios\" -cdrom \"%ROMRAW%\""</command>
+    <command label="MAME [CD-ROM] (Standalone)">%EMULATOR_MAME% vis -rompath "%GAMEDIRRAW%;%ROMPATH%/vis;%ROMPATH%/bios" -cdrom "%ROMRAW%"</command>
+    <platform>vis</platform>
+    <theme>pc</theme>
+  </system>
+
+  <!-- ── EASY systems batch: 14 single-libretro-core systems.
+       Each core verified present on the libretro Linux x86_64
+       buildbot. Plain -L <core> %ROM% launch. ── -->
+
+  <system>
+    <name>bk</name>
+    <fullname>Elektronika BK</fullname>
+    <path>%ROMPATH%/bk</path>
+    <extension>.zip .ZIP .7z .7Z .bin .BIN</extension>
+    <command label="bk-emulator">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bk_libretro.so %ROM%</command>
+    <platform>bk</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>c128</name>
+    <fullname>Commodore 128</fullname>
+    <path>%ROMPATH%/c128</path>
+    <extension>.zip .ZIP .7z .7Z .d64 .D64 .d71 .D71 .d80 .D80 .d81 .D81 .d82 .D82 .g64 .G64 .x64 .X64 .t64 .T64 .tap .TAP .prg .PRG .crt .CRT .d6z .D6Z .d7z .D7Z .d8z .D8Z .m3u .M3U</extension>
+    <command label="VICE x128">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_x128_libretro.so %ROM%</command>
+    <platform>c128</platform>
+    <theme>c64</theme>
+  </system>
+
+  <system>
+    <name>cannonball</name>
+    <fullname>CannonBall (OutRun engine)</fullname>
+    <path>%ROMPATH%/cannonball</path>
+    <extension>.zip .ZIP .7z .7Z .game .GAME</extension>
+    <command label="CannonBall">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/cannonball_libretro.so %ROM%</command>
+    <platform>cannonball</platform>
+    <theme>arcade</theme>
+  </system>
+
+  <system>
+    <name>cassettevision</name>
+    <fullname>Epoch Cassette Vision</fullname>
+    <path>%ROMPATH%/cassettevision</path>
+    <extension>.zip .ZIP .7z .7Z .zip .ZIP .bin .BIN .7z .7Z</extension>
+    <command label="pd777">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/pd777_libretro.so %ROM%</command>
+    <platform>cassettevision</platform>
+    <theme>pv1000</theme>
+  </system>
+
+  <system>
+    <name>cavestory</name>
+    <fullname>Cave Story (NXEngine)</fullname>
+    <path>%ROMPATH%/cavestory</path>
+    <extension>.zip .ZIP .7z .7Z .exe .EXE</extension>
+    <command label="NXEngine">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/nxengine_libretro.so %ROM%</command>
+    <platform>cavestory</platform>
+    <theme>ports</theme>
+  </system>
+
+  <system>
+    <name>dice</name>
+    <fullname>DICE (discrete arcade)</fullname>
+    <path>%ROMPATH%/dice</path>
+    <extension>.zip .ZIP .7z .7Z .zip .ZIP .dice .DICE .7z .7Z</extension>
+    <command label="DICE">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dice_libretro.so %ROM%</command>
+    <platform>dice</platform>
+    <theme>arcade</theme>
+  </system>
+
+  <system>
+    <name>dinothawr</name>
+    <fullname>Dinothawr</fullname>
+    <path>%ROMPATH%/dinothawr</path>
+    <extension>.zip .ZIP .7z .7Z .game .GAME</extension>
+    <command label="Dinothawr">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dinothawr_libretro.so %ROM%</command>
+    <platform>dinothawr</platform>
+    <theme>ports</theme>
+  </system>
+
+  <system>
+    <name>enterprise</name>
+    <fullname>Enterprise 64/128</fullname>
+    <path>%ROMPATH%/enterprise</path>
+    <extension>.zip .ZIP .7z .7Z .img .IMG .dsk .DSK .tap .TAP .dtf .DTF .com .COM .trn .TRN .128 .128 .bas .BAS .cas .CAS .cdt .CDT .tzx .TZX .wav .WAV</extension>
+    <command label="ep128emu">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/ep128emu_core_libretro.so %ROM%</command>
+    <platform>enterprise</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>openlara</name>
+    <fullname>OpenLara (Tomb Raider engine)</fullname>
+    <path>%ROMPATH%/openlara</path>
+    <extension>.zip .ZIP .7z .7Z .phd .PHD .psx .PSX .tr2 .TR2</extension>
+    <command label="OpenLara">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/openlara_libretro.so %ROM%</command>
+    <platform>openlara</platform>
+    <theme>ports</theme>
+  </system>
+
+  <system>
+    <name>p2000t</name>
+    <fullname>Philips P2000T</fullname>
+    <path>%ROMPATH%/p2000t</path>
+    <extension>.zip .ZIP .7z .7Z .cas .CAS</extension>
+    <command label="M2000">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/m2000_libretro.so %ROM%</command>
+    <platform>p2000t</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>pet</name>
+    <fullname>Commodore PET</fullname>
+    <path>%ROMPATH%/pet</path>
+    <extension>.zip .ZIP .7z .7Z .d64 .D64 .d71 .D71 .d80 .D80 .d81 .D81 .d82 .D82 .g64 .G64 .x64 .X64 .t64 .T64 .tap .TAP .prg .PRG .crt .CRT .d6z .D6Z .d7z .D7Z .d8z .D8Z .m3u .M3U</extension>
+    <command label="VICE xpet">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/vice_xpet_libretro.so %ROM%</command>
+    <platform>pet</platform>
+    <theme>pc</theme>
+  </system>
+
+  <system>
+    <name>prboom</name>
+    <fullname>PrBoom (DOOM engine)</fullname>
+    <path>%ROMPATH%/prboom</path>
+    <extension>.zip .ZIP .7z .7Z .wad .WAD .iwad .IWAD .pwad .PWAD</extension>
+    <command label="PrBoom">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/prboom_libretro.so %ROM%</command>
+    <platform>prboom</platform>
+    <theme>doom</theme>
+  </system>
+
+  <system>
+    <name>quake</name>
+    <fullname>Quake (TyrQuake engine)</fullname>
+    <path>%ROMPATH%/quake</path>
+    <extension>.zip .ZIP .7z .7Z .pak .PAK</extension>
+    <command label="TyrQuake">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/tyrquake_libretro.so %ROM%</command>
+    <platform>quake</platform>
+    <theme>quake</theme>
+  </system>
+
+  <system>
+    <name>thomson</name>
+    <fullname>Thomson MO/TO</fullname>
+    <path>%ROMPATH%/thomson</path>
+    <extension>.zip .ZIP .7z .7Z .fd .FD .sap .SAP .k7 .K7 .m7 .M7 .m5 .M5 .rom .ROM</extension>
+    <command label="Theodore">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/theodore_libretro.so %ROM%</command>
+    <platform>thomson</platform>
+    <theme>moto</theme>
   </system>
 
 </systemList>
@@ -4351,6 +4646,18 @@ declare -A SYS_TO_CORE=(
     [snes-msu]=snes9x                 # SNES MSU-1 (split from snes)
     [sufami]=snes9x                   # SNES Sufami Turbo (split from snes)
     [msu-md]=genesis_plus_gx          # Mega Drive MSU-MD (split from megadrive)
+    # EASY systems batch — 9 MAME-driver computers/consoles (core: mame).
+    [aquarius]=mame   [atom]=mame      [coco]=mame       [electron]=mame
+    [gp32]=mame       [pegasus]=mame   [socrates]=mame   [tutor]=mame
+    [vis]=mame
+    # EASY systems batch — 14 single-libretro-core systems.
+    [bk]=bk                           [c128]=vice_x128
+    [cannonball]=cannonball           [cassettevision]=pd777
+    [cavestory]=nxengine              [dice]=dice
+    [dinothawr]=dinothawr             [enterprise]=ep128emu_core
+    [openlara]=openlara               [p2000t]=m2000
+    [pet]=vice_xpet                   [prboom]=prboom
+    [quake]=tyrquake                  [thomson]=theodore
     # apple2 launches via the mame libretro core (apple2e driver) per its
     # es_systems.xml entry — route it so the importer installs that core.
     [apple2]=mame
