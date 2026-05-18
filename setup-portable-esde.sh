@@ -2042,6 +2042,63 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <theme>mame</theme>
   </system>
 
+  <!-- Cartridge-based MAME micro-consoles (added batch 1 of the Easy roadmap).
+       Same proven -cart template as gamate/scv/pv1000 above; mame core is bundled. -->
+  <system>
+    <name>advision</name>
+    <fullname>Entex Adventure Vision</fullname>
+    <path>%ROMPATH%/advision</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "advision -rompath \"%GAMEDIRRAW%;%ROMPATH%/advision;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "advision -rompath \"%GAMEDIRRAW%;%ROMPATH%/advision;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>advision</platform>
+    <theme>advision</theme>
+  </system>
+
+  <system>
+    <name>apfm1000</name>
+    <fullname>APF Imagination Machine / M1000</fullname>
+    <path>%ROMPATH%/apfm1000</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "apfm1000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/apfm1000;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "apfm1000 -rompath \"%GAMEDIRRAW%;%ROMPATH%/apfm1000;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>apfm1000</platform>
+    <theme>apfm1000</theme>
+  </system>
+
+  <system>
+    <name>astrocade</name>
+    <fullname>Bally Astrocade</fullname>
+    <path>%ROMPATH%/astrocade</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "astrocde -rompath \"%GAMEDIRRAW%;%ROMPATH%/astrocade;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "astrocde -rompath \"%GAMEDIRRAW%;%ROMPATH%/astrocade;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>astrocde</platform>
+    <theme>astrocade</theme>
+  </system>
+
+  <system>
+    <name>gamepock</name>
+    <fullname>Epoch Game Pocket Computer</fullname>
+    <path>%ROMPATH%/gamepock</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "gamepock -rompath \"%GAMEDIRRAW%;%ROMPATH%/gamepock;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "gamepock -rompath \"%GAMEDIRRAW%;%ROMPATH%/gamepock;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>gamepock</platform>
+    <theme>gamepock</theme>
+  </system>
+
+  <system>
+    <name>loopy</name>
+    <fullname>Casio Loopy</fullname>
+    <path>%ROMPATH%/loopy</path>
+    <extension>.bin .BIN .zip .ZIP .7z .7Z</extension>
+    <command label="MAME">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "casloopy -rompath \"%GAMEDIRRAW%;%ROMPATH%/loopy;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <command label="MAME (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "casloopy -rompath \"%GAMEDIRRAW%;%ROMPATH%/loopy;%ROMPATH%/bios\" -cart \"%ROMRAW%\""</command>
+    <platform>loopy</platform>
+    <theme>loopy</theme>
+  </system>
+
 </systemList>
 CUSTOMSYSTEMS
 ok "custom es_systems.xml written (hack systems + ps3psn + xbla)"
@@ -3932,13 +3989,16 @@ else
 
     # Media folder mapping: RetroBat subfolder → ES-DE subfolder
     declare -A MEDIA_MAP=(
-        [thumbnails]=3dboxes
+        [thumbnails]=covers
         [box2d]=covers
+        [box3d]=3dboxes
+        [boxback]=backcovers
         [fanarts]=fanart
         [marquee]=marquees
         [images]=screenshots
         [titles]=titlescreens
         [cartridges]=physicalmedia
+        [manuals]=manuals
         [videos]=videos
     )
 
@@ -4415,9 +4475,10 @@ import sys, re, os
 src, dst, system = sys.argv[1], sys.argv[2], sys.argv[3]
 
 # Systems where ROMs are in category subfolders — strip the subdir from paths
+# (kept in sync with the bash FLAT_ROM_SYSTEMS array — see Audit F3/F8)
 FLAT_SYSTEMS = {
-    'c64','amiga','amigacd32','msx','msx2','vic20','atarist',
-    'zxspectrum','zx81','dos','atari800','pc'
+    'c64','amiga','amiga500','amiga1200','amigacd32','msx','msx2','msx1',
+    'vic20','atarist','zxspectrum','zx81','dos','atari800','pc','vpinball'
 }
 flatten = system in FLAT_SYSTEMS
 
@@ -4752,8 +4813,9 @@ fi
 echo ""
 
 declare -A MEDIA_MAP=(
-    [thumbnails]=3dboxes [box2d]=covers [fanarts]=fanart [marquee]=marquees
-    [images]=screenshots [titles]=titlescreens [cartridges]=physicalmedia [videos]=videos
+    [thumbnails]=covers  [box2d]=covers       [box3d]=3dboxes      [boxback]=backcovers
+    [fanarts]=fanart     [marquee]=marquees   [images]=screenshots [titles]=titlescreens
+    [cartridges]=physicalmedia                [manuals]=manuals    [videos]=videos
 )
 
 # EmulationStation / Batocera-style suffix → ES-DE folder map
@@ -4832,6 +4894,9 @@ declare -A SYS_MAP=(
     [neogeomvs]=neogeo
     # Philips
     [cdi]=cdimono1
+    # Easy roadmap: route to already-supported systems
+    [gx4000]=amstradcpc     [amigacdtv]=amiga
+    [hbmame]=mame           [multivision]=sg-1000
     # Bandai
     [wswan]=wonderswan      [wswanc]=wonderswancolor
     # Commodore
@@ -4930,6 +4995,15 @@ declare -A SYS_TO_CORE=(
     # on current MAME, not FBNeo and not mame2003_plus (each is romset-locked).
     [arcade]=fbneo
     [mame]=mame
+    # apple2 launches via the mame libretro core (apple2e driver) per its
+    # es_systems.xml entry — route it so the importer installs that core.
+    [apple2]=mame
+    # Cartridge-based MAME micro-consoles (Easy roadmap batch 1)
+    [advision]=mame
+    [apfm1000]=mame
+    [astrocade]=mame
+    [gamepock]=mame
+    [loopy]=mame
     [cps1]=fbneo                      [cps2]=fbneo        [cps3]=fbneo
     [pc98]=np2kai
     [x68000]=px68k
@@ -5314,10 +5388,10 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         if [[ -f "$GAMELIST_SRC" ]]; then
             printf "      gamelist.xml → cleaning...\n"
             mkdir -p "$ESDE_GAMELIST_DIR"
-            python3 - "$GAMELIST_SRC" "$ESDE_GAMELIST_DIR/gamelist.xml" "$ESDE_SYS" 2>/dev/null << 'GLFIX' || warn "gamelist skipped"
+            FLAT_LIST="${FLAT_ROM_SYSTEMS[*]}" python3 - "$GAMELIST_SRC" "$ESDE_GAMELIST_DIR/gamelist.xml" "$ESDE_SYS" 2>/dev/null << 'GLFIX' || warn "gamelist skipped"
 import sys, re, os
 src, dst, system = sys.argv[1], sys.argv[2], sys.argv[3]
-FLAT_SYSTEMS = {'c64','amiga','amigacd32','msx','msx2','vic20','atarist','zxspectrum','zx81','dos','atari800','pc'}
+FLAT_SYSTEMS = set(os.environ.get('FLAT_LIST', '').split())  # single source: bash FLAT_ROM_SYSTEMS
 flatten = system in FLAT_SYSTEMS
 tags = ['image','thumbnail','marquee','video','fanart','boxart','titleshot','cartridge','mix','wheel','sortname','genreid','arcadesystemname','hash','crc32','md5','region','languages']
 tag_re = re.compile(r'\s*<(?:' + '|'.join(tags) + r')>[^<]*</(?:' + '|'.join(tags) + r')>')
@@ -5698,6 +5772,10 @@ declare -a BIOS_TABLE=(
 
     # ── Apple IIgs (apple2gs) — MAME standalone ──
     "apple2gs|apple2gs.zip|REQ|HIGH|-|Apple IIgs ROM03 BIOS (MAME-style zip)"
+    "apple2|apple2e.zip|REQ|MED|-|Apple IIe ROM (MAME-style zip, apple2e driver)"
+    "channelf|sl31253.bin|REQ|HIGH|-|Fairchild Channel F BIOS - PSU 1 (FreeChaF core, required)"
+    "channelf|sl31254.bin|REQ|HIGH|-|Fairchild Channel F BIOS - PSU 2 (FreeChaF core, required)"
+    "odyssey2|o2rom.bin|REQ|HIGH|-|Magnavox Odyssey2 / Videopac BIOS (O2EM core, required)"
 
     # ── Funtech Super A'Can (supracan) — MAME standalone ──
     "supracan|supracan.zip|OPT|LOW|-|Super A'Can BIOS (optional, MAME-style zip)"
@@ -5772,6 +5850,7 @@ declare -A ESDE_TO_BIOSKEY=(
     [atari5200]=atari5200
     [atari7800]=atari7800
     [jaguarcd]=jaguarcd
+    [atarijaguarcd]=jaguarcd
     [3do]=3do
     [colecovision]=colecovision
     [intellivision]=intellivision
@@ -5795,6 +5874,11 @@ declare -A ESDE_TO_BIOSKEY=(
     [ti99]=ti99
     [archimedes]=archimedes
     [apple2gs]=apple2gs
+    [apple2]=apple2
+    [channelf]=channelf
+    [odyssey2]=odyssey2
+    [videopac]=odyssey2
+    [videopacplus]=odyssey2
     [supracan]=supracan
     [scv]=scv
     [pv1000]=pv1000
