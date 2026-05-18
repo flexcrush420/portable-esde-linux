@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-#=============================================================================
 #  ____            _        _     _        _____ ____        ____  _____
 # |  _ \ ___  _ __| |_ __ _| |__ | | ___  | ____/ ___|      |  _ \| ____|
 # | |_) / _ \| '__| __/ _` | '_ \| |/ _ \ |  _| \___ \ _____| | | |  _|
@@ -617,79 +615,12 @@ You can always change or add more later via ES-DE's built-in Theme Downloader." 
     echo ""
 fi
 
-# ── RetroBat import prompt ──
-RETROBAT_PATHS=()
-RETROBAT_REAL_PATHS=()
-RETROBAT_SYNTH_DIRS=()
-echo "Import existing RetroBat collection(s)?"
-echo "  Accepts either a full RetroBat folder (containing a 'roms' subfolder)"
-echo "  or a standalone ROM pack folder (e.g. a single system folder like 'dreamcast/')."
-echo "  You can add as many as you like. Leave blank when done."
-echo ""
-
-while true; do
-    [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && PROMPT_LABEL="Path" || PROMPT_LABEL="Another path"
-    RETROBAT_INPUT=$(wt_input "Import RetroBat / ROM Pack" \
-"$PROMPT_LABEL to import (leave blank to continue past this prompt).
-
-Accepts either:
- • a full RetroBat folder (containing 'roms' subfolder)
- • a standalone ROM pack folder (e.g. a single system folder like 'dreamcast/')
-
-You can add as many paths as you like, one at a time." \
-        "") || RETROBAT_INPUT=""
-
-    [[ -z "$RETROBAT_INPUT" ]] && break
-
-    RETROBAT_INPUT="${RETROBAT_INPUT/#\~/$HOME}"
-    RETROBAT_INPUT="$(realpath -m "$RETROBAT_INPUT")"
-
-    if [[ ! -d "$RETROBAT_INPUT" ]]; then
-        wt_msg "Path not found" "Directory not found:\n\n$RETROBAT_INPUT\n\nSkipping this entry."
-    elif [[ -d "$RETROBAT_INPUT/roms" ]]; then
-        # Full RetroBat install — roms subfolder exists
-        RETROBAT_PATHS+=("$RETROBAT_INPUT")
-        RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")
-        echo -e "   ${GREEN}✓${NC} Added (full RetroBat install): $RETROBAT_INPUT"
-    else
-        # Standalone folder — could be a collection (contains system subdirs)
-        # or a single system folder (IS the system dir itself)
-        SUBDIR_COUNT=$(find "$RETROBAT_INPUT" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l)
-        SYNTH_PARENT=$(mktemp -d)
-        if [[ $SUBDIR_COUNT -gt 0 ]]; then
-            # Has subdirectories — treat as collection, wrap normally
-            ln -s "$RETROBAT_INPUT" "$SYNTH_PARENT/roms"
-            echo -e "   ${GREEN}✓${NC} Added (ROM collection folder): $RETROBAT_INPUT"
-        else
-            # No subdirectories — this IS a system folder, infer system name from dirname
-            SYS_NAME=$(basename "$RETROBAT_INPUT")
-            mkdir -p "$SYNTH_PARENT/roms/$SYS_NAME"
-            # Symlink contents into a named system subfolder
-            while IFS= read -r -d '' ITEM; do
-                ln -s "$ITEM" "$SYNTH_PARENT/roms/$SYS_NAME/$(basename "$ITEM")" 2>/dev/null || true
-            done < <(find "$RETROBAT_INPUT" -maxdepth 1 -mindepth 1 -print0)
-            echo -e "   ${GREEN}✓${NC} Added (single system folder '$SYS_NAME'): $RETROBAT_INPUT"
-        fi
-        RETROBAT_PATHS+=("$SYNTH_PARENT")
-        RETROBAT_REAL_PATHS+=("$RETROBAT_INPUT")
-        RETROBAT_SYNTH_DIRS+=("$SYNTH_PARENT")
-    fi
-done
-
-if [[ ${#RETROBAT_PATHS[@]} -gt 0 ]]; then
-    # ── Cut or copy? ──
-    RETROBAT_MOVE=""
-    MOVE_CHOICE=$(wt_menu "Transfer mode" \
-"How should files be transferred from the source(s) to the bundle?" \
-        "copy" "Keep originals (safe, uses extra disk space)" \
-        "cut"  "Move files as they're imported (no extra space needed)") || MOVE_CHOICE="copy"
-    [[ "$MOVE_CHOICE" == "cut" ]] && RETROBAT_MOVE="yes"
-    [[ "$RETROBAT_MOVE" == "yes" ]] \
-        && echo -e "   ${GREEN}✓${NC} Cut mode — files will be moved, not copied" \
-        || echo -e "   ${GREEN}✓${NC} Copy mode — originals will be kept"
-    echo ""
-fi
-echo ""
+# ── RetroBat / ROM-collection import ──
+# NOTE: import is no longer prompted here. The setup-time importer (former
+# STEP 12) was a stale divergent copy of import-collection.sh (Audit F8) and
+# has been removed. Collection import is now offered ONCE at the very end of
+# setup (STEP 20) by invoking the single canonical importer. This guarantees
+# one code path and removes the setup-vs-bundle drift entirely.
 
 # ── Internal resolution ──
 RES_CHOICE=$(wt_menu "Emulator Internal Resolution" \
@@ -1009,7 +940,7 @@ download_cores() {
 # STEP 1: DIRECTORY STRUCTURE
 #=============================================================================
 STEP=1
-TOTAL_STEPS=21
+TOTAL_STEPS=20
 
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Creating directory structure..."
 
@@ -3975,745 +3906,16 @@ info "Browse more themes anytime: ES-DE menu → UI Settings → Theme Downloade
 echo ""
 
 #=============================================================================
-# STEP 12: RETROBAT IMPORT
+# STEP 12: (reserved — RetroBat import moved to end of setup)
 #=============================================================================
+# The setup-time RetroBat importer that used to live here was a stale,
+# divergent copy of import-collection.sh logic (Audit F8). It has been
+# removed. ROM-collection import is now offered ONCE, at the very end of
+# setup, by invoking the single canonical importer (import-collection.sh).
+# This guarantees one code path and kills the setup-vs-bundle drift.
 STEP=$((STEP + 1))
-echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} RetroBat import..."
-
-if [[ ${#RETROBAT_PATHS[@]} -eq 0 ]]; then
-    ok "Skipped (no RetroBat path provided)"
-else
-    IMPORT_SYSTEMS=0
-    IMPORT_ROMS=0
-    IMPORT_MEDIA=0
-
-    # Media folder mapping: RetroBat subfolder → ES-DE subfolder
-    declare -A MEDIA_MAP=(
-        [thumbnails]=covers
-        [box2d]=covers
-        [box3d]=3dboxes
-        [boxback]=backcovers
-        [fanarts]=fanart
-        [marquee]=marquees
-        [images]=screenshots
-        [titles]=titlescreens
-        [cartridges]=physicalmedia
-        [manuals]=manuals
-        [videos]=videos
-    )
-
-    # EmulationStation / Batocera-style suffix → ES-DE folder map
-    # Used by try_import_es_layout for packs that store all media flat in
-    # one folder with -image / -thumb / -marquee / -Video filename suffixes.
-    declare -A ES_SUFFIX_MAP=(
-        [image]=screenshots     [screenshot]=screenshots
-        [thumb]=covers          [thumbnail]=covers
-        [box]=covers            [boxart]=covers          [box2d]=covers
-        [marquee]=marquees
-        [fanart]=fanart
-        [wheel]=wheels
-        [titlescreen]=titlescreens
-        [manual]=manuals
-        [video]=videos
-        [mix]=miximages         [miximage]=miximages
-        [cart]=physicalmedia    [cartridge]=physicalmedia
-    )
-
-    # Try to import ES/Batocera-suffix media from a flat folder.
-    # args: source_dir, dest_root, move_mode (yes=cut, else copy)
-    # returns 0 if ES-style suffixes were detected and routed, 1 if not.
-    try_import_es_layout() {
-        local src="$1" dest="$2" move="$3"
-        [[ ! -d "$src" ]] && return 1
-        # Detect: any file with -<suffix>.<ext> matching our map?
-        local has_es=0
-        while IFS= read -r f; do
-            local name="${f##*/}"; local stem="${name%.*}"
-            [[ "$stem" == *-* ]] || continue
-            local sl="${stem##*-}"; sl="${sl,,}"
-            if [[ -n "${ES_SUFFIX_MAP[$sl]:-}" ]]; then has_es=1; break; fi
-        done < <(find "$src" -maxdepth 1 -type f 2>/dev/null)
-        (( has_es == 0 )) && return 1
-
-        local n=0 skipped=0
-        while IFS= read -r f; do
-            local name="${f##*/}"; local stem="${name%.*}"; local ext="${name##*.}"
-            if [[ "$stem" != *-* ]]; then skipped=$((skipped + 1)); continue; fi
-            local rom_base="${stem%-*}"; local suffix="${stem##*-}"
-            local sl="${suffix,,}"
-            local esde_folder="${ES_SUFFIX_MAP[$sl]:-}"
-            [[ -z "$esde_folder" ]] && { skipped=$((skipped + 1)); continue; }
-            mkdir -p "$dest/$esde_folder"
-            local dest_path="$dest/$esde_folder/$rom_base.$ext"
-            if [[ "$move" == "yes" ]]; then
-                mv -n "$f" "$dest_path" 2>/dev/null && n=$((n + 1))
-            else
-                cp -n "$f" "$dest_path" 2>/dev/null && n=$((n + 1))
-            fi
-        done < <(find "$src" -maxdepth 1 -type f 2>/dev/null)
-
-        local mode_label="copied"; [[ "$move" == "yes" ]] && mode_label="moved"
-        echo -e "      ${GREEN}✓${NC} ES-layout: $n files $mode_label from $(basename "$src")/ → typed folders$([[ $skipped -gt 0 ]] && echo " ($skipped skipped)")"
-        return 0
-    }
-
-    # System name mapping: ONLY where RetroBat name ≠ ES-DE name.
-    # Hack systems (snesh, nesh, gbh, gbch, gbah, genh, n64h, ggh) are defined
-    # as their own ES-DE systems via custom_systems/es_systems.xml.
-    declare -A SYS_MAP=(
-        # ── SNES (sfc/megadrivejp/saturnjp/amiga500/amiga1200/videopacplus/
-        #    n64dd/wiiware now have own custom systems — no mapping needed) ──
-        [snesna]=snes           [snes-msu]=snes         [sufami]=snes
-        # ── NES ──
-        [nes_aladdin]=nes       [nes_hd]=nes            [nes-msu]=nes
-        # ── Mega Drive ──
-        [nomad]=genesis         [megadrive-msu]=megadrive [msu-md]=megadrive
-        # ── Game Boy ──
-        [gb2players]=gb         [gba2players]=gba       [gbc2players]=gbc
-        # ── GameCube / Wii ──
-        [gamecube]=gc
-        # ── 3DS ──
-        [3ds]=n3ds
-        # ── Atari ──
-        [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd [lynx]=atarilynx
-        # ── Sega ──
-        [sg1000]=sg-1000        [sc3000]=sg-1000         [markiii]=mastersystem
-        [dreamcast-jp]=dreamcast [saturn-jp]=saturnjp
-        # ── NEC ──
-        [tgcd]=tg-cd
-        # ── SNK ──
-        [neogeomvs]=neogeo
-        # ── Philips ──
-        [cdi]=cdimono1
-        # ── Bandai ──
-        [wswan]=wonderswan      [wswanc]=wonderswancolor
-        # ── Commodore ──
-        [c20]=vic20             [cplus4]=plus4          [amiga4000]=amiga
-        # ── MSX ──
-        [msx1]=msx              [msx2+]=msx2
-        # ── Arcade ──
-        [fbneo]=arcade          [cave]=arcade
-        [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
-        # ── xbla maps to xbla (own custom system) — no mapping needed ──
-        # ── ps3psn maps to ps3psn (own custom system) — no mapping needed ──
-    )
-
-    # Folders that exist in roms/ but are NOT game systems — skip them.
-    # RetroBat packs often include metadata/utility folders alongside system folders;
-    # importing these creates phantom ES-DE systems and misplaces files.
-    declare -A SKIP_SYSTEMS=(
-        [media]=1           # RetroBat media root (handled separately per-system)
-        [bios]=1            # BIOS/firmware files — imported separately, not a game system
-        [emulators]=1       # RetroBat emulator configs — not a game system
-        [saves]=1           # Save files — go to Saves/, not ROMs/
-        [screenshots]=1     # Screenshots — go to Saves/screenshots/
-        [cheats]=1          # Cheats — go to .config/retroarch/cheats/
-        [records]=1         # Recording output — not a game system
-        [sounds]=1          # Sound packs — not a game system
-        [decorations]=1     # Bezel decorations — not a game system
-        [library]=1         # RetroArch library cache
-        [system]=1          # RetroArch system/bios mirror
-        [music]=1           # Background music — not a game system
-    )
-
-    for IDX in "${!RETROBAT_PATHS[@]}"; do
-        RETROBAT_PATH="${RETROBAT_PATHS[$IDX]}"
-        RETROBAT_REAL_PATH="${RETROBAT_REAL_PATHS[$IDX]:-$RETROBAT_PATH}"
-        echo ""
-        info "Importing from: $RETROBAT_REAL_PATH"
-        echo ""
-
-        # ── BIOS files ──
-        # Copy flat BIOS files to ROMs/bios/
-        # Route emulator-specific subdirs to their correct config locations
-        # Skip non-BIOS subdirs (thebezelproject, config, output)
-        BIOS_SKIP=(thebezelproject config output bizhawk)
-        if [[ -d "$RETROBAT_PATH/bios" ]]; then
-            echo -n "   BIOS files → ROMs/bios/              [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-            mkdir -p "$ROMS/bios"
-            if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                find "$RETROBAT_PATH/bios" -maxdepth 1 -type f -exec mv -n {} "$ROMS/bios/" \; 2>/dev/null || true
-            else
-                find "$RETROBAT_PATH/bios" -maxdepth 1 -type f -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true
-            fi
-            echo -e " ${GREEN}done${NC}"
-
-            # Route emulator BIOS subdirs to correct config locations
-            for BIOS_SUBDIR in "$RETROBAT_PATH/bios"/*/; do
-                [[ -d "$BIOS_SUBDIR" ]] || continue
-                BIOS_NAME=$(basename "$BIOS_SUBDIR")
-                SKIP=false
-                for S in "${BIOS_SKIP[@]}"; do [[ "$BIOS_NAME" == "$S" ]] && SKIP=true; done
-                $SKIP && continue
-
-                case "$BIOS_NAME" in
-                    duckstation)
-                        echo -n "   BIOS/duckstation → .config/duckstation/ [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$BASE/.config/duckstation"
-                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/duckstation/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    pcsx2)
-                        echo -n "   BIOS/pcsx2 → .config/PCSX2/bios/       [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$BASE/.config/PCSX2/bios"
-                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/PCSX2/bios/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    melonds|melonDS|"melonDS DS"|"melonds ds")
-                        echo -n "   BIOS/melonds → ROMs/bios/               [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    retroarch)
-                        echo -n "   BIOS/retroarch → .config/retroarch/system/ [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$BASE/.config/retroarch/system"
-                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/retroarch/system/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    mame)
-                        echo -n "   BIOS/mame → ROMs/bios/                  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        # libretro mame_libretro looks for BIOS in either:
-                        #   (1) the rompath (we add %ROMPATH%/bios in custom_systems)
-                        #   (2) <system_directory>/mame/bios/ or /mame/roms/
-                        # Cover both — flatten any .zip found anywhere under bios/mame/
-                        # to ROMs/bios/ AND ROMs/bios/mame/bios/ for double safety.
-                        # RetroBat's bios/mame/ tree contains hash/, roms/, and sometimes
-                        # bios files at the root — we don't want to recursively dump
-                        # the whole tree (creates ROMs/bios/hash/, ROMs/bios/roms/ which
-                        # MAME ignores). Grab only the .zip files.
-                        mkdir -p "$ROMS/bios/mame/bios"
-                        find "$BIOS_SUBDIR" -type f \( -iname '*.zip' -o -iname '*.7z' \) \
-                            -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true
-                        find "$BIOS_SUBDIR" -type f \( -iname '*.zip' -o -iname '*.7z' \) \
-                            -exec cp -n {} "$ROMS/bios/mame/bios/" \; 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    mednafen)
-                        echo -n "   BIOS/mednafen → ROMs/bios/              [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    mame2000|mame2003|mame2003-plus|mame2010|mame2014|mame2016|hbmame|fbneo|fba)
-                        # Versioned MAME / FBNeo libretro cores look for BIOS in
-                        # <system_dir>/<core_name>/. Mirror RetroBat's directory
-                        # structure to .config/retroarch/system/<core_name>/ so each
-                        # versioned core finds its own romset.
-                        echo -n "   BIOS/$BIOS_NAME → .config/retroarch/system/$BIOS_NAME/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$BASE/.config/retroarch/system/$BIOS_NAME"
-                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/retroarch/system/$BIOS_NAME/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    Databases|Machines|keropi|np2kai|openmsx|same_cdi|flycast|hatari|hatarib|kronos|neocd|psxmame|quasi88|raine|scummvm|vice|xmil|cannonball|fmtowns|fmtownsux|HdPacks|Mupen64plus|PPSSPP|dc)
-                        # Core-specific BIOS subdirs — preserve the directory
-                        # structure inside ROMs/bios/. blueMSX needs Databases/
-                        # and Machines/ as directories. PX68K needs keropi/.
-                        # NP2 wants np2kai/. OpenMSX wants openmsx/. etc.
-                        echo -n "   BIOS/$BIOS_NAME → ROMs/bios/$BIOS_NAME/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$ROMS/bios/$BIOS_NAME"
-                        cp -rn "$BIOS_SUBDIR/." "$ROMS/bios/$BIOS_NAME/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    xbox)
-                        # xemu wants its BIOS in .config/xemu/
-                        echo -n "   BIOS/xbox → .config/xemu/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$BASE/.config/xemu"
-                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/xemu/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    eka2l1)
-                        # EKA2L1 (N-Gage) — not currently bundled, but copy data anyway
-                        echo -n "   BIOS/eka2l1 → .config/eka2l1/  [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-                        mkdir -p "$BASE/.config/eka2l1"
-                        cp -rn "$BIOS_SUBDIR/." "$BASE/.config/eka2l1/" 2>/dev/null || true
-                        echo -e " ${GREEN}done${NC}" ;;
-                    *)
-                        # Unknown subdir — copy flat files to ROMs/bios/ as safe fallback
-                        find "$BIOS_SUBDIR" -maxdepth 1 -type f -exec cp -n {} "$ROMS/bios/" \; 2>/dev/null || true ;;
-                esac
-            done
-        fi
-
-        # ── Post-processing: extract specific BIOS files cores need flat ──
-        # JollyCV (CreatiVision) wants bioscv.rom — same data as crvision.u20
-        # inside the MAME crvision.zip.
-        if [[ -f "$ROMS/bios/crvision.zip" && ! -f "$ROMS/bios/bioscv.rom" ]]; then
-            if command -v unzip >/dev/null 2>&1; then
-                if unzip -p "$ROMS/bios/crvision.zip" crvision.u20 > "$ROMS/bios/bioscv.rom" 2>/dev/null && \
-                   [[ -s "$ROMS/bios/bioscv.rom" ]]; then
-                    ok "Extracted bioscv.rom from crvision.zip (for JollyCV core)"
-                else
-                    rm -f "$ROMS/bios/bioscv.rom"
-                fi
-            fi
-        fi
-
-        # ── Mirror flat BIOS zips to versioned MAME core system dirs ──
-        # Each libretro MAME core (current/2016/2014/2010/2003-plus) is
-        # version-locked to a specific MAME release with its own BIOS romset.
-        # Users' BIOS packs match ONE of those versions — usually unknown until
-        # tested. Mirror every zip in ROMs/bios/ to each versioned core's
-        # system_directory (.config/retroarch/system/<core>/) so when ES-DE
-        # falls back to an alt emulator, that core finds the BIOS without
-        # needing the user to copy anything.
-        #
-        # Symlinks are used by default (one source of truth, zero extra disk).
-        # FAT32/exFAT don't support symlinks — copy instead on those.
-        FS_TYPE=$(stat -f -c %T "$ROMS/bios" 2>/dev/null || echo unknown)
-        case "$FS_TYPE" in
-            msdos|vfat|exfat)
-                MIRROR_MODE=copy
-                warn "FAT/exFAT filesystem detected — using BIOS copies (more disk usage)"
-                ;;
-            *)
-                MIRROR_MODE=symlink
-                ;;
-        esac
-
-        echo -n "   Mirroring MAME BIOS to versioned core dirs ($MIRROR_MODE)..."
-        MIRROR_COUNT=0
-        for CORE in mame2003-plus mame2010; do
-            CORE_DIR="$BASE/.config/retroarch/system/$CORE"
-            mkdir -p "$CORE_DIR"
-            # Iterate every zip at the top level of ROMs/bios/
-            shopt -s nullglob
-            for ZIP in "$ROMS/bios"/*.zip "$ROMS/bios"/*.7z; do
-                ZNAME=$(basename "$ZIP")
-                DEST="$CORE_DIR/$ZNAME"
-                [[ -e "$DEST" ]] && continue
-                if [[ "$MIRROR_MODE" == "symlink" ]]; then
-                    # Relative symlink — survives bundle relocation
-                    ln -s "../../../../ROMs/bios/$ZNAME" "$DEST" 2>/dev/null && \
-                        MIRROR_COUNT=$((MIRROR_COUNT + 1))
-                else
-                    cp -n "$ZIP" "$DEST" 2>/dev/null && \
-                        MIRROR_COUNT=$((MIRROR_COUNT + 1))
-                fi
-            done
-            shopt -u nullglob
-        done
-        echo -e " ${GREEN}done${NC} ($MIRROR_COUNT entries)"
-
-
-        # ── Saves ──
-        # Map RetroBat saves → ES-DE Saves/files/ with same SYS_MAP logic
-        # Special cases: dolphin, rpcs3, switch, xbox keep their structure
-        if [[ -d "$RETROBAT_PATH/saves" ]]; then
-            echo ""
-            info "Importing saves..."
-
-            # Special-case saves that need specific destinations
-            declare -A SAVE_SPECIAL=(
-                [dolphin]=".config/dolphin-emu"
-                [gamecube]=".config/dolphin-emu"
-                [rpcs3]=".config/rpcs3"
-                [ps3]=".config/rpcs3"
-                [ps3psn]=".config/rpcs3"
-                [xbla]="Saves/files/xbla"
-                [switch]=".local/share"
-                [xbox]=".config/xemu"
-                [psp]=".config/ppsspp"
-            )
-
-            declare -A SAVE_MERGE=(
-                # These still merge since they share hardware/emulator with parent
-                [snesna]=snes           [snes-msu]=snes         [sufami]=snes
-                [gb2players]=gb         [gbc2players]=gbc        [gba2players]=gba
-                [dreamcast-jp]=dreamcast
-                [megadrive-msu]=megadrive [msu-md]=megadrive
-                [win98]=windows9x       [3ds]=n3ds
-                [jaguar]=atarijaguar    [jaguarcd]=atarijaguarcd
-                [lynx]=atarilynx        [wswan]=wonderswan      [wswanc]=wonderswancolor
-                [tg-16]=tg16            [cdi]=cdimono1
-                [c20]=vic20             [cplus4]=plus4          [amiga4000]=amiga
-                [msx1]=msx              [msx2+]=msx2            [neogeomvs]=neogeo
-                [gw]=gameandwatch       [o2em]=odyssey2         [mesen]=nes
-                # Systems with own ES-DE entry — saves go to their own folder
-                # (sfc, n64dd, wiiware, megadrivejp, saturnjp, amiga500, amiga1200,
-                #  videopacplus, vpinball all handled by default SYS_MAP fallback)
-            )
-
-            for SAVE_DIR in "$RETROBAT_PATH/saves"/*/; do
-                [[ -d "$SAVE_DIR" ]] || continue
-                RB_SYS=$(basename "$SAVE_DIR")
-
-                # Determine destination
-                if [[ -n "${SAVE_SPECIAL[$RB_SYS]:-}" ]]; then
-                    SAVE_DEST="$BASE/${SAVE_SPECIAL[$RB_SYS]}"
-                elif [[ -n "${SAVE_MERGE[$RB_SYS]:-}" ]]; then
-                    SAVE_DEST="$BASE/Saves/files/${SAVE_MERGE[$RB_SYS]}"
-                else
-                    ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
-                    SAVE_DEST="$BASE/Saves/files/$ESDE_SYS"
-                fi
-
-                # Check if there's anything worth copying
-                FILE_COUNT=$(find "$SAVE_DIR" -type f 2>/dev/null | wc -l)
-                [[ $FILE_COUNT -eq 0 ]] && continue
-
-                printf "      %-20s → %s\n" "$RB_SYS" "${SAVE_DEST#$BASE/}"
-                mkdir -p "$SAVE_DEST"
-                if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                    cp -rn "$SAVE_DIR/." "$SAVE_DEST/" 2>/dev/null || true
-                    rm -rf "$SAVE_DIR" 2>/dev/null || true
-                else
-                    cp -rn "$SAVE_DIR/." "$SAVE_DEST/" 2>/dev/null || true
-                fi
-            done
-            ok "Saves imported"
-        fi
-
-        # ── Cheats ──
-        # RetroArch .cht files work directly — copy to retroarch cheats dir
-        if [[ -d "$RETROBAT_PATH/cheats" ]]; then
-            echo -n "   Cheats → .config/retroarch/cheats/   [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-            mkdir -p "$BASE/.config/retroarch/cheats"
-            cp -rn "$RETROBAT_PATH/cheats/." "$BASE/.config/retroarch/cheats/" 2>/dev/null || true
-            echo -e " ${GREEN}done${NC}"
-        fi
-
-        # ── Screenshots ──
-        if [[ -d "$RETROBAT_PATH/screenshots" ]]; then
-            echo -n "   Screenshots → Saves/screenshots/      [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-            mkdir -p "$BASE/Saves/screenshots"
-            cp -rn "$RETROBAT_PATH/screenshots/." "$BASE/Saves/screenshots/" 2>/dev/null || true
-            echo -e " ${GREEN}done${NC}"
-        fi
-
-        # ── Collections ──
-        # Custom game collections from RetroBat's emulationstation
-        ES_COLL="$RETROBAT_PATH/emulationstation/.emulationstation/collections"
-        if [[ -d "$ES_COLL" ]]; then
-            echo -n "   Collections → ES-DE/collections/      [$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")...]"
-            mkdir -p "$ESDE_DATA/collections"
-            cp -rn "$ES_COLL/." "$ESDE_DATA/collections/" 2>/dev/null || true
-            echo -e " ${GREEN}done${NC}"
-        fi
-
-        echo ""
-
-        # Process each system
-        for SYS_DIR in "$RETROBAT_PATH/roms"/*/; do
-            [[ -d "$SYS_DIR" ]] || continue
-            RB_SYS=$(basename "$SYS_DIR")
-
-            # Skip non-system folders
-            [[ -n "${SKIP_SYSTEMS[$RB_SYS]:-}" ]] && continue
-            ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
-            ESDE_ROM_DIR="$ROMS/$ESDE_SYS"
-            ESDE_MEDIA_DIR="$BASE/downloaded_media/$ESDE_SYS"
-            ESDE_GAMELIST_DIR="$ESDE_DATA/gamelists/$ESDE_SYS"
-
-            # Always create the destination — if ES-DE doesn't know the system
-            # it simply won't show up; harmless to have the folder
-            mkdir -p "$ESDE_ROM_DIR"
-
-            echo -e "   ${CYAN}$RB_SYS${NC}$([ "$RB_SYS" != "$ESDE_SYS" ] && echo " → $ESDE_SYS")"
-            IMPORT_SYSTEMS=$((IMPORT_SYSTEMS + 1))
-
-            # Copy media — print before AND after each type so it's clear what's happening
-            MEDIA_DIR="$SYS_DIR/media"
-            if [[ -d "$MEDIA_DIR" ]]; then
-                mkdir -p "$ESDE_MEDIA_DIR"
-                for RB_TYPE in "${!MEDIA_MAP[@]}"; do
-                    ESDE_TYPE="${MEDIA_MAP[$RB_TYPE]}"
-                    SRC="$MEDIA_DIR/$RB_TYPE"
-                    DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
-                    if [[ -d "$SRC" ]]; then
-                        mkdir -p "$DST"
-                        TRANSFER_LABEL="$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")"
-                        [[ "$RB_TYPE" == "videos" ]] \
-                            && echo "      videos → videos            [$TRANSFER_LABEL — large sets take time...]" \
-                            || echo -n "      $(printf '%-14s' "$RB_TYPE") → $(printf '%-14s' "$ESDE_TYPE") [$TRANSFER_LABEL...]"
-                        if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                            find "$SRC" -maxdepth 1 -type f -exec mv -n {} "$DST/" \; 2>/dev/null || true
-                        else
-                            cp -rn "$SRC/." "$DST/" 2>/dev/null || true
-                        fi
-                        [[ "$RB_TYPE" == "videos" ]] \
-                            && echo -e "      ${GREEN}✓${NC} videos done" \
-                            || echo -e " ${GREEN}done${NC}"
-                        IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
-                    fi
-                done
-            else
-                # Non-RetroBat layouts. Two shapes are common:
-                #   (a) ES/Batocera-style with suffixes — images/<rom>-image.png,
-                #       images/<rom>-thumb.png, videos/<rom>-Video.mp4
-                #   (b) Simple flat with media subfolders directly in ROM dir
-                #       and un-suffixed filenames — vpinball-style RetroBat packs
-                es_detected=0
-                [[ -d "$SYS_DIR/images" ]] && try_import_es_layout "$SYS_DIR/images" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
-                [[ -d "$SYS_DIR/videos" ]] && try_import_es_layout "$SYS_DIR/videos" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
-                [[ -d "$SYS_DIR/manuals" ]] && try_import_es_layout "$SYS_DIR/manuals" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
-                (( es_detected )) && IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
-
-                # Fall back to simple flat copy only if no ES-suffixed media was found
-                if (( ! es_detected )); then
-                for RB_TYPE in "${!MEDIA_MAP[@]}"; do
-                    SRC="$SYS_DIR/$RB_TYPE"
-                    if [[ -d "$SRC" ]]; then
-                        ESDE_TYPE="${MEDIA_MAP[$RB_TYPE]}"
-                        DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
-                        mkdir -p "$DST"
-                        TRANSFER_LABEL="$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")"
-                        [[ "$RB_TYPE" == "videos" ]] \
-                            && echo "      videos (flat) → videos     [$TRANSFER_LABEL — large sets take time...]" \
-                            || echo -n "      $(printf '%-14s' "$RB_TYPE") (flat) → $(printf '%-10s' "$ESDE_TYPE") [$TRANSFER_LABEL...]"
-                        if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                            find "$SRC" -maxdepth 1 -type f -exec mv -n {} "$DST/" \; 2>/dev/null || true
-                        else
-                            cp -rn "$SRC/." "$DST/" 2>/dev/null || true
-                        fi
-                        [[ "$RB_TYPE" == "videos" ]] \
-                            && echo -e "      ${GREEN}✓${NC} videos done" \
-                            || echo -e " ${GREEN}done${NC}"
-                        IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
-                    fi
-                done
-                fi  # close: if (( ! es_detected ))
-            fi
-
-            # Gamelist — clean, flatten paths for category-folder systems, merge with existing
-            GAMELIST_SRC="$SYS_DIR/gamelist.xml"
-            if [[ -f "$GAMELIST_SRC" ]]; then
-                printf "      gamelist.xml   → cleaning...\n"
-                mkdir -p "$ESDE_GAMELIST_DIR"
-                python3 - "$GAMELIST_SRC" "$ESDE_GAMELIST_DIR/gamelist.xml" "$ESDE_SYS" 2>/dev/null << 'GLFIX' || warn "gamelist skipped for $RB_SYS (will still copy ROMs)"
-import sys, re, os
-
-src, dst, system = sys.argv[1], sys.argv[2], sys.argv[3]
-
-# Systems where ROMs are in category subfolders — strip the subdir from paths
-# (kept in sync with the bash FLAT_ROM_SYSTEMS array — see Audit F3/F8)
-FLAT_SYSTEMS = {
-    'c64','amiga','amiga500','amiga1200','amigacd32','msx','msx2','msx1',
-    'vic20','atarist','zxspectrum','zx81','dos','atari800','pc','vpinball'
-}
-flatten = system in FLAT_SYSTEMS
-
-tags = ['image','thumbnail','marquee','video','fanart',
-        'boxart','titleshot','cartridge','mix',
-        'wheel','sortname','genreid','arcadesystemname',
-        'hash','crc32','md5','region','languages']
-tag_re = re.compile(
-    r'\s*<(?:' + '|'.join(tags) + r')>[^<]*</(?:' + '|'.join(tags) + r')>')
-# Flatten subdir paths: ./subdir/game.ext → ./game.ext
-path_re = re.compile(r'(<path>\./)[^/]+/(.+</path>)')
-
-# Read existing destination gamelist paths to avoid duplicates on merge.
-# Also capture any existing <alternativeEmulator> block so we can preserve
-# it across the rewrite — users can pick an alt-emu manually via ES-DE's
-# UI menu (Options → Alternative Emulators) and we shouldn't clobber that
-# choice when they re-run the importer.
-# IMPORTANT: ES-DE 3.x requires <alternativeEmulator> to be a SIBLING of
-# <gameList> (root level), NOT a child of <gameList>. If it ends up inside
-# gameList ES-DE silently ignores it on launch.
-existing_paths = set()
-existing_alt_emu = ''
-if os.path.exists(dst):
-    with open(dst, 'r', encoding='utf-8', errors='replace') as f:
-        dst_content = f.read()
-    for line in dst_content.splitlines():
-        m = re.search(r'<path>([^<]+)</path>', line)
-        if m:
-            existing_paths.add(m.group(1).strip())
-    # Capture <alternativeEmulator>...</alternativeEmulator> block (multiline)
-    alt_match = re.search(
-        r'<alternativeEmulator>.*?</alternativeEmulator>',
-        dst_content, re.DOTALL)
-    if alt_match:
-        existing_alt_emu = alt_match.group(0).rstrip() + '\n'
-
-# Process source gamelist
-new_games = []
-current_game = []
-in_game = False
-for line in open(src, 'r', encoding='utf-8', errors='replace'):
-    cleaned = tag_re.sub('', line)
-    if flatten:
-        cleaned = path_re.sub(r'\1\2', cleaned)
-    if '<game' in cleaned and not '</game' in cleaned:
-        in_game = True
-        current_game = [cleaned]
-    elif '</game>' in cleaned and in_game:
-        current_game.append(cleaned)
-        block = ''.join(current_game)
-        # Check if path already exists in destination
-        m = re.search(r'<path>([^<]+)</path>', block)
-        if m and m.group(1).strip() not in existing_paths:
-            new_games.append(block)
-        in_game = False
-        current_game = []
-    elif in_game:
-        if cleaned.strip():
-            current_game.append(cleaned)
-
-if not new_games:
-    # No new games — but if we captured an alt-emu block and dest doesn't
-    # exist (or was just an alt-emu-only file), still write it back in
-    # the canonical OUTSIDE-gameList position.
-    if existing_alt_emu and not existing_paths:
-        with open(dst, 'w', encoding='utf-8') as f:
-            f.write('<?xml version="1.0"?>\n')
-            f.write(existing_alt_emu)
-            f.write('<gameList>\n</gameList>\n')
-    sys.exit(0)
-
-if os.path.exists(dst) and existing_paths:
-    # Merge: insert new games before </gameList>. Existing alt-emu (which
-    # SHOULD already be outside gameList, but if it isn't we'll fix that
-    # below) is left where it is.
-    with open(dst, 'r', encoding='utf-8', errors='replace') as f:
-        content = f.read()
-    insert = '\n'.join(new_games)
-    content = content.replace('</gameList>', insert + '\n</gameList>')
-    # If alt-emu ended up inside <gameList>, hoist it out
-    if existing_alt_emu:
-        # Strip alt-emu wherever it is, then re-insert before <gameList>
-        content = re.sub(r'\s*<alternativeEmulator>.*?</alternativeEmulator>\s*',
-                         '\n', content, flags=re.DOTALL)
-        content = re.sub(r'(<gameList[\s>])',
-                         existing_alt_emu + r'\1', content, count=1)
-    with open(dst, 'w', encoding='utf-8') as f:
-        f.write(content)
-else:
-    # Fresh write — alt-emu OUTSIDE gameList (canonical ES-DE 3.x position)
-    with open(dst, 'w', encoding='utf-8') as f:
-        f.write('<?xml version="1.0"?>\n')
-        if existing_alt_emu:
-            f.write(existing_alt_emu)
-        f.write('<gameList>\n')
-        f.writelines(new_games)
-        f.write('</gameList>\n')
-GLFIX
-            fi
-
-            # ROMs — detect category-folder systems and flatten, or preserve disc-game folders
-            # Category systems (C64, Amiga, etc.) organise ROMs in subfolders like 1-hit/, 2-best/
-            # Disc systems (PS2, PS3, GC, etc.) have per-game folders that must be preserved
-            # vpinball: .vpx tables are flat at the ROM dir root (RetroBat pack layout)
-            FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist
-                              zxspectrum zx81 dos atari800 pc vpinball)
-            IS_FLAT=false
-            for FS in "${FLAT_ROM_SYSTEMS[@]}"; do
-                [[ "$ESDE_SYS" == "$FS" || "$RB_SYS" == "$FS" ]] && IS_FLAT=true && break
-            done
-
-            TRANSFER_LABEL="$([[ "$RETROBAT_MOVE" == "yes" ]] && echo "cutting" || echo "copying")"
-            echo -n "      ROMs                              [$TRANSFER_LABEL...]"
-            COPIED=0
-
-            if [[ "$IS_FLAT" == "true" ]]; then
-                while IFS= read -r -d '' ROM; do
-                    BASENAME=$(basename "$ROM")
-                    [[ "$BASENAME" == _* ]] && continue
-                    [[ "$BASENAME" == "gamelist"* ]] && continue
-                    [[ "$BASENAME" == *.txt ]] && continue
-                    [[ "$BASENAME" == *.xml ]] && continue
-                    if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                        mv -n "$ROM" "$ESDE_ROM_DIR/" 2>/dev/null && COPIED=$((COPIED + 1)) || true
-                    else
-                        cp -n "$ROM" "$ESDE_ROM_DIR/" 2>/dev/null && COPIED=$((COPIED + 1)) || true
-                    fi
-                done < <(find "$SYS_DIR" -not -path "*/media/*" -type f -print0)
-            else
-                while IFS= read -r -d '' SUBDIR; do
-                    DIRNAME=$(basename "$SUBDIR")
-                    # Skip media folders — RetroBat's media/ AND ES/Batocera-style
-                    # images/ videos/ manuals/ — so they aren't copied into the
-                    # ROM directory as if they were game subfolders.
-                    case "$DIRNAME" in media|images|videos|manuals) continue ;; esac
-                    echo ""
-                    echo -n "        $DIRNAME [$TRANSFER_LABEL...]"
-                    if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                        mv -n "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || cp -rn "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || true
-                    else
-                        cp -rn "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || true
-                    fi
-                    echo -e " ${GREEN}done${NC}"
-                    COPIED=$((COPIED + 1))
-                done < <(find "$SYS_DIR" -maxdepth 1 -mindepth 1 -type d -print0)
-                while IFS= read -r -d '' ROM; do
-                    BASENAME=$(basename "$ROM")
-                    [[ "$BASENAME" == _* ]] && continue
-                    [[ "$BASENAME" == "gamelist"* ]] && continue
-                    [[ "$BASENAME" == *.txt ]] && continue
-                    if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                        mv -n "$ROM" "$ESDE_ROM_DIR/" 2>/dev/null && COPIED=$((COPIED + 1)) || true
-                    else
-                        cp -n "$ROM" "$ESDE_ROM_DIR/" 2>/dev/null && COPIED=$((COPIED + 1)) || true
-                    fi
-                done < <(find "$SYS_DIR" -maxdepth 1 -type f -print0)
-            fi
-            [[ $COPIED -gt 0 ]] && echo -e " ${GREEN}done ($COPIED items)${NC}" || echo ""
-            IMPORT_ROMS=$((IMPORT_ROMS + COPIED))
-
-            echo -e "      ${GREEN}✓ done${NC}"
-            echo ""
-        done
-    done
-
-    ok "Import complete: $IMPORT_SYSTEMS systems, $IMPORT_MEDIA media types, $IMPORT_ROMS ROM items"
-
-    # Cut mode — delete source files from real paths (not synthetic symlink parents)
-    if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-        for IDX in "${!RETROBAT_REAL_PATHS[@]}"; do
-            REAL="${RETROBAT_REAL_PATHS[$IDX]}"
-            SYNTH="${RETROBAT_PATHS[$IDX]}"
-            if [[ "$SYNTH" == "$REAL" ]]; then
-                # Full RetroBat install — remove roms/ and bios/ subfolders
-                rm -rf "$REAL/roms" "$REAL/bios" 2>/dev/null || true
-                ok "Removed: $REAL/roms and bios"
-            else
-                # Standalone ROM pack — remove the entire folder (it was the roms dir)
-                rm -rf "$REAL" 2>/dev/null || true
-                ok "Removed: $REAL"
-            fi
-        done
-    fi
-
-    # Clean up synthetic temp directories
-    for SYNTH_DIR in "${RETROBAT_SYNTH_DIRS[@]:-}"; do
-        [[ -d "$SYNTH_DIR" ]] && rm -rf "$SYNTH_DIR"
-    done
-    echo ""
-fi
-
-# ── Post-import cleanup: remove any RetroBat non-system folders from ROMs/ ──
-# These can appear even without a RetroBat import if the user's ROM pack
-# included them. Remove only if empty to avoid accidental data loss.
-# bios is intentionally excluded here — it lives in ROMs/bios/ legitimately and must not be deleted
-NON_SYSTEM_FOLDERS=(emulators saves screenshots cheats records sounds decorations library system music)
-for NSF in "${NON_SYSTEM_FOLDERS[@]}"; do
-    NSF_PATH="$ROMS/$NSF"
-    if [[ -d "$NSF_PATH" ]]; then
-        FILE_COUNT=$(find "$NSF_PATH" -type f 2>/dev/null | wc -l)
-        if [[ $FILE_COUNT -eq 0 ]]; then
-            rm -rf "$NSF_PATH"
-        else
-            warn "ROMs/$NSF has $FILE_COUNT files — not auto-removed. Move contents manually if needed."
-        fi
-    fi
-done
-
-# ── Remove known junk subfolders that some RetroBat packs embed inside ROM dirs ──
-for JUNK_DIR in "$ROMS/ps4/_saves_" "$ROMS/ps3/_saves_" "$ROMS/xbox360/_saves_" "$ROMS/xbla/_saves_"; do
-    [[ -d "$JUNK_DIR" ]] && rm -rf "$JUNK_DIR" && ok "Removed junk folder: $JUNK_DIR"
-done
-
-# ── ps3psn media: symlink to ps3 media so both systems share the same artwork ──
-if [[ -d "$BASE/downloaded_media/ps3" ]] && [[ ! -e "$BASE/downloaded_media/ps3psn" ]]; then
-    ln -s "$BASE/downloaded_media/ps3" "$BASE/downloaded_media/ps3psn"
-    ok "ps3psn media symlinked to ps3"
-fi
-
-# ── vpinball: migrate flat media folders from ROM dir to downloaded_media ──
-VPIN_ROM="$ROMS/vpinball"
-VPIN_MEDIA="$BASE/downloaded_media/vpinball"
-if [[ -d "$VPIN_ROM" ]]; then
-    declare -A VPIN_MAP=([images]=screenshots [marquee]=marquees [marquees]=marquees
-                         [videos]=videos [manuals]=manuals [fanart]=fanart)
-    for SRC_NAME in "${!VPIN_MAP[@]}"; do
-        SRC="$VPIN_ROM/$SRC_NAME"
-        [[ -d "$SRC" ]] || continue
-        DST="$VPIN_MEDIA/${VPIN_MAP[$SRC_NAME]}"
-        mkdir -p "$DST"
-        mv -n "$SRC"/. "$DST/" 2>/dev/null || true
-        rmdir "$SRC" 2>/dev/null || true
-        ok "vpinball: moved $SRC_NAME -> downloaded_media/vpinball/${VPIN_MAP[$SRC_NAME]}"
-    done
-fi
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} ROM import deferred to end of setup"
+ok "Will offer collection import after the bundle is fully built"
 
 #=============================================================================
 # STEP 13: WRITE CONVERSION SCRIPT TO BUNDLE
@@ -4736,6 +3938,11 @@ BASE="$SCRIPT_DIR"
 ROMS="$BASE/ROMs"
 ESDE_DATA="$BASE/ES-DE"
 MEDIA_BASE="$BASE/downloaded_media"
+# EMUS must be defined here too — is_emulator_installed / is_core_installed
+# below resolve binary/core paths against it. Without this, every check ran
+# against an empty path and reported "(NOT installed — would prompt)" even
+# when the core/emulator was already in the bundle. (Audit F8 sibling bug.)
+EMUS="$BASE/Emulators"
 
 # -test: scan sources and report what WOULD happen, copying/moving nothing.
 DRY_RUN=false
@@ -4813,9 +4020,35 @@ fi
 echo ""
 
 declare -A MEDIA_MAP=(
-    [thumbnails]=covers  [box2d]=covers       [box3d]=3dboxes      [boxback]=backcovers
-    [fanarts]=fanart     [marquee]=marquees   [images]=screenshots [titles]=titlescreens
-    [cartridges]=physicalmedia                [manuals]=manuals    [videos]=videos
+    # ── ES-DE canonical folder names (identity — so an already-correct
+    #    source folder routes to itself instead of being dropped) ──
+    [3dboxes]=3dboxes        [backcovers]=backcovers   [covers]=covers
+    [fanart]=fanart         [manuals]=manuals         [marquees]=marquees
+    [miximages]=miximages   [physicalmedia]=physicalmedia
+    [screenshots]=screenshots                         [titlescreens]=titlescreens
+    [videos]=videos
+    # ── RetroBat media folder names ──
+    [thumbnails]=covers     [box2d]=covers            [box3d]=3dboxes
+    [boxback]=backcovers    [fanarts]=fanart          [marquee]=marquees
+    [images]=screenshots    [titles]=titlescreens     [cartridges]=physicalmedia
+    # ── ES / Skraper / Batocera folder-name variants ──
+    [box]=covers            [boxart]=covers           [boxfront]=covers
+    [box2dfront]=covers     [wheel]=marquees          [wheels]=marquees
+    [logo]=marquees         [logos]=marquees          [manual]=manuals
+    [image]=screenshots     [screenshot]=screenshots  [ss]=screenshots
+    [snap]=screenshots      [snaps]=screenshots       [titleshot]=titlescreens
+    [titlescreen]=titlescreens                        [title]=titlescreens
+    [fanart_image]=fanart   [video]=videos            [mix]=miximages
+    [miximage]=miximages    [miximages]=miximages     [cart]=physicalmedia
+    [cartridge]=physicalmedia                         [support]=physicalmedia
+    [media3d]=3dboxes       [box3dfront]=3dboxes
+)
+# Source media folders with no ES-DE media-type equivalent — explicitly
+# skipped (and reported) rather than silently dropped. bezel/decorations
+# are emulator overlays, not ES-DE game media; map/maps are not ES-DE media.
+declare -A MEDIA_SKIP=(
+    [bezel]=1 [bezels]=1 [decoration]=1 [decorations]=1 [overlay]=1
+    [overlays]=1 [map]=1 [maps]=1 [extras]=1
 )
 
 # EmulationStation / Batocera-style suffix → ES-DE folder map
@@ -4908,6 +4141,17 @@ declare -A SYS_MAP=(
     [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
 )
 FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist zxspectrum zx81 dos atari800 pc vpinball)
+
+# Reverse map: canonical ES-DE system → space-separated list of every
+# RetroBat/folder alias that resolves to it. Built once from SYS_MAP so the
+# per-system audit can show, on its own line, exactly which source folder
+# names route into each system (and therefore share its launch command).
+declare -A SYS_ALIASES=()
+for _alias in "${!SYS_MAP[@]}"; do
+    _canon="${SYS_MAP[$_alias]}"
+    SYS_ALIASES[$_canon]="${SYS_ALIASES[$_canon]:-}${SYS_ALIASES[$_canon]:+ }$_alias"
+done
+unset _alias _canon
 
 # ES-DE system → required standalone emulator (uses install-emulator.sh)
 declare -A SYS_TO_EMU=(
@@ -5121,6 +4365,275 @@ Install $core now?"; then
     fi
 }
 
+# ── MAME folder-romset normaliser ─────────────────────────────────────────
+# Systems whose ROMs are MAME-style (mame core / mame2010 / fbneo arcade).
+# A CHD-based game often arrives from a RetroBat pack as ONE folder per game
+# holding the parent .zip AND its .chd image(s) together, e.g.
+#     blitz2k/blitz2k.zip
+#     blitz2k/blitz2k.chd
+# If that folder is copied wholesale into ROMs/mame/ two problems result:
+#   1. ES-DE shows it as a *browsable folder*, not a game. %GAMEDIRRAW% then
+#      resolves to ROMs/mame/blitz2k (the subfolder) — the wrong rompath —
+#      and scraped media keys to the folder instead of the game.
+#   2. Multi-CHD romsets fail to launch.
+#
+# What MAME actually wants. The mame/arcade launch command is
+#   "%BASENAME% -rompath \"%GAMEDIRRAW%;%ROMPATH%/<sys>;%ROMPATH%/bios\""
+# MAME resolves a game by looking, inside each rompath dir, for a .zip/.7z
+# archive OR a folder matching the romset SHORT NAME, with CHD images living
+# in a folder named after that short name. So the correct on-disk layout is
+# two SIBLINGS sitting flat in ROMs/<system>/ :
+#     ROMs/mame/blitz2k.zip          ← parent archive = the ES-DE game entry
+#     ROMs/mame/blitz2k/blitz2k.chd  ← short-name folder holding the CHD(s)
+#
+# normalise_mame_folder() converts a copied per-game folder into that form:
+#   • Case A — folder has a parent archive: the archive is moved FLAT to
+#     ROMs/<system>/<romset>.<ext> (becoming the real game entry, correct
+#     %BASENAME%); any CHD(s) stay in the short-name folder, which is then
+#     marked <hidden> in the gamelist so it does not show as an empty entry.
+#   • Case B — CHD-only set (no archive, pure software-list): the bare
+#     short-name folder IS the correct MAME romset directory and is kept; a
+#     real (non-hidden) <game> entry pointing at the folder is written so
+#     ES-DE has something to launch.
+# The COUNT of CHDs is irrelevant — MAME reads them all from the rompath
+# directory. An inner CHD's filename is never adopted as the entry name,
+# because CHDs are frequently named differently from the romset short name.
+declare -A MAME_FAMILY=( [mame]=1 [arcade]=1 [hbmame]=1 )
+normalise_mame_folder() {
+    # $1 = full path to a romset folder already copied into ROMs/<system>/
+    # $2 = (optional) gamelist dir for this system — used to hide a leftover
+    #      CHD short-name folder, or to register a CHD-only set as a game.
+    #
+    # The MAME libretro core launch command uses %BASENAME% (romset short
+    # name) and a rompath of %ROMPATH%/<system>. MAME then resolves a game by
+    # looking — inside each rompath dir — for a folder OR a .zip/.7z archive
+    # matching the romset SHORT NAME (no extension), and for CHD images in a
+    # FOLDER named after that short name.
+    #
+    # So the correct on-disk layout for a CHD game 'blitz2k' is two SIBLINGS
+    # sitting flat in ROMs/mame/ :
+    #     ROMs/mame/blitz2k.zip          ← parent ROM archive (the game entry)
+    #     ROMs/mame/blitz2k/blitz2k.chd  ← short-name folder holding the CHD(s)
+    #
+    # A RetroBat-style pack instead ships ONE folder per game containing both
+    # the .zip and the .chd(s). If we just copy that folder wholesale, ES-DE
+    # shows it as a browsable folder, %GAMEDIRRAW% resolves to the subfolder
+    # (rompath becomes ROMs/mame/blitz2k — wrong) and multi-CHD games fail.
+    #
+    # This function SPLITS such a folder into the correct layout:
+    #   • the .zip / .7z parent archive is moved FLAT into ROMs/<system>/
+    #     — this becomes the ES-DE game entry (a real file, correct BASENAME);
+    #   • the .chd file(s) stay in a folder named exactly the romset short
+    #     name (the folder is renamed if needed and stripped of the archive);
+    #   • a CHD-only folder (no archive — pure software-list set) is left as
+    #     a short-name folder, which MAME treats as a valid romset directory.
+    local dir="$1" gldir="${2:-}"
+    [[ -d "$dir" ]] || return 0
+    local parent rom; parent=$(dirname "$dir"); rom=$(basename "$dir")
+    # Folder already carries an archive extension from an older (buggy) run?
+    # Strip it back to the bare short name so we land on the correct layout.
+    case "$rom" in
+        *.zip|*.7z|*.ZIP|*.7Z)
+            local stripped="${rom%.*}"
+            if [[ ! -e "$parent/$stripped" ]] && mv -n "$dir" "$parent/$stripped" 2>/dev/null; then
+                dir="$parent/$stripped"; rom="$stripped"
+            fi ;;
+        *.chd|*.CHD)
+            # A '<name>.chd' DIRECTORY is the old-format mistake. Rename to
+            # the bare short name — MAME wants the CHD folder un-suffixed.
+            local stripped="${rom%.*}"
+            if [[ ! -e "$parent/$stripped" ]] && mv -n "$dir" "$parent/$stripped" 2>/dev/null; then
+                dir="$parent/$stripped"; rom="$stripped"
+            fi ;;
+    esac
+
+    # Inventory the folder.
+    local -a zips=() chds=()
+    shopt -s nullglob nocaseglob
+    zips=("$dir"/*.zip "$dir"/*.7z)
+    chds=("$dir"/*.chd)
+    shopt -u nullglob nocaseglob
+
+    if [[ ${#zips[@]} -eq 0 && ${#chds[@]} -eq 0 ]]; then
+        warn "MAME: $rom/ holds no .zip/.7z/.chd — left as folder (nothing launchable inside)"
+        return 0
+    fi
+
+    # _mame_hide_folder <gamelist_dir> <romset>
+    # Append a hidden <folder> entry so a short-name CHD directory that MAME
+    # needs on disk does not surface as an empty browsable folder in ES-DE.
+    # Idempotent: skips if an entry for that path already exists.
+    _mame_hide_folder() {
+        local gldir="$1" name="$2"
+        [[ -n "$gldir" ]] || return 0
+        mkdir -p "$gldir"
+        local gl="$gldir/gamelist.xml"
+        local entry="  <folder>
+    <path>./$name</path>
+    <name>$name</name>
+    <hidden>true</hidden>
+  </folder>"
+        if [[ -f "$gl" ]]; then
+            grep -qF "<path>./$name</path>" "$gl" 2>/dev/null && return 0
+            # Insert before the closing tag; create a minimal file if malformed.
+            if grep -q '</gameList>' "$gl" 2>/dev/null; then
+                local tmp; tmp=$(mktemp)
+                awk -v e="$entry" '/<\/gameList>/{print e} {print}' "$gl" > "$tmp" && mv "$tmp" "$gl"
+            else
+                printf '%s\n%s\n%s\n' '<?xml version="1.0"?>' '<gameList>' "$entry" >> "$gl"
+                echo '</gameList>' >> "$gl"
+            fi
+        else
+            printf '%s\n%s\n%s\n%s\n' '<?xml version="1.0"?>' '<gameList>' "$entry" '</gameList>' > "$gl"
+        fi
+    }
+
+    # Case A — folder has a parent archive (with or without CHDs).
+    # Move the FIRST archive flat as <rom>.<ext>; that file is the game entry.
+    if [[ ${#zips[@]} -gt 0 ]]; then
+        local arc="${zips[0]}" arcext
+        arcext="${arc##*.}"; arcext="${arcext,,}"
+        local flat="$parent/$rom.$arcext"
+        if [[ -e "$flat" ]]; then
+            warn "MAME: $rom — '$rom.$arcext' already exists flat; folder left as-is"
+        else
+            mv -n "$arc" "$flat" 2>/dev/null || warn "MAME: could not flatten $rom archive"
+        fi
+        # Any further archives in the folder are clones/alts — leave them
+        # inside the short-name folder; MAME finds them via the rompath dir.
+        if [[ ${#chds[@]} -gt 0 ]]; then
+            # CHDs remain in the short-name folder beside the flat archive.
+            # MAME resolves them via the rompath; ES-DE would otherwise show
+            # the folder as an empty entry, so mark it hidden in the gamelist.
+            _mame_hide_folder "$gldir" "$rom"
+            ok "MAME: $rom — archive flattened, ${#chds[@]} CHD(s) kept in $rom/ (folder hidden)"
+        else
+            # No CHDs: the folder now holds only stray/clone files. If it is
+            # empty, drop it; otherwise keep it (MAME reads it via rompath).
+            if rmdir "$dir" 2>/dev/null; then
+                ok "MAME: $rom — archive flattened (folder emptied)"
+            else
+                _mame_hide_folder "$gldir" "$rom"
+                ok "MAME: $rom — archive flattened ($rom/ kept for extra files, hidden)"
+            fi
+        fi
+        return 0
+    fi
+
+    # Case B — no parent archive INSIDE the folder. Two sub-cases:
+    #
+    #   B1 (State A) — a flat <romset>.zip/.7z ALREADY sits in the system
+    #      dir, as a sibling of this folder. This is the common RetroBat
+    #      layout: ROMs/mame/blitz2k.zip (parent ROM, the real game entry)
+    #      + ROMs/mame/blitz2k/blitz2k.chd (the CHD container). Nothing to
+    #      move — the flat zip is already correct. The folder must NOT get
+    #      its own <game> entry (that is what makes ES-DE launch the folder
+    #      with %GAMEDIRRAW%=ROMs/mame/blitz2k). Just hide the folder so it
+    #      does not surface as a browsable entry; MAME finds the CHD via the
+    #      rompath because the folder name equals the romset short name.
+    #
+    #   B2 — genuinely CHD-only (no flat archive anywhere): the bare
+    #      short-name folder IS the romset directory and must be kept, AND
+    #      it needs a real <game> entry pointing at it so ES-DE has
+    #      something to launch.
+    local flat_zip="" _fz
+    for _fz in "$parent/$rom.zip" "$parent/$rom.7z" "$parent/$rom.ZIP" "$parent/$rom.7Z"; do
+        [[ -f "$_fz" ]] && { flat_zip="$_fz"; break; }
+    done
+    if [[ -n "$flat_zip" ]]; then
+        # B1 — flat parent archive already present. Hide the CHD folder.
+        _mame_hide_folder "$gldir" "$rom"
+        ok "MAME: $rom — flat $(basename "$flat_zip") already present; CHD folder hidden (${#chds[@]} CHD(s))"
+        return 0
+    fi
+
+    # B2 — CHD-only set (no parent archive anywhere). MAME treats a rompath
+    # subfolder matching the short name as a valid romset directory, so the
+    # bare short-name folder IS the correct on-disk form and must be kept.
+    # With no flat archive there is no ES-DE game entry — the romset is
+    # launchable only if a gamelist entry points at it. Write a real (not
+    # hidden) <game> entry whose <path> is the folder itself: ES-DE passes
+    # the folder, %BASENAME% resolves to the short name, MAME loads the CHD.
+    local gl="$gldir/gamelist.xml"
+    if [[ -n "$gldir" ]]; then
+        mkdir -p "$gldir"
+        if ! { [[ -f "$gl" ]] && grep -qF "<path>./$rom</path>" "$gl" 2>/dev/null; }; then
+            local entry="  <game>
+    <path>./$rom</path>
+    <name>$rom</name>
+  </game>"
+            if [[ -f "$gl" ]] && grep -q '</gameList>' "$gl" 2>/dev/null; then
+                local tmp; tmp=$(mktemp)
+                awk -v e="$entry" '/<\/gameList>/{print e} {print}' "$gl" > "$tmp" && mv "$tmp" "$gl"
+            elif [[ -f "$gl" ]]; then
+                printf '%s\n' "$entry" >> "$gl"; echo '</gameList>' >> "$gl"
+            else
+                printf '%s\n%s\n%s\n%s\n' '<?xml version="1.0"?>' '<gameList>' "$entry" '</gameList>' > "$gl"
+            fi
+        fi
+    fi
+    ok "MAME: $rom/ — CHD-only set (${#chds[@]} CHD(s)), kept as short-name folder + gamelist entry"
+    return 0
+}
+
+# ── Per-system launch-command audit ─────────────────────────────────────
+# Prints, for ONE system, on its own lines: the resolved emulator/core, the
+# exact launch-command pattern ES-DE will run, and every folder alias that
+# routes into the same canonical system (all sharing that command). Used by
+# BOTH the dry-run reporter and the real import loop so the two never drift
+# — a wrong rompath or folder-vs-flat mismatch is visible at a glance during
+# an actual import, not only under -test (Audit F-launch / Step A).
+# Args: $1 = RB_SYS (source folder name)   $2 = ESDE_SYS (canonical name)
+# Optionally appends to needs_install / unknown_systems if those arrays are
+# in scope (dry-run); harmless when they are not (real import) because the
+# appends are guarded.
+print_launch_audit() {
+    local rb_sys="$1" esde_sys="$2"
+    local emu core launch_cmd=""
+    emu="${SYS_TO_EMU[$esde_sys]:-}"
+    core="${SYS_TO_CORE[$esde_sys]:-}"
+    if [[ -n "$emu" ]]; then
+        launch_cmd="standalone: $emu   →   %EMULATOR_${emu^^}% %ROM%"
+        if is_emulator_installed "$emu"; then
+            echo -e "     Launches: $emu ${GREEN}(installed)${NC}"
+        else
+            echo -e "     Launches: $emu ${YELLOW}(NOT installed — would prompt to install)${NC}"
+            declare -p needs_install &>/dev/null && needs_install+=("$esde_sys → $emu (standalone)")
+        fi
+    elif [[ -n "$core" ]]; then
+        # MAME-family cores take the rompath-bearing launch form; all other
+        # libretro cores take the plain -L <core> %ROM% form.
+        if [[ -n "${MAME_FAMILY[$esde_sys]:-}" ]]; then
+            launch_cmd="core: $core   →   RetroArch -L ${core}_libretro.so \"%BASENAME% -rompath %GAMEDIRRAW%;%ROMPATH%/$esde_sys;%ROMPATH%/bios\""
+        else
+            launch_cmd="core: $core   →   RetroArch -L ${core}_libretro.so %ROM%"
+        fi
+        if is_core_installed "$core"; then
+            echo -e "     Launches: RetroArch / $core ${GREEN}(installed)${NC}"
+        else
+            echo -e "     Launches: RetroArch / $core ${YELLOW}(NOT installed — would prompt)${NC}"
+            declare -p needs_install &>/dev/null && needs_install+=("$esde_sys → $core (libretro core)")
+        fi
+    else
+        launch_cmd="${YELLOW}none — no emulator/core mapping${NC}"
+        echo -e "     Launches: ${YELLOW}⚠ no emulator/core mapping for '$esde_sys'${NC}"
+        declare -p unknown_systems &>/dev/null && \
+            unknown_systems+=("$rb_sys$([ "$rb_sys" != "$esde_sys" ] && echo " (→ $esde_sys)")")
+    fi
+    echo -e "     Command:  $launch_cmd"
+    # Folder aliases that route into this same canonical system — one per
+    # line, so each alias is unambiguously tied to the launch command above.
+    if [[ -n "${SYS_ALIASES[$esde_sys]:-}" ]]; then
+        echo "     Folder aliases that route here (share the command above):"
+        local _a _mark
+        for _a in ${SYS_ALIASES[$esde_sys]}; do
+            _mark=""
+            [[ "$_a" == "$rb_sys" ]] && _mark="  ${CYAN}← this source folder${NC}"
+            echo -e "        - ${_a}/$_mark"
+        done
+    fi
+}
+
 IMPORT_SYSTEMS=0; IMPORT_MEDIA=0; IMPORT_ROMS=0
 
 # Non-game folders to skip in the system loop (used by both dry-run + real import)
@@ -5254,28 +4767,14 @@ dry_run_report() {
             fi
         fi
 
-        # Emulator / core need
-        local emu core
-        emu="${SYS_TO_EMU[$ESDE_SYS]:-}"
-        core="${SYS_TO_CORE[$ESDE_SYS]:-}"
-        if [[ -n "$emu" ]]; then
-            if is_emulator_installed "$emu"; then
-                echo -e "     Launches: $emu ${GREEN}(installed)${NC}"
-            else
-                echo -e "     Launches: $emu ${YELLOW}(NOT installed — would prompt to install)${NC}"
-                needs_install+=("$ESDE_SYS → $emu (standalone)")
-            fi
-        elif [[ -n "$core" ]]; then
-            if is_core_installed "$core"; then
-                echo -e "     Launches: RetroArch / $core ${GREEN}(installed)${NC}"
-            else
-                echo -e "     Launches: RetroArch / $core ${YELLOW}(NOT installed — would prompt)${NC}"
-                needs_install+=("$ESDE_SYS → $core (libretro core)")
-            fi
-        else
-            echo -e "     Launches: ${YELLOW}⚠ no emulator/core mapping for '$ESDE_SYS'${NC}"
-            unknown_systems+=("$RB_SYS$([ "$RB_SYS" != "$ESDE_SYS" ] && echo " (→ $ESDE_SYS)")")
-        fi
+        # ── Emulator / core resolution + launch-command audit ──
+        # Each system prints, on its own lines: the resolved emulator/core,
+        # the actual launch-command pattern ES-DE will run, and — if the
+        # source folder name is an alias — every other folder alias that
+        # routes into the same canonical system (they all share this launch
+        # command). This makes a wrong rompath or a folder-vs-flat mismatch
+        # visible at a glance (Audit F-launch).
+        print_launch_audit "$RB_SYS" "$ESDE_SYS"
         echo ""
     done < <(enumerate_system_dirs "$path")
 
@@ -5337,24 +4836,57 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         mkdir -p "$ESDE_ROM_DIR"
         echo -e "   ${CYAN}$RB_SYS${NC}$([ "$RB_SYS" != "$ESDE_SYS" ] && echo " → $ESDE_SYS")"
         IMPORT_SYSTEMS=$((IMPORT_SYSTEMS + 1))
+        # Per-system launch-command audit — same output as the -test report,
+        # so during a real import each system and every folder alias is shown
+        # on its own line with the exact command ES-DE will run (Step A).
+        print_launch_audit "$RB_SYS" "$ESDE_SYS"
+        # Reset the deferred-MAME-normalisation list for this system (the
+        # non-flat branch repopulates it; resetting here guards against a
+        # stale list carrying over from a previous system).
+        _mame_pending=()
         MEDIA_DIR="$SYS_DIR/media"
         if [[ -d "$MEDIA_DIR" ]]; then
             mkdir -p "$ESDE_MEDIA_DIR"
-            for RB_TYPE in "${!MEDIA_MAP[@]}"; do
-                ESDE_TYPE="${MEDIA_MAP[$RB_TYPE]}"
-                SRC="$MEDIA_DIR/$RB_TYPE"; DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
-                if [[ -d "$SRC" ]]; then
-                    mkdir -p "$DST"
-                    [[ "$RB_TYPE" == "videos" ]] \
-                        && echo "      videos → videos [copying — large sets take time...]" \
-                        || echo -n "      $(printf '%-14s' "$RB_TYPE") → $(printf '%-14s' "$ESDE_TYPE") [copying...]"
-                    cp -rn "$SRC/." "$DST/" 2>/dev/null || true
-                    [[ "$RB_TYPE" == "videos" ]] \
-                        && echo -e "      ${GREEN}✓${NC} videos done" \
-                        || echo -e " ${GREEN}done${NC}"
-                    IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+            # Source-driven: iterate the folders that ACTUALLY exist in the
+            # source media/ dir and route each by name. This catches every
+            # scraper layout (RetroBat, Skraper, Batocera) and — crucially —
+            # reports any folder it can't map instead of silently dropping it
+            # (the ColeCovision media-loss bug: bezel/ mix/ screenshots/ were
+            # skipped because the old map only knew RetroBat folder names).
+            while IFS= read -r -d '' SRC; do
+                RB_TYPE=$(basename "$SRC"); RB_KEY="${RB_TYPE,,}"
+                if [[ -n "${MEDIA_SKIP[$RB_KEY]:-}" ]]; then
+                    echo -e "      $(printf '%-14s' "$RB_TYPE") ${YELLOW}skipped${NC} (no ES-DE media type)"
+                    continue
                 fi
-            done
+                ESDE_TYPE="${MEDIA_MAP[$RB_KEY]:-}"
+                if [[ -z "$ESDE_TYPE" ]]; then
+                    echo -e "      $(printf '%-14s' "$RB_TYPE") ${YELLOW}unmapped${NC} — not imported"
+                    continue
+                fi
+                DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
+                mkdir -p "$DST"
+                # Respect cut vs copy. The ROM branch already honours
+                # $RETROBAT_MOVE; the media branch must too, or a "cut"
+                # import moves ROMs but leaves a full copy of the media
+                # behind at the source (observed: colecovision cut import).
+                _mlabel="copying"
+                [[ "$RETROBAT_MOVE" == "yes" ]] && _mlabel="moving"
+                [[ "$ESDE_TYPE" == "videos" ]] \
+                    && echo "      $(printf '%-14s' "$RB_TYPE") → videos [$_mlabel — large sets take time...]" \
+                    || echo -n "      $(printf '%-14s' "$RB_TYPE") → $(printf '%-14s' "$ESDE_TYPE") [$_mlabel...]"
+                if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+                    # Move files, then drop the now-empty source folder.
+                    find "$SRC" -mindepth 1 -maxdepth 1 -exec mv -n {} "$DST/" \; 2>/dev/null || true
+                    rmdir "$SRC" 2>/dev/null || true
+                else
+                    cp -rn "$SRC/." "$DST/" 2>/dev/null || true
+                fi
+                [[ "$ESDE_TYPE" == "videos" ]] \
+                    && echo -e "      ${GREEN}✓${NC} videos done" \
+                    || echo -e " ${GREEN}done${NC}"
+                IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+            done < <(find "$MEDIA_DIR" -maxdepth 1 -mindepth 1 -type d -print0 2>/dev/null)
         else
             # Non-RetroBat layouts. Two shapes are common:
             #   (a) ES/Batocera-style with suffixes — images/<rom>-image.png,
@@ -5366,22 +4898,35 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
             [[ -d "$SYS_DIR/manuals" ]] && try_import_es_layout "$SYS_DIR/manuals" "$ESDE_MEDIA_DIR" "$RETROBAT_MOVE" && es_detected=1
             (( es_detected )) && IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
             if (( ! es_detected )); then
-            for RB_TYPE in "${!MEDIA_MAP[@]}"; do
-                SRC="$SYS_DIR/$RB_TYPE"
-                if [[ -d "$SRC" ]]; then
-                    ESDE_TYPE="${MEDIA_MAP[$RB_TYPE]}"
-                    DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
-                    mkdir -p "$DST"
-                    [[ "$RB_TYPE" == "videos" ]] \
-                        && echo "      videos (flat) → videos [copying — large sets take time...]" \
-                        || echo -n "      $(printf '%-14s' "$RB_TYPE") (flat) → $(printf '%-10s' "$ESDE_TYPE") [copying...]"
+            # Flat media: media-type folders sitting directly in the system
+            # dir (no media/ wrapper). Source-driven, same as the media/
+            # branch — route by folder name, report anything unmappable.
+            while IFS= read -r -d '' SRC; do
+                RB_TYPE=$(basename "$SRC"); RB_KEY="${RB_TYPE,,}"
+                # images/videos/manuals already handled by try_import_es_layout
+                # above; bios is not media.
+                case "$RB_KEY" in images|videos|manuals|bios) continue ;; esac
+                [[ -n "${MEDIA_SKIP[$RB_KEY]:-}" ]] && continue
+                ESDE_TYPE="${MEDIA_MAP[$RB_KEY]:-}"
+                [[ -z "$ESDE_TYPE" ]] && continue
+                DST="$ESDE_MEDIA_DIR/$ESDE_TYPE"
+                mkdir -p "$DST"
+                _mlabel="copying"
+                [[ "$RETROBAT_MOVE" == "yes" ]] && _mlabel="moving"
+                [[ "$ESDE_TYPE" == "videos" ]] \
+                    && echo "      $(printf '%-14s' "$RB_TYPE") (flat) → videos [$_mlabel — large sets take time...]" \
+                    || echo -n "      $(printf '%-14s' "$RB_TYPE") (flat) → $(printf '%-10s' "$ESDE_TYPE") [$_mlabel...]"
+                if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+                    find "$SRC" -mindepth 1 -maxdepth 1 -exec mv -n {} "$DST/" \; 2>/dev/null || true
+                    rmdir "$SRC" 2>/dev/null || true
+                else
                     cp -rn "$SRC/." "$DST/" 2>/dev/null || true
-                    [[ "$RB_TYPE" == "videos" ]] \
-                        && echo -e "      ${GREEN}✓${NC} videos done" \
-                        || echo -e " ${GREEN}done${NC}"
-                    IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
                 fi
-            done
+                [[ "$ESDE_TYPE" == "videos" ]] \
+                    && echo -e "      ${GREEN}✓${NC} videos done" \
+                    || echo -e " ${GREEN}done${NC}"
+                IMPORT_MEDIA=$((IMPORT_MEDIA + 1))
+            done < <(find "$SYS_DIR" -maxdepth 1 -mindepth 1 -type d -print0 2>/dev/null)
             fi  # close: if (( ! es_detected ))
         fi
         GAMELIST_SRC="$SYS_DIR/gamelist.xml"
@@ -5464,11 +5009,22 @@ GLFIX
                 (( SEEN % 50 == 0 )) && echo -n " ${SEEN}..."
             done < <(find "$SYS_DIR" -not -path "*/media/*" -type f -print0)
         else
+            # Collect MAME-family romset folders as they are copied; they are
+            # normalised in a SECOND pass after the flat-file copy below, so
+            # that normalise_mame_folder can see any flat <romset>.zip that
+            # arrives in the file pass (State A: flat parent ROM + sibling
+            # CHD folder). Normalising inline here would run before the flat
+            # zip exists and mis-route the folder as a CHD-only set.
+            _mame_pending=()
             while IFS= read -r -d '' SUBDIR; do
-                DIRNAME=$(basename "$SUBDIR")
-                # Skip RetroBat media/ AND ES/Batocera images/ videos/ manuals/
-                # so media folders aren't copied into the ROM directory.
-                case "$DIRNAME" in media|images|videos|manuals) continue ;; esac
+                DIRNAME=$(basename "$SUBDIR"); DIRKEY="${DIRNAME,,}"
+                # Skip media folders so they aren't copied into the ROM dir as
+                # if they were game subfolders: the media/ wrapper, ES/Batocera
+                # images|videos|manuals, AND any flat media-type folder that
+                # the media branch above already routed (covers, marquees,
+                # screenshots, mix, bezel, etc.).
+                case "$DIRKEY" in media|images|videos|manuals) continue ;; esac
+                [[ -n "${MEDIA_MAP[$DIRKEY]:-}" || -n "${MEDIA_SKIP[$DIRKEY]:-}" ]] && continue
                 echo ""; echo -n "        $DIRNAME [$TRANSFER_LABEL...]"
                 if [[ "$RETROBAT_MOVE" == "yes" ]]; then
                     mv -n "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || cp -rn "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || true
@@ -5476,6 +5032,8 @@ GLFIX
                     cp -rn "$SUBDIR" "$ESDE_ROM_DIR/" 2>/dev/null || true
                 fi
                 echo -e " ${GREEN}done${NC}"; COPIED=$((COPIED + 1))
+                # Defer MAME normalisation — see note above.
+                [[ -n "${MAME_FAMILY[$ESDE_SYS]:-}" ]] && _mame_pending+=("$ESDE_ROM_DIR/$DIRNAME")
             done < <(find "$SYS_DIR" -maxdepth 1 -mindepth 1 -type d -print0)
             while IFS= read -r -d '' ROM; do
                 BASENAME=$(basename "$ROM")
@@ -5488,6 +5046,16 @@ GLFIX
                 fi
                 (( SEEN % 50 == 0 )) && echo -n " ${SEEN}..."
             done < <(find "$SYS_DIR" -maxdepth 1 -type f -print0)
+        fi
+        # Second pass — normalise MAME romset folders now that BOTH the
+        # subdir and flat-file copies are done. normalise_mame_folder can
+        # now correctly see a flat <romset>.zip sibling (State A) and hide
+        # the CHD folder instead of mis-creating a folder game entry.
+        if [[ -n "${MAME_FAMILY[$ESDE_SYS]:-}" && ${#_mame_pending[@]} -gt 0 ]]; then
+            _mp=""
+            for _mp in "${_mame_pending[@]}"; do
+                normalise_mame_folder "$_mp" "$ESDE_GAMELIST_DIR"
+            done
         fi
         [[ $COPIED -gt 0 ]] && echo -e " ${GREEN}done ($COPIED items)${NC}" || echo ""
         IMPORT_ROMS=$((IMPORT_ROMS + COPIED))
@@ -7529,3 +7097,41 @@ box_blank
 box_line "  Re-run this script anytime to retry failed downloads"
 box_line "  or to update after a new ES-DE release."
 box_rule '╚' '╝'
+
+#=============================================================================
+# STEP 20: OPTIONAL ROM COLLECTION IMPORT
+#=============================================================================
+# The bundle is fully built at this point — ES-DE, RetroArch, cores,
+# emulators and ALL helper scripts (including import-collection.sh) are on
+# disk. Offer the user a one-shot import using the single canonical
+# importer. This is the ONLY ROM-import path in the project now; the old
+# setup-time importer (former STEP 12) has been removed (Audit F8).
+STEP=$((STEP + 1))
+echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Optional ROM collection import"
+echo ""
+if [[ -x "$BASE/import-collection.sh" ]]; then
+    if wt_yesno "Import ROM collections?" \
+"Setup is complete.
+
+Would you like to import ROM collections now?
+
+This will run the bundle's importer (import-collection.sh), which can
+import a full RetroBat install, a ROM-pack collection, or a single-system
+folder — with a -test preview mode and per-system launch reporting.
+
+You can also run it anytime later with:
+    ./import-collection.sh        (import)
+    ./import-collection.sh -test  (preview only)"; then
+        echo ""
+        echo -e "${CYAN}Launching collection importer...${NC}"
+        echo ""
+        # Hand off to the canonical importer. exec replaces this process so
+        # the importer's exit status becomes the setup script's exit status.
+        cd "$BASE" && exec "$BASE/import-collection.sh"
+    else
+        info "Skipped import — run ./import-collection.sh anytime to import later"
+    fi
+else
+    warn "import-collection.sh not found or not executable — skipping import offer"
+fi
+echo ""
