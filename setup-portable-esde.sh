@@ -3424,8 +3424,12 @@ install_pcsx2() {
 }
 
 install_duckstation() {
+    # Match ONLY the regular SSE4.1 build DuckStation-x64.AppImage, never
+    # DuckStation-x64-SSE2.AppImage (legacy fallback for pre-2008 CPUs).
+    # The old ".*x64.*" pattern matched both and grabbed SSE2 first,
+    # triggering DuckStation's legacy-SSE2 hardware-check warning.
     github_appimage "stenzek/duckstation" \
-        "DuckStation.*x64.*\.AppImage$" \
+        "DuckStation-x64\.AppImage$" \
         "$EMUS/DuckStation-x64.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
@@ -4419,7 +4423,13 @@ declare -A MEDIA_MAP=(
     [screenshots]=screenshots                         [titlescreens]=titlescreens
     [videos]=videos
     # ── RetroBat media folder names ──
-    [thumbnails]=covers     [box2d]=covers            [box3d]=3dboxes
+    # NOTE: 'thumbnails' is intentionally NOT mapped here — see MEDIA_SKIP.
+    # In observed RetroBat packs the thumbnails/ folder holds an angled 3D
+    # box render that duplicates the flat 2D box in box2d/. Routing both to
+    # ES-DE 'covers' caused a cut-import collision (mv -n no-clobber dropped
+    # whichever copied second). box2d/ is the flat box themes expect for the
+    # cover slot, so thumbnails/ is explicitly skipped.
+    [box2d]=covers            [box3d]=3dboxes
     [boxback]=backcovers    [fanarts]=fanart          [marquee]=marquees
     [images]=screenshots    [titles]=titlescreens     [cartridges]=physicalmedia
     # ── ES / Skraper / Batocera folder-name variants ──
@@ -4440,6 +4450,11 @@ declare -A MEDIA_MAP=(
 declare -A MEDIA_SKIP=(
     [bezel]=1 [bezels]=1 [decoration]=1 [decorations]=1 [overlay]=1
     [overlays]=1 [map]=1 [maps]=1 [extras]=1
+    # thumbnails/: RetroBat angled 3D box render — a duplicate of the flat
+    # 2D box in box2d/ (which populates ES-DE 'covers'). Skipped so it does
+    # not collide with box2d on the covers slot. Re-map it to 3dboxes if a
+    # future theme/pack actually needs the angled art.
+    [thumbnails]=1
 )
 
 # EmulationStation / Batocera-style suffix → ES-DE folder map
@@ -4449,7 +4464,7 @@ declare -A ES_SUFFIX_MAP=(
     [box]=covers            [boxart]=covers          [box2d]=covers
     [marquee]=marquees
     [fanart]=fanart
-    [wheel]=wheels
+    [wheel]=marquees
     [titlescreen]=titlescreens
     [manual]=manuals
     [video]=videos
@@ -5067,13 +5082,16 @@ declare -A CONV_SKIP=( [media]=1 [bios]=1 [emulators]=1 [saves]=1
 # romset is named after any of them, so skipping them is safe for every
 # system. Game folders proper (CHD romsets, multi-disc sets) are unaffected.
 declare -A SUPPORT_SKIP=(
-    [samples]=1 [artwork]=1 [cfg]=1 [nvram]=1 [snap]=1 [cheat]=1
+    [samples]=1 [artwork]=1 [cfg]=1 [nvram]=1 [cheat]=1
     [hash]=1 [hi]=1 [inp]=1 [sta]=1 [diff]=1 [comments]=1 [folders]=1
     [ctrlr]=1 [ini]=1 [crosshair]=1 [plugins]=1 [language]=1 [fonts]=1
     [software]=1 [ui]=1 [bgfx]=1 [shader]=1 [glsl]=1 [hlsl]=1
     [memcards]=1 [memcard]=1 [savestates]=1 [savestate]=1 [states]=1
     [patches]=1 [textures]=1 [overlays]=1 )
 # Note: 'pgm' is deliberately NOT in this list — it is a real arcade romset.
+# Note: 'snap' was removed — although MAME uses snap/ for snapshots, 'snap'
+# is also a MEDIA_MAP key ([snap]=screenshots) for ES/Skraper scrape sets,
+# and skipping it here would drop a legitimate screenshots media folder.
 
 # Yield system directories for a source path, one per line. A "collection"
 # (RetroBat install or ROM pack) has a roms/ subfolder containing system
@@ -5348,6 +5366,46 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         # non-flat branch repopulates it; resetting here guards against a
         # stale list carrying over from a previous system).
         _mame_pending=()
+        # ── PS3: relocate the RPCS3 dev_hdd0 tree ───────────────────────
+        # A RetroBat PS3 source ships RPCS3's virtual hard drive at
+        #   <ps3>/system/configs/rpcs3/dev_hdd0/{game,home,...}
+        # which holds installed PSN games, DLC, updates, trophies, savedata
+        # and RAP licenses. The portable bundle runs RPCS3 via
+        # rpcs3-portable.sh with XDG_CONFIG_HOME=$BASE/.config, so RPCS3
+        # expects that tree at $BASE/.config/rpcs3/dev_hdd0/. Without this
+        # step the system/ folder would either be skipped or wrongly copied
+        # into ROMs/ps3/system/, and the user's installed games / saves /
+        # licenses would be lost. Move (or copy) it to the right place and
+        # drop the source system/ dir so the ROM-copy loop ignores it.
+        if [[ "$ESDE_SYS" == "ps3" || "$ESDE_SYS" == "ps3psn" ]]; then
+            RPCS3_SRC=""
+            for _p in "$SYS_DIR/system/configs/rpcs3/dev_hdd0" \
+                      "$SYS_DIR/system/configs/rpcs3" \
+                      "$SYS_DIR/dev_hdd0"; do
+                [[ -d "$_p" ]] && { RPCS3_SRC="$_p"; break; }
+            done
+            if [[ -n "$RPCS3_SRC" ]]; then
+                # Land dev_hdd0 under the bundle's RPCS3 config home.
+                RPCS3_DEST="$BASE/.config/rpcs3"
+                if [[ "$(basename "$RPCS3_SRC")" == "dev_hdd0" ]]; then
+                    RPCS3_DEST="$RPCS3_DEST/dev_hdd0"
+                fi
+                mkdir -p "$RPCS3_DEST"
+                echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 ["
+                if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+                    echo -n "moving..."
+                    find "$RPCS3_SRC" -mindepth 1 -maxdepth 1 \
+                        -exec mv -n {} "$RPCS3_DEST/" \; 2>/dev/null || true
+                else
+                    echo -n "copying..."
+                    cp -rn "$RPCS3_SRC/." "$RPCS3_DEST/" 2>/dev/null || true
+                fi
+                echo -e " ${GREEN}done${NC}"
+                # Drop the source system/ tree so the ROM-copy loop below
+                # does not also pull it into ROMs/ps3/.
+                [[ "$RETROBAT_MOVE" == "yes" ]] && rm -rf "$SYS_DIR/system" 2>/dev/null || true
+            fi
+        fi
         MEDIA_DIR="$SYS_DIR/media"
         if [[ -d "$MEDIA_DIR" ]]; then
             mkdir -p "$ESDE_MEDIA_DIR"
@@ -5526,8 +5584,10 @@ GLFIX
                 # if they were game subfolders: the media/ wrapper, ES/Batocera
                 # images|videos|manuals, AND any flat media-type folder that
                 # the media branch above already routed (covers, marquees,
-                # screenshots, mix, bezel, etc.).
-                case "$DIRKEY" in media|images|videos|manuals) continue ;; esac
+                # screenshots, mix, bezel, etc.). 'system' is a RetroBat
+                # config tree (e.g. PS3's rpcs3 dev_hdd0, relocated above for
+                # ps3/ps3psn) — never game ROMs, so skip it everywhere.
+                case "$DIRKEY" in media|images|videos|manuals|system) continue ;; esac
                 [[ -n "${MEDIA_MAP[$DIRKEY]:-}" || -n "${MEDIA_SKIP[$DIRKEY]:-}" ]] && continue
                 # Skip emulator support folders (samples/artwork/cfg/nvram/...)
                 # so they aren't copied as if each were a game folder — #1.
@@ -6534,8 +6594,12 @@ install_pcsx2() {
 }
 
 install_duckstation() {
+    # Match ONLY the regular SSE4.1 build DuckStation-x64.AppImage, never
+    # DuckStation-x64-SSE2.AppImage (legacy fallback for pre-2008 CPUs).
+    # The old ".*x64.*" pattern matched both and grabbed SSE2 first,
+    # triggering DuckStation's legacy-SSE2 hardware-check warning.
     github_appimage "stenzek/duckstation" \
-        "DuckStation.*x64.*\.AppImage$" \
+        "DuckStation-x64\.AppImage$" \
         "$EMUS/DuckStation-x64.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
