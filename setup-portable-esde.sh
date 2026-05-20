@@ -927,7 +927,14 @@ download_cores() {
         [prboom]="PrBoom (DOOM engine)"
         [tyrquake]="Quake (TyrQuake engine)"
         [theodore]="Thomson MO/TO"
-        [bennugd]="BennuGD game engine"
+        # NOTE: bennugd_libretro.so.zip 404s on the Linux x86_64 buildbot
+        # (https://buildbot.libretro.com/nightly/linux/x86_64/latest/) —
+        # the core-info file exists but no binary is built. Removed from
+        # downloads. The es_systems entry, ROMs/bennugd folder, and
+        # SYS_TO_CORE mapping are kept so the bundle is ready if a binary
+        # ever appears. Re-enable by uncommenting the line below and
+        # confirming the URL returns HTTP 200.
+        # [bennugd]="BennuGD game engine"
         [ecwolf]="ECWolf (Wolfenstein 3D engine)"
     )
 
@@ -935,6 +942,34 @@ download_cores() {
     local downloaded=0
     local skipped=0
     local failed=0
+
+    # Quick reachability probe BEFORE starting downloads. Sends a HEAD
+    # request to each core URL and warns about any that 404. Catches the
+    # case where the libretro-core-info repo lists a core but the buildbot
+    # does not actually ship a Linux x86_64 binary (e.g. bennugd) — the
+    # download itself would just silently fail with curl exit 22.
+    # Why this matters: previous failure mode was "info-repo presence
+    # claimed core exists -> setup tries download -> silent [fail] line in
+    # the log -> user wonders why a system does not work." This surfaces
+    # the missing core upfront with a clear name.
+    info "Checking buildbot for $total cores ..."
+    local unreachable=()
+    for core_name in "${!CORES[@]}"; do
+        core_selected "$core_name" || continue
+        local url="$CORE_BASE_URL/${core_name}_libretro.so.zip"
+        local code
+        code=$(curl -sIL -o /dev/null -w "%{http_code}" --max-time 8 "$url" 2>/dev/null || echo "000")
+        if [[ "$code" != "200" ]]; then
+            unreachable+=("$core_name ($code)")
+        fi
+    done
+    if (( ${#unreachable[@]} > 0 )); then
+        warn "${#unreachable[@]} core(s) not currently available on the buildbot:"
+        for u in "${unreachable[@]}"; do warn "    $u"; done
+        warn "These will be skipped. The matching system entries will still appear"
+        warn "in ES-DE but launching their ROMs will fail until the core is built."
+        echo ""
+    fi
 
     info "Downloading $total RetroArch cores from buildbot.libretro.com ..."
     echo ""
