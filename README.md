@@ -56,6 +56,7 @@ chmod +x setup-portable-esde.sh
 
 The script will ask you:
 - **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
+- **Which theme** to use is no longer prompted — Art Book Next is installed automatically
 - **Internal resolution** (Native / 1080p / 1440p / 4K)
 - **Whether to import a RetroBat collection** (optional)
 - **Whether to create a desktop shortcut**
@@ -181,6 +182,14 @@ To update ES-DE itself, the update script will prompt you to re-download from es
 
 ---
 
+## Themes
+
+The bundle installs [**Art Book Next**](https://github.com/anthonycaccese/art-book-next-es-de) automatically — a polished coffee-table-book style theme. Every custom system definition in this bundle uses logo names from Art Book Next, so its carousel will look correct out of the box.
+
+If you prefer a different theme, ES-DE has a built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader) that lets you browse and install dozens more, including ES-DE's built-in Linear theme.
+
+---
+
 ## First-run notes for specific emulators
 
 Some emulators require one-time setup that can't be scripted due to legal/firmware constraints:
@@ -216,4 +225,5 @@ This script downloads open-source emulator software. It does not include, distri
 
 ---
 
-*Made with ❤️ for the Linux retro gaming community*<img width="981" height="4485" alt="image" src="https://github.com/user-attachments/assets/417118fb-951f-4b24-ba6c-5e007ee09229" />
+*Made with ❤️ for the Linux retro gaming community*
+<img width="981" height="4352" alt="image" src="https://github.com/user-attachments/assets/a1d91a3f-8f06-484c-b172-4cf02094f130" />
