@@ -33,7 +33,7 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 | **xemu** | Original Xbox | |
 | **Xenia Canary** | Xbox 360 | |
 | | | |
-| **86Box** | Windows 9x / Retro PC | Configure with your own Windows ISO |
+| **86Box** | Windows 9x | Configure with your own Windows ISO |
 | **Ruffle** | Adobe Flash | |
 | **SimCoupe** | MGT SAM Coupé | |
 | **Solarus** | Solarus engine games | |
