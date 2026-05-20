@@ -4355,26 +4355,35 @@ Leave blank and press OK to finish adding paths and continue." \
         # - flat files only: source is itself a single-system folder whose games
         #   happen to live in roms/ (e.g. /<root>/ps3/roms/*.psn). The PARENT
         #   folder name (ps3) is the system; roms/ is the game container.
+        # Note: when counting subdirs we ignore known non-system folders that
+        # may sit alongside the game files at this level (media/, bios/, etc.)
+        # — a 'media' sibling does NOT make a flat-file source a "collection".
         _has_subdirs=0; _has_files=0
         for _e in "$INPUT/roms"/*; do
             [[ -e "$_e" ]] || continue
-            if [[ -d "$_e" ]]; then _has_subdirs=1
-            elif [[ -f "$_e" ]]; then _has_files=1
+            if [[ -d "$_e" ]]; then
+                case "$(basename "$_e")" in
+                    media|images|videos|manuals|downloaded_media|bios|.media|.thumbs) continue ;;
+                esac
+                _has_subdirs=1
+            elif [[ -f "$_e" ]]; then
+                _has_files=1
             fi
         done
-        if (( _has_subdirs == 1 )); then
-            RETROBAT_PATHS+=("$INPUT")
-            echo -e "   ${GREEN}✓${NC} Added (collection): $INPUT"
-        elif (( _has_files == 1 )); then
-            # Nested-single-system: descend into roms/ but use INPUT's basename
-            # as the system. Push the roms/ path so enumerate_system_dirs sees
-            # files directly, and remember the system name in NESTED_SYSTEM_OF.
+        # If both real subdirs AND flat files exist, prefer nested-single-system:
+        # a small number of folder-style game ROMs (multi-disc, extracted .pkg)
+        # mixed in with many flat files is far more common than a collection
+        # source that also happens to have loose files at the top level.
+        if (( _has_files == 1 )); then
             RETROBAT_PATHS+=("$INPUT/roms")
             NESTED_SYSTEM_OF["$INPUT/roms"]="$(basename "$INPUT")"
             echo -e "   ${GREEN}✓${NC} Added (single system '$(basename "$INPUT")', nested in roms/): $INPUT"
+        elif (( _has_subdirs == 1 )); then
+            RETROBAT_PATHS+=("$INPUT")
+            echo -e "   ${GREEN}✓${NC} Added (collection): $INPUT"
         else
-            # roms/ exists but is empty
-            wt_msg "Path not valid" "The roms/ subfolder is empty:\n\n$INPUT\n\nSkipping this entry."
+            # roms/ exists but is empty (or only contains ignored folders)
+            wt_msg "Path not valid" "The roms/ subfolder has no game files or system folders:\n\n$INPUT\n\nSkipping this entry."
         fi
     elif [[ -n "$(ls -A "$INPUT" 2>/dev/null)" ]]; then
         # No roms/ subfolder, but the folder has content — treat it as a
@@ -6325,7 +6334,9 @@ dry_run_report() {
     echo -e "${BOLD}${CYAN}═══ TEST — $path ═══${NC}"
     echo ""
 
-    if [[ -d "$path/roms" ]]; then
+    if [[ -n "${NESTED_SYSTEM_OF[$path]:-}" ]]; then
+        info "Source type: single-system folder ('${NESTED_SYSTEM_OF[$path]}', nested in roms/)"
+    elif [[ -d "$path/roms" ]]; then
         info "Source type: collection (roms/ with system subfolders)"
     else
         info "Source type: single-system folder ('$(basename "$path")')"
