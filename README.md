@@ -226,4 +226,3 @@ This script downloads open-source emulator software. It does not include, distri
 ---
 
 *Made with ❤️ for the Linux retro gaming community*
-<img width="981" height="4352" alt="image" src="https://github.com/user-attachments/assets/a1d91a3f-8f06-484c-b172-4cf02094f130" />
