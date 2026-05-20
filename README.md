@@ -56,7 +56,6 @@ chmod +x setup-portable-esde.sh
 
 The script will ask you:
 - **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
-- **Which theme** to use (Epic Noir Next, Carbon, Iconic, Canvas, or ES-DE default)
 - **Internal resolution** (Native / 1080p / 1440p / 4K)
 - **Whether to import a RetroBat collection** (optional)
 - **Whether to create a desktop shortcut**
@@ -179,22 +178,6 @@ Run the included update script anytime to check for newer versions:
 It checks every emulator against its latest GitHub release, shows you what's changed, and asks before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All 60+ RetroArch cores can also be updated in one go from buildbot.libretro.com.
 
 To update ES-DE itself, the update script will prompt you to re-download from es-de.org when a new version is detected.
-
----
-
-## Themes
-
-The following themes are available during setup:
-
-| Theme | Description |
-|---|---|
-| [Epic Noir Next](https://github.com/anthonycaccese/epic-noir-next-es-de) | Dark cinematic — great for night gaming |
-| [Carbon](https://github.com/lilbud/carbon-es-de) | Classic clean look (RetroPie heritage) |
-| [Iconic](https://github.com/Siddy212/iconic-es-de) | Modern with iconic game character artwork |
-| [Canvas](https://github.com/Siddy212/canvas-es-de) | Modern with easy wallpaper customization |
-| Slate | ES-DE's built-in default — no download needed |
-
-Additional themes can be installed anytime via ES-DE's built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader).
 
 ---
 
