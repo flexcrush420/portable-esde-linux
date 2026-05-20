@@ -4334,6 +4334,10 @@ $DRY_RUN && echo -e "${YELLOW}── TEST MODE — nothing will be copied, moved
 echo ""
 
 RETROBAT_PATHS=()
+# Source -> system-name override for "nested-single-system" sources where
+# games live in <source>/roms/<files> rather than at top level. Set at the
+# input-add prompt; consulted by enumerate_system_dirs.
+declare -A NESTED_SYSTEM_OF=()
 while true; do
     [[ ${#RETROBAT_PATHS[@]} -eq 0 ]] && PROMPT_LABEL="Path" || PROMPT_LABEL="Another path"
     INPUT=$(wt_input "Import Collection" \
@@ -4346,8 +4350,32 @@ Leave blank and press OK to finish adding paths and continue." \
     INPUT="${INPUT/#\~/$HOME}"
     INPUT="$(realpath -m "$INPUT")"
     if [[ -d "$INPUT/roms" ]]; then
-        RETROBAT_PATHS+=("$INPUT")
-        echo -e "   ${GREEN}✓${NC} Added (collection): $INPUT"
+        # Decide collection vs nested-single-system by what roms/ contains.
+        # - subdirectories: classic RetroBat layout, each roms/<system>/ is one system.
+        # - flat files only: source is itself a single-system folder whose games
+        #   happen to live in roms/ (e.g. /<root>/ps3/roms/*.psn). The PARENT
+        #   folder name (ps3) is the system; roms/ is the game container.
+        _has_subdirs=0; _has_files=0
+        for _e in "$INPUT/roms"/*; do
+            [[ -e "$_e" ]] || continue
+            if [[ -d "$_e" ]]; then _has_subdirs=1
+            elif [[ -f "$_e" ]]; then _has_files=1
+            fi
+        done
+        if (( _has_subdirs == 1 )); then
+            RETROBAT_PATHS+=("$INPUT")
+            echo -e "   ${GREEN}✓${NC} Added (collection): $INPUT"
+        elif (( _has_files == 1 )); then
+            # Nested-single-system: descend into roms/ but use INPUT's basename
+            # as the system. Push the roms/ path so enumerate_system_dirs sees
+            # files directly, and remember the system name in NESTED_SYSTEM_OF.
+            RETROBAT_PATHS+=("$INPUT/roms")
+            NESTED_SYSTEM_OF["$INPUT/roms"]="$(basename "$INPUT")"
+            echo -e "   ${GREEN}✓${NC} Added (single system '$(basename "$INPUT")', nested in roms/): $INPUT"
+        else
+            # roms/ exists but is empty
+            wt_msg "Path not valid" "The roms/ subfolder is empty:\n\n$INPUT\n\nSkipping this entry."
+        fi
     elif [[ -n "$(ls -A "$INPUT" 2>/dev/null)" ]]; then
         # No roms/ subfolder, but the folder has content — treat it as a
         # single-system folder where the folder name IS the system
@@ -4380,13 +4408,12 @@ declare -A MEDIA_MAP=(
     [screenshots]=screenshots                         [titlescreens]=titlescreens
     [videos]=videos
     # ── RetroBat media folder names ──
-    # NOTE: 'thumbnails' is intentionally NOT mapped here — see MEDIA_SKIP.
-    # In observed RetroBat packs the thumbnails/ folder holds an angled 3D
-    # box render that duplicates the flat 2D box in box2d/. Routing both to
-    # ES-DE 'covers' caused a cut-import collision (mv -n no-clobber dropped
-    # whichever copied second). box2d/ is the flat box themes expect for the
-    # cover slot, so thumbnails/ is explicitly skipped.
-    [box2d]=covers            [box3d]=3dboxes
+    # RetroBat splits box art across two folders by convention:
+    #   thumbnails/ — angled 3D box render (RetroBat's <boxart> / <thumbnail>)
+    #   box2d/      — flat 2D box (RetroBat's <extra1>)
+    # Confirmed across multiple RGS packs (PSX, PS3). ES-DE has matching
+    # separate slots, so each routes to its own destination — no collision.
+    [thumbnails]=3dboxes      [box2d]=covers            [box3d]=3dboxes
     [boxback]=backcovers    [fanarts]=fanart          [marquee]=marquees
     [images]=screenshots    [titles]=titlescreens     [cartridges]=physicalmedia
     # ── ES / Skraper / Batocera folder-name variants ──
@@ -4407,11 +4434,6 @@ declare -A MEDIA_MAP=(
 declare -A MEDIA_SKIP=(
     [bezel]=1 [bezels]=1 [decoration]=1 [decorations]=1 [overlay]=1
     [overlays]=1 [map]=1 [maps]=1 [extras]=1
-    # thumbnails/: RetroBat angled 3D box render — a duplicate of the flat
-    # 2D box in box2d/ (which populates ES-DE 'covers'). Skipped so it does
-    # not collide with box2d on the covers slot. Re-map it to 3dboxes if a
-    # future theme/pack actually needs the angled art.
-    [thumbnails]=1
 )
 
 # EmulationStation / Batocera-style suffix → ES-DE folder map
@@ -6216,6 +6238,13 @@ declare -A SUPPORT_SKIP=(
 # documented input shapes behave identically.
 enumerate_system_dirs() {
     local p="$1" d
+    # Nested-single-system case: $p is already <source>/roms with flat files
+    # inside. Emit $p itself (not its subdirectories) — the per-system loop
+    # will then derive the system name via NESTED_SYSTEM_OF below.
+    if [[ -n "${NESTED_SYSTEM_OF[$p]:-}" ]]; then
+        printf '%s\n' "$p"
+        return 0
+    fi
     if [[ -d "$p/roms" ]]; then
         for d in "$p/roms"/*/; do
             [[ -d "$d" ]] && printf '%s\n' "$d"
@@ -6317,7 +6346,14 @@ dry_run_report() {
     while IFS= read -r SYS_DIR; do
         [[ -d "$SYS_DIR" ]] || continue
         local RB_SYS ESDE_SYS
-        RB_SYS=$(basename "$SYS_DIR")
+        # Honor NESTED_SYSTEM_OF for nested-single-system sources
+        # (<source>/roms/<files>): the system name is the source's parent
+        # folder, not "roms".
+        if [[ -n "${NESTED_SYSTEM_OF[$SYS_DIR]:-}" ]]; then
+            RB_SYS="${NESTED_SYSTEM_OF[$SYS_DIR]}"
+        else
+            RB_SYS=$(basename "$SYS_DIR")
+        fi
         [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
         ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
         total_sys=$((total_sys + 1))
@@ -6455,7 +6491,12 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
 
     while IFS= read -r SYS_DIR; do
         [[ -d "$SYS_DIR" ]] || continue
-        RB_SYS=$(basename "$SYS_DIR")
+        # Same NESTED_SYSTEM_OF override as the dry-run loop above.
+        if [[ -n "${NESTED_SYSTEM_OF[$SYS_DIR]:-}" ]]; then
+            RB_SYS="${NESTED_SYSTEM_OF[$SYS_DIR]}"
+        else
+            RB_SYS=$(basename "$SYS_DIR")
+        fi
         [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
         # Resolve to a canonical ES-DE system. If the folder name is not a
         # known system or SYS_MAP alias, this pops a whiptail picker (skip /
@@ -6492,9 +6533,15 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         # drop the source system/ dir so the ROM-copy loop ignores it.
         if [[ "$ESDE_SYS" == "ps3" || "$ESDE_SYS" == "ps3psn" ]]; then
             RPCS3_SRC=""
+            # For nested-single-system sources where SYS_DIR is <source>/roms,
+            # the rpcs3 config tree lives one level up at <source>/system/...
+            _ps3_parent="$(dirname "$SYS_DIR")"
             for _p in "$SYS_DIR/system/configs/rpcs3/dev_hdd0" \
                       "$SYS_DIR/system/configs/rpcs3" \
-                      "$SYS_DIR/dev_hdd0"; do
+                      "$SYS_DIR/dev_hdd0" \
+                      "$_ps3_parent/system/configs/rpcs3/dev_hdd0" \
+                      "$_ps3_parent/system/configs/rpcs3" \
+                      "$_ps3_parent/dev_hdd0"; do
                 [[ -d "$_p" ]] && { RPCS3_SRC="$_p"; break; }
             done
             if [[ -n "$RPCS3_SRC" ]]; then
@@ -6514,9 +6561,14 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
                     cp -rn "$RPCS3_SRC/." "$RPCS3_DEST/" 2>/dev/null || true
                 fi
                 echo -e " ${GREEN}done${NC}"
-                # Drop the source system/ tree so the ROM-copy loop below
-                # does not also pull it into ROMs/ps3/.
-                [[ "$RETROBAT_MOVE" == "yes" ]] && rm -rf "$SYS_DIR/system" 2>/dev/null || true
+                # NOTE: we deliberately do NOT rm -rf the source system/
+                # tree on cut mode — that was a destructive footgun that
+                # could delete anything else the user happened to have
+                # under system/. The ROM-copy loop further down already
+                # skips a top-level subdir named 'system' (see the case
+                # statement around CONV_SKIP), so leaving the source
+                # system/ shell in place is safe. On cut mode the user
+                # may need to remove the now-empty system/ shell by hand.
             fi
         fi
         MEDIA_DIR="$SYS_DIR/media"
