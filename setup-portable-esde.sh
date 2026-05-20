@@ -1026,6 +1026,11 @@ emu('PCSX2', [fp('pcsx2*.AppImage'), fp('PCSX2*.AppImage'),
 emu('RPCS3', [fp('rpcs3*.AppImage'), fp('RPCS3*.AppImage'),
     '/var/lib/flatpak/exports/bin/net.rpcs3.RPCS3'], ['rpcs3']),
 '',
+# PS3LAUNCH: bundle wrapper that dispatches by extension (.psn/.m3u read
+# the payload + launch the resolved dev_hdd0 EBOOT.BIN; .squashfs mounts
+# via squashfuse then launches the inner EBOOT.BIN; .iso/.pkg pass through).
+emu('PS3LAUNCH', [fp('ps3-launch.sh')], []),
+'',
 emu('DUCKSTATION', [fp('DuckStation*.AppImage'), fp('duckstation*.AppImage'),
     '/var/lib/flatpak/exports/bin/org.duckstation.DuckStation'], ['duckstation-qt']),
 '',
@@ -1194,8 +1199,14 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <name>ps3</name>
     <fullname>Sony PlayStation 3</fullname>
     <path>%ROMPATH%/ps3</path>
-    <extension>.squashfs .SQUASHFS .psn .PSN .pkg .PKG .iso .ISO .zip .ZIP</extension>
-    <command label="RPCS3">%EMULATOR_RPCS3% %ROM%</command>
+    <extension>.squashfs .SQUASHFS .psn .PSN .m3u .M3U .pkg .PKG .iso .ISO .zip .ZIP</extension>
+    <!-- Default command uses the bundled ps3-launch.sh wrapper, which knows
+         how to handle the .psn/.m3u text-payload pointers, mount .squashfs
+         disc images via squashfuse, and pass .iso/.pkg straight through.
+         The raw RPCS3 command is kept as an alternative for sources where
+         the user wants the emulator to handle the file directly. -->
+    <command label="RPCS3 (auto)">%EMULATOR_PS3LAUNCH% %ROM%</command>
+    <command label="RPCS3 (raw)">%EMULATOR_RPCS3% %ROM%</command>
     <platform>ps3</platform>
     <theme>ps3</theme>
   </system>
@@ -1204,8 +1215,9 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <name>ps3psn</name>
     <fullname>PlayStation 3 (PSN / Digital)</fullname>
     <path>%ROMPATH%/ps3psn</path>
-    <extension>.lnk .LNK .pkg .PKG .psn .PSN .rap .RAP</extension>
-    <command label="RPCS3">%EMULATOR_RPCS3% %ROM%</command>
+    <extension>.lnk .LNK .pkg .PKG .psn .PSN .m3u .M3U .rap .RAP</extension>
+    <command label="RPCS3 (auto)">%EMULATOR_PS3LAUNCH% %ROM%</command>
+    <command label="RPCS3 (raw)">%EMULATOR_RPCS3% %ROM%</command>
     <platform>ps3</platform>
     <theme>ps3</theme>
   </system>
@@ -2677,6 +2689,92 @@ BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'rpcs3*.AppImage' -o -name 'RPCS3*.Ap
 exec "$BIN" "$@"
 RPCS3WRAP
 chmod +x "$EMUS/rpcs3-portable.sh"
+
+# PS3 launcher — dispatches by ROM file extension because PS3 collections
+# ship games in several formats that RPCS3 cannot run with a plain
+# 'rpcs3 <file>' command:
+#   .psn / .m3u — tiny text files containing a Windows-style path to an
+#                 installed PSN game's EBOOT.BIN under dev_hdd0/. We read
+#                 the path, normalise the slashes, prefix with the bundle's
+#                 .config/rpcs3/, and pass the resolved EBOOT.BIN to RPCS3.
+#   .squashfs   — compressed PS3 disc image. Mounted via squashfuse (system
+#                 package — apt install squashfuse) to a temp dir, then the
+#                 inner PS3_GAME/USRDIR/EBOOT.BIN is passed to RPCS3.
+#                 Unmounted on RPCS3 exit.
+#   .iso / .pkg — passed straight to RPCS3 (which handles them natively).
+cat > "$EMUS/ps3-launch.sh" << 'PS3LAUNCH'
+#!/usr/bin/env bash
+set -u
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+ROM="${1:-}"
+if [[ -z "$ROM" || ! -e "$ROM" ]]; then
+    echo "ps3-launch.sh: no ROM passed (or path does not exist): $ROM" >&2
+    exit 1
+fi
+RPCS3="$SCRIPT_DIR/rpcs3-portable.sh"
+[[ -x "$RPCS3" ]] || { echo "ps3-launch.sh: rpcs3-portable.sh missing or not executable" >&2; exit 1; }
+RPCS3_HOME="$BASE_DIR/.config/rpcs3"
+
+ext="${ROM##*.}"; ext="${ext,,}"
+case "$ext" in
+    psn|m3u)
+        # Read the single-line backslash path inside; convert to a real path
+        # under the bundle's dev_hdd0. Strip CR (Windows line endings) and
+        # any leading slash/backslash.
+        raw="$(tr -d '\r\n' < "$ROM")"
+        raw="${raw//\\//}"           # backslashes -> forward
+        raw="${raw#/}"               # drop leading slash
+        # Two payload shapes seen in the wild:
+        #   ".psn": "NPUB30024/dev_hdd0/game/NPUB30024/USRDIR/EBOOT.BIN"
+        #          (TITLE_ID prefix, then dev_hdd0 path)
+        #   ".m3u": "dev_hdd0/game/NPUB30024/USRDIR/EBOOT.BIN"
+        #          (starts at dev_hdd0)
+        # Either way, slice from "dev_hdd0/" onward and prefix with the
+        # bundle's RPCS3 home.
+        rel="${raw#*dev_hdd0/}"
+        target="$RPCS3_HOME/dev_hdd0/$rel"
+        if [[ ! -f "$target" ]]; then
+            echo "ps3-launch.sh: EBOOT not found at $target" >&2
+            echo "  payload from $ROM:" >&2
+            echo "  $raw" >&2
+            exit 1
+        fi
+        exec "$RPCS3" "$target"
+        ;;
+    squashfs)
+        command -v squashfuse >/dev/null 2>&1 || {
+            echo "ps3-launch.sh: squashfuse is not installed." >&2
+            echo "  Install it with: sudo apt install squashfuse" >&2
+            echo "  (or your distro's equivalent)" >&2
+            exit 1
+        }
+        MOUNT="$(mktemp -d --tmpdir=/tmp ps3-squashfs.XXXXXX)" || exit 1
+        # Best-effort cleanup; if the user kills RPCS3 we still try to unmount.
+        trap 'fusermount -u "$MOUNT" 2>/dev/null || umount "$MOUNT" 2>/dev/null; rmdir "$MOUNT" 2>/dev/null' EXIT INT TERM
+        if ! squashfuse "$ROM" "$MOUNT" 2>/dev/null; then
+            echo "ps3-launch.sh: squashfuse failed to mount $ROM" >&2
+            exit 1
+        fi
+        # Find the inner EBOOT.BIN — usually PS3_GAME/USRDIR/EBOOT.BIN at top
+        EBOOT=$(find "$MOUNT" -maxdepth 4 -type f -iname EBOOT.BIN -path '*USRDIR*' | head -1)
+        if [[ -z "$EBOOT" ]]; then
+            echo "ps3-launch.sh: no EBOOT.BIN found inside $ROM" >&2
+            exit 1
+        fi
+        "$RPCS3" "$EBOOT"
+        # trap will unmount + clean up MOUNT on exit
+        ;;
+    iso|pkg)
+        exec "$RPCS3" "$ROM"
+        ;;
+    *)
+        # Unknown extension — let RPCS3 try anyway, in case it handles it.
+        exec "$RPCS3" "$ROM"
+        ;;
+esac
+PS3LAUNCH
+chmod +x "$EMUS/ps3-launch.sh"
 
 # PPSSPP — memstick flag, pointing to $BASE/.config/ppsspp/
 # (PSP saves imported here, emulator reads from here)
