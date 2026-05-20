@@ -552,7 +552,13 @@ core_selected() { [[ "${SELECTED_CORES[$1]:-1}" == "1" ]]; }
 
 tui_select_components
 
-# ── Theme selection (ask upfront so user can walk away during downloads) ──
+# ── Theme: Art Book Next (auto-installed, no prompt) ─────────────────────
+# Earlier builds prompted the user to pick one of six themes. The bundle is
+# tuned for Art Book Next specifically (the <theme> values in every custom
+# es_systems entry are chosen against its logo set), so picking anything
+# else just produced a worse-looking carousel. Now Art Book Next is
+# installed automatically. Users who want a different theme can switch via
+# ES-DE's built-in Theme Downloader (in-app) after setup.
 EXISTING_THEMES=0
 if [[ -d "$ESDE_DATA/themes" ]]; then
     EXISTING_THEMES=$(find "$ESDE_DATA/themes" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l)
@@ -561,57 +567,10 @@ if ((EXISTING_THEMES > 0)); then
     THEME_NAME=""
     THEME_SKIP_REASON="already installed"
 else
-    THEME_CHOICE=$(wt_menu "Default Theme" \
-"Choose a default theme.
-
-You can always change or add more later via ES-DE's built-in Theme Downloader." \
-        "1" "Art Book Next     — Coffee-table-book style, polished" \
-        "2" "Carbon            — Classic clean look (RetroPie heritage)" \
-        "3" "IISU Interpreted  — Clean port of the upcoming iiSU UI" \
-        "4" "Linear            — ES-DE built-in, no download" \
-        "5" "Meringue          — Soft, light pastel theme" \
-        "6" "Slick Remixed     — Refined Slick remake (Weestuarty)") || THEME_CHOICE="1"
-    THEME_CHOICE="${THEME_CHOICE:-1}"
-
-    case "$THEME_CHOICE" in
-        1|*)
-            THEME_NAME="art-book-next-es-de"
-            THEME_REPO="https://github.com/anthonycaccese/art-book-next-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Art Book Next"
-            THEME_ZIPDIR="art-book-next-es-de-main"
-            ;;
-        2)
-            THEME_NAME="carbon-es-de"
-            THEME_REPO="https://github.com/lilbud/carbon-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Carbon"
-            THEME_ZIPDIR="carbon-es-de-main"
-            ;;
-        3)
-            THEME_NAME="iisu-interpreted-es-de"
-            THEME_REPO="https://github.com/VictorUnlocked/iisu-interpreted-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="IISU Interpreted"
-            THEME_ZIPDIR="iisu-interpreted-es-de-main"
-            ;;
-        4)
-            # Linear is ES-DE's built-in default theme — no download needed
-            THEME_NAME=""
-            THEME_LABEL="Linear (ES-DE default, built-in)"
-            ;;
-        5)
-            THEME_NAME="meringue-es-de"
-            THEME_REPO="https://github.com/kthod861/meringue-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Meringue"
-            THEME_ZIPDIR="meringue-es-de-main"
-            ;;
-        6)
-            # Weestuarty's slick-es-de is the maintained "Slick Remixed" port
-            THEME_NAME="slick-es-de"
-            THEME_REPO="https://github.com/Weestuarty/slick-es-de/archive/refs/heads/main.zip"
-            THEME_LABEL="Slick Remixed"
-            THEME_ZIPDIR="slick-es-de-main"
-            ;;
-    esac
-    echo ""
+    THEME_NAME="art-book-next-es-de"
+    THEME_REPO="https://github.com/anthonycaccese/art-book-next-es-de/archive/refs/heads/main.zip"
+    THEME_LABEL="Art Book Next"
+    THEME_ZIPDIR="art-book-next-es-de-main"
 fi
 
 # ── RetroBat / ROM-collection import ──
@@ -913,6 +872,8 @@ download_cores() {
         [prboom]="PrBoom (DOOM engine)"
         [tyrquake]="Quake (TyrQuake engine)"
         [theodore]="Thomson MO/TO"
+        [bennugd]="BennuGD game engine"
+        [ecwolf]="ECWolf (Wolfenstein 3D engine)"
     )
 
     local total=${#CORES[@]}
@@ -989,6 +950,7 @@ ROM_DIRS=(
     aquarius atom coco electron gp32 pegasus socrates tutor vis
     bk c128 cannonball cassettevision cavestory dice dinothawr enterprise
     openlara p2000t pet prboom quake thomson
+    fmtowns bennugd ecwolf
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -2432,6 +2394,44 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <theme>moto</theme>
   </system>
 
+
+  <!-- ── IN PROGRESS batch: fmtowns (MAME fmtownsux driver),
+       bennugd + ecwolf (single libretro cores). ── -->
+
+  <system>
+    <name>fmtowns</name>
+    <fullname>FM Towns</fullname>
+    <path>%ROMPATH%/fmtowns</path>
+    <extension>.m3u .M3U .d88 .D88 .d77 .D77 .xdf .XDF .cue .CUE .iso .ISO .chd .CHD .zip .ZIP .7z .7Z</extension>
+    <command label="MAME [CD-ROM]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fmtownsux -rompath \"%GAMEDIRRAW%;%ROMPATH%/fmtowns;%ROMPATH%/bios\" -cdrom \"%ROMRAW%\""</command>
+    <command label="MAME [CD-ROM] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fmtownsux -rompath \"%GAMEDIRRAW%;%ROMPATH%/fmtowns;%ROMPATH%/bios\" -cdrom \"%ROMRAW%\""</command>
+    <command label="MAME [CD-ROM] (Standalone)">%EMULATOR_MAME% fmtownsux -rompath "%GAMEDIRRAW%;%ROMPATH%/fmtowns;%ROMPATH%/bios" -cdrom "%ROMRAW%"</command>
+    <command label="MAME [Floppy]">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame_libretro.so "fmtownsux -rompath \"%GAMEDIRRAW%;%ROMPATH%/fmtowns;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Floppy] (MAME 2010)">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mame2010_libretro.so "fmtownsux -rompath \"%GAMEDIRRAW%;%ROMPATH%/fmtowns;%ROMPATH%/bios\" -flop1 \"%ROMRAW%\""</command>
+    <command label="MAME [Floppy] (Standalone)">%EMULATOR_MAME% fmtownsux -rompath "%GAMEDIRRAW%;%ROMPATH%/fmtowns;%ROMPATH%/bios" -flop1 "%ROMRAW%"</command>
+    <platform>fmtowns</platform>
+    <theme>fmtowns</theme>
+  </system>
+
+  <system>
+    <name>bennugd</name>
+    <fullname>BennuGD</fullname>
+    <path>%ROMPATH%/bennugd</path>
+    <extension>.dcb .DCB .dat .DAT .exe .EXE .zip .ZIP .7z .7Z</extension>
+    <command label="BennuGD">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bennugd_libretro.so %ROM%</command>
+    <platform>bennugd</platform>
+    <theme>ports</theme>
+  </system>
+
+  <system>
+    <name>ecwolf</name>
+    <fullname>ECWolf (Wolfenstein 3D)</fullname>
+    <path>%ROMPATH%/ecwolf</path>
+    <extension>.wl6 .WL6 .wl1 .WL1 .sod .SOD .sdm .SDM .n3d .N3D .pk3 .PK3 .exe .EXE .zip .ZIP .7z .7Z</extension>
+    <command label="ECWolf">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/ecwolf_libretro.so %ROM%</command>
+    <platform>ecwolf</platform>
+    <theme>ports</theme>
+  </system>
 </systemList>
 CUSTOMSYSTEMS
 ok "custom es_systems.xml written (hack systems + ps3psn + xbla)"
@@ -3190,7 +3190,7 @@ chmod +x setup-portable-esde.sh
 
 The script will ask you:
 - **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
-- **Which theme** to use (Epic Noir Next, Carbon, Iconic, Canvas, or ES-DE default)
+- **Which theme** to use is no longer prompted — Art Book Next is installed automatically
 - **Internal resolution** (Native / 1080p / 1440p / 4K)
 - **Whether to import a RetroBat collection** (optional)
 - **Whether to create a desktop shortcut**
@@ -3318,17 +3318,9 @@ To update ES-DE itself, the update script will prompt you to re-download from es
 
 ## Themes
 
-The following themes are available during setup:
+The bundle installs [**Art Book Next**](https://github.com/anthonycaccese/art-book-next-es-de) automatically — a polished coffee-table-book style theme. Every custom system definition in this bundle uses logo names from Art Book Next, so its carousel will look correct out of the box.
 
-| Theme | Description |
-|---|---|
-| [Epic Noir Next](https://github.com/anthonycaccese/epic-noir-next-es-de) | Dark cinematic — great for night gaming |
-| [Carbon](https://github.com/lilbud/carbon-es-de) | Classic clean look (RetroPie heritage) |
-| [Iconic](https://github.com/Siddy212/iconic-es-de) | Modern with iconic game character artwork |
-| [Canvas](https://github.com/Siddy212/canvas-es-de) | Modern with easy wallpaper customization |
-| Slate | ES-DE's built-in default — no download needed |
-
-Additional themes can be installed anytime via ES-DE's built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader).
+If you prefer a different theme, ES-DE has a built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader) that lets you browse and install dozens more, including ES-DE's built-in Linear theme.
 
 ---
 
@@ -4638,6 +4630,9 @@ declare -A SYS_TO_CORE=(
     [openlara]=openlara               [p2000t]=m2000
     [pet]=vice_xpet                   [prboom]=prboom
     [quake]=tyrquake                  [thomson]=theodore
+    # IN PROGRESS batch
+    [fmtowns]=mame                    # FM Towns — MAME fmtownsux driver
+    [bennugd]=bennugd                 [ecwolf]=ecwolf
     # apple2 launches via the mame libretro core (apple2e driver) per its
     # es_systems.xml entry — route it so the importer installs that core.
     [apple2]=mame
