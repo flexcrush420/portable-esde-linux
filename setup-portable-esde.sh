@@ -668,17 +668,72 @@ download_rpcs3() {
     local outdir="$1"
     if compgen -G "$outdir/rpcs3*.AppImage" > /dev/null 2>&1; then
         ok "RPCS3 already exists, skipping"
+    else
+        info "Downloading RPCS3 (latest nightly) ..."
+        if (cd "$outdir" && curl -#fJLO "https://rpcs3.net/latest-linux-x64"); then
+            chmod +x "$outdir"/rpcs3*.AppImage 2>/dev/null || true
+            ok "RPCS3 downloaded"
+        else
+            fail "RPCS3 download failed"
+            return 1
+        fi
+    fi
+    # squashfuse: needed by ps3-launch.sh to mount .squashfs disc images.
+    # It is a system package — call the helper only if it exists in this
+    # context (setup defines it; the importer's folded copy of this function
+    # does not, hence the existence check).
+    declare -F ensure_squashfuse_for_ps3 >/dev/null && ensure_squashfuse_for_ps3 || true
+}
+
+# Check for squashfuse; if missing, offer to install via the detected
+# package manager. Never fails setup — at worst prints a notice telling the
+# user how to install it themselves later. Distro-aware: apt/dnf/pacman/
+# zypper/apk all covered.
+ensure_squashfuse_for_ps3() {
+    if command -v squashfuse >/dev/null 2>&1; then
+        ok "squashfuse already installed (PS3 .squashfs games will mount)"
         return 0
     fi
-    info "Downloading RPCS3 (latest nightly) ..."
-    if (cd "$outdir" && curl -#fJLO "https://rpcs3.net/latest-linux-x64"); then
-        chmod +x "$outdir"/rpcs3*.AppImage 2>/dev/null || true
-        ok "RPCS3 downloaded"
+    local pm="" cmd=""
+    if   command -v apt-get >/dev/null 2>&1; then pm="apt";    cmd="sudo apt-get install -y squashfuse"
+    elif command -v dnf     >/dev/null 2>&1; then pm="dnf";    cmd="sudo dnf install -y squashfuse"
+    elif command -v pacman  >/dev/null 2>&1; then pm="pacman"; cmd="sudo pacman -S --noconfirm squashfuse"
+    elif command -v zypper  >/dev/null 2>&1; then pm="zypper"; cmd="sudo zypper install -y squashfuse"
+    elif command -v apk     >/dev/null 2>&1; then pm="apk";    cmd="sudo apk add squashfuse"
+    fi
+    if [[ -z "$pm" ]]; then
+        warn "squashfuse not installed; could not detect your package manager."
+        warn "Install it manually for PS3 .squashfs support."
+        return 0
+    fi
+    echo ""
+    info "PS3 collections often ship games as compressed .squashfs disc images."
+    info "Mounting them requires the 'squashfuse' system package."
+    if wt_yesno "Install squashfuse?" \
+"PS3 .squashfs games need 'squashfuse' to mount. It is a system package (not bundled).
+
+Detected package manager: $pm
+Install command:
+    $cmd
+
+Install it now? (sudo password may be required.)
+
+Choose No if you do not have sudo, prefer to install system packages yourself, or will only play PSN (.psn) games — those work without squashfuse."; then
+        if eval "$cmd"; then
+            ok "squashfuse installed"
+        else
+            warn "squashfuse install command failed."
+            warn "PS3 .squashfs games will not launch until you run manually:"
+            warn "    $cmd"
+        fi
     else
-        fail "RPCS3 download failed"
-        return 1
+        warn "Skipped squashfuse install."
+        warn "PS3 .squashfs games will NOT launch until you install it:"
+        warn "    $cmd"
+        warn "(PSN .psn games will still work — they do not need squashfuse.)"
     fi
 }
+
 
 download_esde() {
     local outdir="$1"
@@ -1199,7 +1254,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <name>ps3</name>
     <fullname>Sony PlayStation 3</fullname>
     <path>%ROMPATH%/ps3</path>
-    <extension>.squashfs .SQUASHFS .psn .PSN .m3u .M3U .pkg .PKG .iso .ISO .zip .ZIP</extension>
+    <extension>.squashfs .SQUASHFS .m3u .M3U .pkg .PKG .iso .ISO .zip .ZIP</extension>
     <!-- Default command uses the bundled ps3-launch.sh wrapper, which knows
          how to handle the .psn/.m3u text-payload pointers, mount .squashfs
          disc images via squashfuse, and pass .iso/.pkg straight through.
@@ -1215,7 +1270,7 @@ cat > "$ESDE_DATA/custom_systems/es_systems.xml" << 'CUSTOMSYSTEMS'
     <name>ps3psn</name>
     <fullname>PlayStation 3 (PSN / Digital)</fullname>
     <path>%ROMPATH%/ps3psn</path>
-    <extension>.lnk .LNK .pkg .PKG .psn .PSN .m3u .M3U .rap .RAP</extension>
+    <extension>.lnk .LNK .pkg .PKG .m3u .M3U .rap .RAP</extension>
     <command label="RPCS3 (auto)">%EMULATOR_PS3LAUNCH% %ROM%</command>
     <command label="RPCS3 (raw)">%EMULATOR_RPCS3% %ROM%</command>
     <platform>ps3</platform>
@@ -2707,6 +2762,17 @@ cat > "$EMUS/ps3-launch.sh" << 'PS3LAUNCH'
 set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Mirror everything we print on stderr to a log file so an ES-DE-launched
+# silent failure can still be diagnosed afterwards. ES-DE does not surface
+# emulator stderr in its UI; without this, every non-zero exit looks
+# identical (the game window simply doesn't open).
+LOG="$BASE_DIR/.config/rpcs3/ps3-launch.log"
+mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
+exec 2> >(tee -a "$LOG" >&2)
+echo "─── $(date '+%Y-%m-%d %H:%M:%S') ──────────────────────────────────────" >&2
+echo "ps3-launch.sh invoked: $*" >&2
+
 ROM="${1:-}"
 if [[ -z "$ROM" || ! -e "$ROM" ]]; then
     echo "ps3-launch.sh: no ROM passed (or path does not exist): $ROM" >&2
@@ -4907,16 +4973,21 @@ download_rpcs3() {
     local outdir="$1"
     if compgen -G "$outdir/rpcs3*.AppImage" > /dev/null 2>&1; then
         ok "RPCS3 already exists, skipping"
-        return 0
-    fi
-    info "Downloading RPCS3 (latest nightly) ..."
-    if (cd "$outdir" && curl -#fJLO "https://rpcs3.net/latest-linux-x64"); then
-        chmod +x "$outdir"/rpcs3*.AppImage 2>/dev/null || true
-        ok "RPCS3 downloaded"
     else
-        fail "RPCS3 download failed"
-        return 1
+        info "Downloading RPCS3 (latest nightly) ..."
+        if (cd "$outdir" && curl -#fJLO "https://rpcs3.net/latest-linux-x64"); then
+            chmod +x "$outdir"/rpcs3*.AppImage 2>/dev/null || true
+            ok "RPCS3 downloaded"
+        else
+            fail "RPCS3 download failed"
+            return 1
+        fi
     fi
+    # squashfuse: needed by ps3-launch.sh to mount .squashfs disc images.
+    # It is a system package — call the helper only if it exists in this
+    # context (setup defines it; the importer's folded copy of this function
+    # does not, hence the existence check).
+    declare -F ensure_squashfuse_for_ps3 >/dev/null && ensure_squashfuse_for_ps3 || true
 }
 
 #=============================================================================
