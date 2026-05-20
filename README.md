@@ -184,7 +184,7 @@ To update ES-DE itself, the update script will prompt you to re-download from es
 
 ## Themes
 
-The bundle installs [**Art Book Next**](https://github.com/anthonycaccese/art-book-next-es-de) automatically — a polished coffee-table-book style theme. Every custom system definition in this bundle uses logo names from Art Book Next, so its carousel will look correct out of the box.
+The bundle installs [**Art Book Next**](https://github.com/anthonycaccese/art-book-next-es-de) automatically — a polished coffee-table-book style theme.
 
 If you prefer a different theme, ES-DE has a built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader) that lets you browse and install dozens more, including ES-DE's built-in Linear theme.
 
