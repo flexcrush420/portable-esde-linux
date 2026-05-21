@@ -4,7 +4,7 @@ A fully self-contained retro gaming bundle. Unzip and run — no installation ne
 
 ## What is this?
 
-**RetroBat** on Windows gives you a portable, plug-and-play retro gaming setup in a single folder. Nothing like it existed for Linux — until now.
+**RetroBat** on Windows gives you a portable, plug-and-play retro gaming setup in a single folder. Miss it?  So do I. But check this out:
 
 `setup-portable-esde.sh` is a single script that builds a complete portable [ES-DE](https://es-de.org/) retro gaming bundle on any Linux machine. Fully portable: works on any machine, survives OS reinstallations, and runs from any external drive.
 
@@ -52,13 +52,13 @@ chmod +x setup-portable-esde.sh
 
 The script will ask you:
 - **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
-- **What to install** (defaults of Full Install or Custom)
+- **Which theme** to use is no longer prompted — Art Book Next is installed automatically
 - **Whether to import a RetroBat collection** (optional)
 - **Whether to create a desktop shortcut**
 
 Then it downloads everything, configures it all, and you're done. Add your ROMs to `ROMs/<system>/`, add BIOS files to `ROMs/bios/`, and launch with `./launch.sh`.
 
-
+> **First-launch tip:** open each standalone emulator (Dolphin, DuckStation, PCSX2, RPCS3, Cemu, etc.) once from ES-DE and set your video preferences in its settings menu — internal resolution, fullscreen mode, vsync. The bundle preserves those settings on every setup re-run, so it's a one-time step per emulator.
 
 ---
 
@@ -196,7 +196,6 @@ Some emulators require one-time setup that can't be scripted due to legal/firmwa
 - **xemu** — requires an Xbox HDD image and MCPX/BIOS files configured on first launch
 - **86Box** — requires a Windows installation ISO and ROM set to create virtual machines
 - **Azahar / Ryubing / Eden** — require Switch firmware and `prod.keys` / `title.keys` dumped from your own hardware
-- **3dSen** — commercial application, purchase on [Steam](https://store.steampowered.com/app/1147940/3dSen/) or [itch.io](https://geod.itch.io/3dsen)
 
 ---
 
