@@ -942,23 +942,44 @@ download_cores() {
     # claimed core exists -> setup tries download -> silent [fail] line in
     # the log -> user wonders why a system does not work." This surfaces
     # the missing core upfront with a clear name.
-    info "Checking buildbot for $total cores ..."
-    local unreachable=()
+    # Build list of cores to actually probe — skip ones we already have on
+    # disk (a re-run typically caches almost everything, dropping the probe
+    # from 60-80 URLs to a handful). Progress is printed per-URL so the user
+    # can see it isn't frozen on slow networks.
+    local -a probe_list=()
     for core_name in "${!CORES[@]}"; do
         core_selected "$core_name" || continue
-        local url="$CORE_BASE_URL/${core_name}_libretro.so.zip"
-        local code
-        code=$(curl -sIL -o /dev/null -w "%{http_code}" --max-time 8 "$url" 2>/dev/null || echo "000")
-        if [[ "$code" != "200" ]]; then
-            unreachable+=("$core_name ($code)")
-        fi
+        [[ -f "$core_dir/${core_name}_libretro.so" ]] && continue
+        probe_list+=("$core_name")
     done
-    if (( ${#unreachable[@]} > 0 )); then
-        warn "${#unreachable[@]} core(s) not currently available on the buildbot:"
-        for u in "${unreachable[@]}"; do warn "    $u"; done
-        warn "These will be skipped. The matching system entries will still appear"
-        warn "in ES-DE but launching their ROMs will fail until the core is built."
-        echo ""
+
+    local to_probe=${#probe_list[@]}
+    if (( to_probe == 0 )); then
+        info "All $total selected cores already cached — skipping buildbot check"
+    else
+        info "Checking buildbot for $to_probe new core(s) (of $total selected)..."
+        local unreachable=()
+        local i=0
+        for core_name in "${probe_list[@]}"; do
+            i=$((i+1))
+            printf "   [%d/%d] %-30s" "$i" "$to_probe" "$core_name"
+            local url="$CORE_BASE_URL/${core_name}_libretro.so.zip"
+            local code
+            code=$(curl -sI -o /dev/null -w "%{http_code}" --max-time 8 "$url" 2>/dev/null || echo "000")
+            if [[ "$code" == "200" ]]; then
+                printf " %b\n" "${GREEN}ok${NC}"
+            else
+                printf " %b\n" "${RED}$code${NC}"
+                unreachable+=("$core_name ($code)")
+            fi
+        done
+        if (( ${#unreachable[@]} > 0 )); then
+            warn "${#unreachable[@]} core(s) not currently available on the buildbot:"
+            for u in "${unreachable[@]}"; do warn "    $u"; done
+            warn "These will be skipped. The matching system entries will still appear"
+            warn "in ES-DE but launching their ROMs will fail until the core is built."
+            echo ""
+        fi
     fi
 
     info "Downloading $total RetroArch cores from buildbot.libretro.com ..."
@@ -5607,11 +5628,28 @@ declare -a BIOS_TABLE=(
     "psx|scph101.bin|REQ_ANY:region|HIGH|6e3735ff4c7dc899ee98981385f6f3d0|PSone BIOS USA v4.4 (SCPH-101)"
 
     # ── Sony PlayStation 2 (ps2) — PCSX2 ──
-    "ps2|ps2-0230a-20080220.bin|REQ_ANY:region|MED|9b0fcab1ee9e74c20efde6aebd96e80b|PS2 BIOS USA v2.30"
-    "ps2|ps2-0220a-20060905.bin|REQ_ANY:region|MED|9c0d3dcdde9b1e4ac3f08fa1f3a36f0e|PS2 BIOS USA v2.20"
-    "ps2|ps2-0190a-20030822.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA v1.90 (filename only)"
-    "ps2|SCPH-70012_BIOS_V12_USA_200.BIN|REQ_ANY:region|LOW|-|PS2 BIOS slim USA"
-    "ps2|SCPH-77001_BIOS_V14_USA_220.BIN|REQ_ANY:region|LOW|-|PS2 BIOS slim USA (alt)"
+    # ── Sony PlayStation 2 (ps2) — PCSX2 ──
+    # PCSX2 doesn't enforce filename — it scans bios/ and picks anything that
+    # looks like a PS2 BIOS by content. So users end up with all sorts of
+    # names. The entries below cover the common per-region SCPH-NNNNN naming
+    # (lowercase or mixed case, per PCSX2 wiki / Batocera / RetroBat) plus
+    # the descriptor-prefixed Redump-style names. Any ONE of these satisfies
+    # the region group — REQ_ANY:region. Hashes from RetroBat/Batocera wikis.
+    "ps2|scph10000.bin|REQ_ANY:region|LOW|-|PS2 BIOS Japan v1.00 (SCPH-10000, fat)"
+    "ps2|SCPH30004R.bin|REQ_ANY:region|HIGH|28922c703cc7d2cf856f177f2985b3a9|PS2 BIOS Europe (SCPH-30004R, fat)"
+    "ps2|scph30004r.bin|REQ_ANY:region|HIGH|28922c703cc7d2cf856f177f2985b3a9|PS2 BIOS Europe (SCPH-30004R, fat) — lowercase"
+    "ps2|scph39001.bin|REQ_ANY:region|HIGH|d5ce2c7d119f563ce04bc04dbc3a323e|PS2 BIOS USA v1.60 (SCPH-39001, fat)"
+    "ps2|scph50001.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA v1.90 (SCPH-50001, fat)"
+    "ps2|scph70004.bin|REQ_ANY:region|LOW|-|PS2 BIOS Europe (SCPH-70004, slim)"
+    "ps2|scph70012.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA (SCPH-70012, slim)"
+    "ps2|scph77001.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA (SCPH-77001, slim)"
+    "ps2|scph90001.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA (SCPH-90001, slim)"
+    # Descriptor-prefixed Redump-style names (less common in the wild)
+    "ps2|ps2-0230a-20080220.bin|REQ_ANY:region|MED|9b0fcab1ee9e74c20efde6aebd96e80b|PS2 BIOS USA v2.30 (Redump style)"
+    "ps2|ps2-0220a-20060905.bin|REQ_ANY:region|MED|9c0d3dcdde9b1e4ac3f08fa1f3a36f0e|PS2 BIOS USA v2.20 (Redump style)"
+    "ps2|ps2-0190a-20030822.bin|REQ_ANY:region|LOW|-|PS2 BIOS USA v1.90 (Redump style)"
+    "ps2|SCPH-70012_BIOS_V12_USA_200.BIN|REQ_ANY:region|LOW|-|PS2 BIOS slim USA (Redump style)"
+    "ps2|SCPH-77001_BIOS_V14_USA_220.BIN|REQ_ANY:region|LOW|-|PS2 BIOS slim USA alt (Redump style)"
 
     # ── Sega Saturn (saturn, saturnjp) — Beetle Saturn ──
     "saturn|sega_101.bin|REQ_ANY:region|HIGH|85ec9ca47d8f6807718151cbcca8b964|Saturn BIOS NTSC-J"
@@ -5621,10 +5659,10 @@ declare -a BIOS_TABLE=(
 
     # ── Sega CD / Mega-CD (segacd, megacd) — Genesis Plus GX / Picodrive ──
     "segacd|bios_CD_J.bin|REQ_ANY:region|HIGH|278a9397d192149e84e820ac621a8edd|Sega CD BIOS Japan"
-    "segacd|bios_CD_U.bin|REQ_ANY:region|HIGH|2efd74e3232ff260e371b99f84024f7f|Sega CD BIOS USA"
+    "segacd|bios_CD_U.bin|REQ_ANY:region|HIGH|854b9150240a198070150e4566ae1290,2efd74e3232ff260e371b99f84024f7f|Sega CD BIOS USA (model 2 or 1.10 Rev B)"
     "segacd|bios_CD_E.bin|REQ_ANY:region|HIGH|e66fa1dc5820d254611fdcdba0662372|Mega-CD BIOS Europe"
     "megacd|bios_CD_J.bin|REQ_ANY:region|HIGH|278a9397d192149e84e820ac621a8edd|Mega-CD BIOS Japan"
-    "megacd|bios_CD_U.bin|REQ_ANY:region|HIGH|2efd74e3232ff260e371b99f84024f7f|Sega CD BIOS USA"
+    "megacd|bios_CD_U.bin|REQ_ANY:region|HIGH|854b9150240a198070150e4566ae1290,2efd74e3232ff260e371b99f84024f7f|Sega CD BIOS USA (model 2 or 1.10 Rev B)"
     "megacd|bios_CD_E.bin|REQ_ANY:region|HIGH|e66fa1dc5820d254611fdcdba0662372|Mega-CD BIOS Europe"
 
     # ── Sega 32X (sega32x) ──
