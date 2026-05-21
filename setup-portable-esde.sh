@@ -6891,7 +6891,7 @@ import sys, re, os
 src, dst, system = sys.argv[1], sys.argv[2], sys.argv[3]
 FLAT_SYSTEMS = set(os.environ.get('FLAT_LIST', '').split())  # single source: bash FLAT_ROM_SYSTEMS
 flatten = system in FLAT_SYSTEMS
-tags = ['image','thumbnail','marquee','video','fanart','boxart','titleshot','cartridge','mix','wheel','sortname','genreid','arcadesystemname','hash','crc32','md5','region','languages']
+tags = ['image','thumbnail','marquee','video','fanart','boxart','titleshot','cartridge','mix','wheel','screenshot','boxback','rotation','sortname','genreid','arcadesystemname','hash','crc32','md5','region','languages']
 tag_re = re.compile(r'\s*<(?:' + '|'.join(tags) + r')>[^<]*</(?:' + '|'.join(tags) + r')>')
 path_re = re.compile(r'(<path>\./)[^/]+/(.+</path>)')
 existing_paths = set()
@@ -7690,29 +7690,67 @@ box_rule '╚' '╝'
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Optional ROM collection import"
 echo ""
-if [[ -x "$BASE/import-collection.sh" ]]; then
-    if wt_yesno "Import ROM collections?" \
-"Setup is complete.
+
+# Defensive wrapper: this is the last step, so any earlier non-zero
+# return (caught by set -e) would silently skip the import offer.
+# Disable set -e for this block; re-enable before the exec handoff.
+set +e
+
+IMPORTER="$BASE/import-collection.sh"
+if [[ ! -e "$IMPORTER" ]]; then
+    warn "import-collection.sh missing — STEP 15 may have failed; check setup output above"
+elif [[ ! -x "$IMPORTER" ]]; then
+    info "import-collection.sh present but not executable — chmod +x"
+    chmod +x "$IMPORTER" 2>/dev/null || true
+fi
+
+if [[ -x "$IMPORTER" ]]; then
+    PROMPT_TEXT="Setup is complete.
 
 Would you like to import ROM collections now?
 
 This will run the bundle's importer (import-collection.sh), which can
 import a full RetroBat install, a ROM-pack collection, or a single-system
-folder — with a -test preview mode and per-system launch reporting.
+folder, with a -test preview mode and per-system launch reporting.
 
 You can also run it anytime later with:
     ./import-collection.sh        (import)
-    ./import-collection.sh -test  (preview only)"; then
+    ./import-collection.sh -test  (preview only)"
+
+    DO_IMPORT=""
+    # Try whiptail first; fall back to a plain read prompt if whiptail
+    # is missing, no TTY, or it errors out (any of which silently
+    # killed this prompt in the past).
+    if command -v whiptail >/dev/null 2>&1 && [[ -t 0 ]]; then
+        if whiptail --title "Import ROM collections?" --yesno "$PROMPT_TEXT" "$WT_H" "$WT_W"; then
+            DO_IMPORT="yes"
+        else
+            DO_IMPORT="no"
+        fi
+    fi
+    if [[ -z "$DO_IMPORT" ]]; then
+        echo "$PROMPT_TEXT"
+        echo ""
+        read -r -p "Run importer now? [y/N] " _ans
+        case "${_ans,,}" in
+            y|yes) DO_IMPORT="yes" ;;
+            *)     DO_IMPORT="no" ;;
+        esac
+    fi
+
+    set -e
+    if [[ "$DO_IMPORT" == "yes" ]]; then
         echo ""
         echo -e "${CYAN}Launching collection importer...${NC}"
         echo ""
         # Hand off to the canonical importer. exec replaces this process so
         # the importer's exit status becomes the setup script's exit status.
-        cd "$BASE" && exec "$BASE/import-collection.sh"
+        cd "$BASE" && exec "$IMPORTER"
     else
         info "Skipped import — run ./import-collection.sh anytime to import later"
     fi
 else
+    set -e
     warn "import-collection.sh not found or not executable — skipping import offer"
 fi
 echo ""
