@@ -1121,7 +1121,7 @@ entry('/usr/lib64/libretro'),
 emu('DOLPHIN', [fp('dolphin*.AppImage'), fp('Dolphin*.AppImage'),
     '/var/lib/flatpak/exports/bin/org.DolphinEmu.dolphin-emu'], ['dolphin-emu']),
 '',
-emu('PCSX2', [fp('pcsx2*.AppImage'), fp('PCSX2*.AppImage'),
+emu('PCSX2', [fp('pcsx2-portable.sh'), fp('pcsx2*.AppImage'), fp('PCSX2*.AppImage'),
     '/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2'], ['pcsx2-qt']),
 '',
 emu('RPCS3', [fp('rpcs3*.AppImage'), fp('RPCS3*.AppImage'),
@@ -2799,6 +2799,26 @@ BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'rpcs3*.AppImage' -o -name 'RPCS3*.Ap
 exec "$BIN" "$@"
 RPCS3WRAP
 chmod +x "$EMUS/rpcs3-portable.sh"
+
+# PCSX2 — needs -portable flag passed to the AppImage. Without it, PCSX2
+# writes config to ~/.config/PCSX2/ regardless of XDG_CONFIG_HOME (the
+# AppImage runs from a squashfs in /tmp, so its own portable.ini detection
+# doesn't see anything alongside the binary either). The -portable CLI
+# flag is the supported way to force portable mode for the AppImage.
+cat > "$EMUS/pcsx2-portable.sh" << 'PCSX2WRAP'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export XDG_CONFIG_HOME="$BASE_DIR/.config"
+export XDG_DATA_HOME="$BASE_DIR/.local/share"
+BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'pcsx2*.AppImage' -o -iname 'PCSX2*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "pcsx2-portable.sh: no PCSX2 AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
+exec "$BIN" -portable "$@"
+PCSX2WRAP
+chmod +x "$EMUS/pcsx2-portable.sh"
 
 # PS3 launcher — dispatches by ROM file extension because PS3 collections
 # ship games in several formats that RPCS3 cannot run with a plain
