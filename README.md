@@ -52,8 +52,8 @@ chmod +x setup-portable-esde.sh
 
 The script will ask you:
 - **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
-- **Which theme** to use is no longer prompted — Art Book Next is installed automatically
-- **Whether to import a RetroBat collection** (optional)
+- **What to install** (Full or Custom - Select which emulators and cores to install)
+- **Whether to import a RetroBat or rom folder** (optional)
 - **Whether to create a desktop shortcut**
 
 Then it downloads everything, configures it all, and you're done. Add your ROMs to `ROMs/<system>/`, add BIOS files to `ROMs/bios/`, and launch with `./launch.sh`.
