@@ -1,46 +1,18 @@
 # Portable ES-DE for Linux
 
+<p align="center">
+<strong>A portable Linux retro gaming bundle built around ES-DE, RetroArch, curated AppImages, source ports, import tooling, BIOS checks, and update helpers.</strong>
+</p>
 
+<p align="center">
+<a href="https://es-de.org/"><img alt="Frontend" src="https://img.shields.io/badge/frontend-ES--DE-4ea94b"></a>
+<a href="https://www.retroarch.com/"><img alt="RetroArch" src="https://img.shields.io/badge/core_system-RetroArch-cc0000"></a>
+<img alt="Theme" src="https://img.shields.io/badge/theme-Art%20Book%20Next-green">
+<img alt="Platform" src="https://img.shields.io/badge/platform-Linux-blue">
+<img alt="Install" src="https://img.shields.io/badge/install-portable-purple">
+</p>
 
-## What is this?
-
-**RetroBat** on Windows gives you a portable, plug-and-play retro gaming setup in a single folder. Miss it?  So do I. But check this out:
-
-`setup-portable-esde.sh` is a single script that builds a complete portable [ES-DE](https://es-de.org/) retro gaming bundle on any Linux machine. Fully portable: works on any machine, survives OS reinstallations, and runs from any external drive.
-
----
-
-## What you get
-
-| Component | System | Notes |
-|---|---|---|
-| **ES-DE 3.4.1** | Frontend | Portable mode — no system installation |
-| **RetroArch** | 60+ systems | NES (Mesen), SNES, Genesis, GB/GBC/GBA, N64, PS1, Saturn, Dreamcast, Arcade, MAME & more |
-| | | |
-| **DuckStation** | PlayStation 1 | Alt to Mednafen PSX core |
-| **PCSX2** | PlayStation 2 | |
-| **RPCS3** | PlayStation 3 | |
-| **shadPS4** | PlayStation 4 | Requires Vulkan 1.3+ |
-| **PPSSPP** | PlayStation Portable | |
-| | | |
-| **melonDS** | Nintendo DS | |
-| **Azahar** | Nintendo 3DS | |
-| **Ryubing** | Nintendo Switch | Ryujinx lineage |
-| **Eden** | Nintendo Switch | Yuzu lineage |
-| **Dolphin** | GameCube / Wii | |
-| **Cemu** | Wii U | |
-| | | |
-| **xemu** | Original Xbox | |
-| **Xenia Canary** | Xbox 360 | |
-| | | |
-| **86Box** | Win98 / Windows 9x / retro PC | Configure with your own Windows ISO |
-| **Ruffle** | Adobe Flash | |
-| **SimCoupe** | MGT SAM Coupé | |
-| **Solarus** | Solarus engine games | |
-| **Supermodel** | Sega Model 3 | Community AppImage via pkgforge-dev |
-| **VPinball** | Visual Pinball | BGFX + GL builds |
-
----
+> RetroBat style portability for Linux, built around ES-DE, curated AppImages, RetroArch cores, tidy media paths, and a safer import workflow.
 
 ## Quick start
 
@@ -50,175 +22,219 @@ chmod +x setup-portable-esde.sh
 ./setup-portable-esde.sh
 ```
 
-The script will ask you:
-- **Where to install** (defaults to `./ES-DE-Portable` in the current directory)
-- **What to install** (Full or Custom - Select which emulators and cores to install)
-- **Whether to import a RetroBat or rom folder** (optional)
-- **Whether to create a desktop shortcut**
+Default install location:
 
-Then it downloads everything, configures it all, and you're done. Add your ROMs to `ROMs/<system>/`, add BIOS files to `ROMs/bios/`, and launch with `./launch.sh`.
-
-> **First-launch tip:** open each standalone emulator (Dolphin, DuckStation, PCSX2, RPCS3, Cemu, etc.) once from ES-DE and set your video preferences in its settings menu — internal resolution, fullscreen mode, vsync. The bundle preserves those settings on every setup re-run, so it's a one-time step per emulator.
-
----
-
-## Requirements
-
-| Requirement | Notes |
-|---|---|
-| **Linux** | Any modern distro — Ubuntu, Mint, Arch, Fedora, openSUSE, Pop!_OS etc. |
-| **bash 4.0+** | Standard on all distros |
-| **curl** | For downloads |
-| **python3** | For gamelist processing |
-| **unzip** | For theme extraction |
-| **~15GB free space** | For emulators + cores (ROMs not included) |
-
-> **Note:** Some AppImages require `libfuse2`. ES-DE 3.4.1 uses the newer uruntime format and may not need it, but other emulators might. Install with `sudo apt install libfuse2` on Ubuntu/Mint, `sudo dnf install fuse-libs` on Fedora, or `sudo pacman -S fuse2` on Arch.
-
----
-
-## Directory structure
-
-After running the script:
-
-```
-ES-DE-Portable/
-├── ES-DE_x64.AppImage          ← ES-DE frontend
-├── launch.sh                   ← Run this to play
-├── update.sh                   ← Update emulators and cores
-├── import-collection.sh         ← Import RetroBat collections anytime (also verifies BIOS)
-├── ES-DE/
-│   ├── custom_systems/         ← Hack system definitions (snesh, nesh, etc.)
-│   ├── settings/               ← ES-DE configuration
-│   ├── gamelists/              ← Game metadata
-│   └── themes/                 ← Downloaded theme
-├── Emulators/
-│   ├── RetroArch*.AppImage
-│   ├── retroarch-cores/        ← 60+ .so core files
-│   ├── PCSX2*.AppImage
-│   └── ...                     ← All other emulators
-├── ROMs/
-│   ├── nes/ snes/ gb/ gba/     ← Add your ROMs here
-│   ├── dreamcast/ ps2/ gc/     ← One folder per system
-│   ├── ps4/ win98/             ← Newer systems
-│   └── bios/                   ← BIOS files go here
-├── downloaded_media/           ← Scraped artwork and videos
-└── Saves/                      ← Save files and states
+```text
+./ES-DE
 ```
 
----
-
-## BIOS files
-
-BIOS files are required for many systems and must be sourced from hardware you own. Place them in `ROMs/bios/`. Common requirements:
-
-| System | File(s) |
-|---|---|
-| PlayStation 1 | `scph5501.bin` (and other regional variants) |
-| PlayStation 2 | PCSX2 BIOS files |
-| PlayStation 3 | PS3 firmware (`PS3UPDAT.PUP`) via RPCS3 |
-| PlayStation 4 | Firmware modules via shadPS4 (dumped from your PS4) |
-| Sega Saturn | `saturn_bios.bin` |
-| Sega Dreamcast | `dc_boot.bin`, `dc_flash.bin` |
-| Nintendo DS | `bios7.bin`, `bios9.bin`, firmware |
-| PC Engine CD | `syscard3.pce` |
-| Neo Geo | `neogeo.zip` |
-| Win98 / retro PC | Windows installation ISO (your own licensed copy) via 86Box |
-
----
-
-## Importing from RetroBat
-
-If you have an existing RetroBat collection on Windows (dual-boot or a mounted drive), the script can import it automatically — media, gamelists, and ROMs:
+Launch:
 
 ```bash
-# During initial setup — answer yes to the RetroBat prompt
-./setup-portable-esde.sh
+cd ./ES-DE
+./launch.sh
+```
 
-# Or anytime after setup using the included converter
+Run a read only import audit:
+
+```bash
+./import-collection.sh --audit
+```
+
+## What this builds
+
+| Layer | Included |
+|---|---|
+| Frontend | ES-DE in portable mode |
+| Theme policy | Art Book Next by default. Unsupported standalone ports are grouped under `ports` so missing logos do not break the frontend look |
+| Libretro | RetroArch AppImage plus curated `.so` cores |
+| Standalone emulators | Dolphin, DuckStation, PCSX2, RPCS3, PPSSPP, Azahar, melonDS, Cemu, xemu, Xenia Canary, shadPS4, MAME, Supermodel, VPinball, and more |
+| Ports and engines | Launchers inside `ROMs/ports`, backed by bundled AppImages in `Emulators/` |
+| Importer | RetroBat and Batocera style collection importer with media, gamelist, BIOS, and nested system handling |
+| Maintenance | Update script for emulator AppImages and RetroArch cores |
+
+## Highlights
+
+- Portable folder structure, no global install required.
+- ES-DE custom systems and find rules are generated automatically.
+- Art Book Next is installed as the default theme.
+- Unsupported standalone ports are grouped under `ports`, keeping theme art clean.
+- RetroBat media folders are mapped to ES-DE media folders.
+- Gamelists are merged and cleaned instead of blindly overwritten.
+- BIOS files are routed to `ROMs/bios`, including BIOS files found beside ROMs.
+- Generic BIOS archives are extracted into `ROMs/bios` without overwriting existing files.
+- MSU and tidy nested systems are supported, including `snes-msu`, `msu-md`, `nes-msu`, and `neogeomvs`.
+- Setup is rerun safe. User configs are preserved and managed generated files are backed up before replacement.
+
+<details>
+<summary><strong>Supported system categories</strong></summary>
+
+| Category | Examples |
+|---|---|
+| Nintendo | NES, SNES, N64, GameCube, Wii, Wii U, DS, 3DS, Switch, hacks and homebrew variants |
+| Sega | Master System, Genesis/Mega Drive, Sega CD, 32X, Saturn, Dreamcast, Model 3 |
+| Sony | PlayStation, PlayStation 2, PlayStation 3, PlayStation 4, PSP |
+| Microsoft | Xbox, Xbox 360, Windows 9x, Windows launchers |
+| Arcade | Arcade, FinalBurn Neo, CPS1/2/3, MAME software list systems |
+| Computers | Amiga, Atari ST, C64, MSX, Sharp X68000, DOS, PC variants |
+| Ports | Doom ports, Diablo, Theme Hospital, Commander Keen, Jazz Jackrabbit, Tyrian 2000, OpenBOR, OpenRCT2, OpenLoco, OpenRA, Half-Life, Quake II, Quake III, Doom 3 |
+
+</details>
+
+<details>
+<summary><strong>Ports and engines currently wired</strong></summary>
+
+These launch from the visible ES-DE `ports` system for Art Book Next compatibility. The actual AppImages live in `Emulators/`.
+
+| Port launcher | Runtime source |
+|---|---|
+| `DevilutionX.sh` | DevilutionX AppImage Enhanced |
+| `Theme Hospital (CorsixTH).sh` | CorsixTH AppImage Enhanced |
+| `Commander Genius.sh` | Commander Genius AppImage |
+| `C-Dogs SDL.sh` | C-Dogs SDL AppImage |
+| `EDuke32.sh` | EDuke32 AppImage |
+| `Ghostship.sh` | Ghostship AppImage Enhanced |
+| `Nugget Doom.sh` | Nugget Doom AppImage Enhanced |
+| `Crispy Doom.sh` | Crispy Doom AppImage |
+| `OpenBOR.sh` | OpenBOR, AppImage if upstream release provides one |
+| `OpenJazz.sh` | OpenJazz AppImage |
+| `OpenTyrian 2000.sh` | OpenTyrian2000 AppImage |
+| `OpenRCT2.sh` | OpenRCT2 AppImage Enhanced |
+| `OpenLoco.sh` | OpenLoco AppImage |
+| `OpenRA.sh` | OpenRA AppImage Enhanced |
+| `Half-Life (Xash3D FWGS).sh` | Xash3D FWGS AppImage Enhanced |
+| `Quake II (Yamagi).sh` | Yamagi Quake II AppImage |
+| `Quake III Arena (ioquake3).sh` | ioquake3 AppImage |
+| `Doom 3 (dhewm3).sh` | dhewm3 AppImage |
+
+</details>
+
+<details>
+<summary><strong>Directory structure</strong></summary>
+
+```text
+ES-DE/
+├── ES-DE_x64.AppImage
+├── launch.sh
+├── update.sh
+├── import-collection.sh
+├── fetch-vpx-patches.sh
+├── ES-DE/
+│   ├── custom_systems/
+│   ├── settings/
+│   ├── gamelists/
+│   └── themes/
+├── Emulators/
+│   ├── RetroArch*.AppImage
+│   ├── retroarch-cores/
+│   └── standalone emulator AppImages and wrappers
+├── ROMs/
+│   ├── bios/
+│   ├── ports/
+│   │   ├── OpenTyrian 2000.sh
+│   │   ├── OpenRCT2.sh
+│   │   └── other port launchers
+│   ├── nes/
+│   ├── snes/
+│   ├── megadrive/
+│   ├── psx/
+│   └── one folder per supported system
+├── downloaded_media/
+└── Saves/
+```
+
+</details>
+
+<details>
+<summary><strong>Importing from RetroBat or Batocera style collections</strong></summary>
+
+The importer can be run during setup or later:
+
+```bash
 ./import-collection.sh
 ```
 
-The importer:
-- Maps all RetroBat media types to ES-DE's folder structure
-- Cleans gamelists (strips incompatible tags, flattens paths for category-organised systems like C64)
-- Handles system name differences between RetroBat and ES-DE (e.g. `snesh` → own hack system, `sfc` → `snes`)
-- Supports multiple collections in one pass
-- Offers cut mode (moves files without doubling disk usage) or copy mode
+Read only audit mode:
 
----
+```bash
+./import-collection.sh --audit
+```
 
-## Hack ROM systems
+The importer handles:
 
-Hacked and homebrewed ROMs get their own dedicated sidebar entries rather than being mixed in with official ROMs:
+- ROM folder remaps, for example `neogeomvs` to `neogeo/neogeomvs`.
+- MSU nesting, for example `snes-msu` to `snes/snes-msu`.
+- ProjectNested NES-MSU as `ROMs/nes/nes-msu` with a custom `nes-msu` launcher using Snes9x.
+- Port and engine folders routed under `ROMs/ports/<engine>` for theme safety.
+- Media conversion from RetroBat folder names to ES-DE media folders.
+- Gamelist path rewriting for nested folders.
+- BIOS routing to `ROMs/bios`.
+- Existing file protection.
 
-| ES-DE System | Full Name |
+</details>
+
+<details>
+<summary><strong>BIOS and firmware notes</strong></summary>
+
+BIOS files are not included. Use files dumped from hardware you own.
+
+Common examples:
+
+| System | Examples |
 |---|---|
-| `snesh` | Super Nintendo (Hacks & Homebrew) |
-| `nesh` | Nintendo Entertainment System (Hacks & Homebrew) |
-| `gbh` | Game Boy (Hacks & Homebrew) |
-| `gbch` | Game Boy Color (Hacks & Homebrew) |
-| `gbah` | Game Boy Advance (Hacks & Homebrew) |
-| `genh` | Sega Genesis (Hacks & Homebrew) |
-| `n64h` | Nintendo 64 (Hacks & Homebrew) |
-| `ggh` | Game Gear (Hacks & Homebrew) |
+| PlayStation | `scph5500.bin`, `scph5501.bin`, `scph5502.bin` |
+| PlayStation 2 | PCSX2 BIOS files |
+| Dreamcast | `dc_boot.bin`, `dc_flash.bin` |
+| Sega CD | `bios_CD_J.bin`, `bios_CD_U.bin`, `bios_CD_E.bin` |
+| Neo Geo | `neogeo.zip` |
+| PC Engine CD | `syscard3.pce` |
 
----
+The importer checks BIOS status and routes recognised BIOS sidecars into `ROMs/bios`.
 
-## Updating
+</details>
 
-Run the included update script anytime to check for newer versions:
+<details>
+<summary><strong>Updating</strong></summary>
 
 ```bash
 ./update.sh
 ```
 
-It checks every emulator against its latest GitHub release, shows you what's changed, and asks before downloading anything. RetroArch and RPCS3 are nightly builds — re-downloading always gets the latest. All 60+ RetroArch cores can also be updated in one go from buildbot.libretro.com.
+The update helper checks emulator AppImages and RetroArch cores. It keeps existing files unless you choose to replace them.
 
-To update ES-DE itself, the update script will prompt you to re-download from es-de.org when a new version is detected.
+</details>
 
----
+## Requirements
 
-## Themes
+| Requirement | Notes |
+|---|---|
+| Linux | Tested target is Linux desktop, especially Mint/Ubuntu style systems |
+| bash 4.0+ | Standard on most distributions |
+| curl | Downloads release assets |
+| python3 | Gamelist processing |
+| unzip | Theme and archive extraction |
+| Optional tools | `7z` and `unrar` improve BIOS and archive extraction |
+| Free space | Roughly 15GB+ for emulator assets before ROMs/media |
 
-The bundle installs [**Art Book Next**](https://github.com/anthonycaccese/art-book-next-es-de) automatically.
+Some AppImages may require `libfuse2` on certain distributions, although many newer PkgForge AppImages use runtimes that avoid that dependency.
 
-If you prefer a different theme, ES-DE has a built-in Theme Downloader (ES-DE menu → UI Settings → Theme Downloader) that lets you browse and install dozens more, including ES-DE's built-in Linear theme.
+## First run notes
 
----
+Some emulators still need one time setup because firmware, keys, BIOS files, game data, or licensing cannot be bundled.
 
-## First-run notes for specific emulators
-
-Some emulators require one-time setup that can't be scripted due to legal/firmware constraints:
-
-- **RPCS3** — requires PlayStation 3 firmware installed via `File → Install Firmware` on first launch
-- **shadPS4** — requires PS4 firmware modules placed in `Emulators/config/shadps4/sys_modules/` dumped from your own PS4
-- **xemu** — requires an Xbox HDD image and MCPX/BIOS files configured on first launch
-- **86Box** — requires a Windows installation ISO and ROM set to create virtual machines
-- **Azahar / Ryubing / Eden** — require Switch firmware and `prod.keys` / `title.keys` dumped from your own hardware
-
----
-
-## Compatibility
-
-Tested on **Linux Mint** and **Ubuntu**. Should work on any distro with bash 4.0+, curl, python3, and unzip.
-
----
-
-## Credits
-
-- [ES-DE](https://es-de.org/) — the frontend that makes this possible
-- [RetroArch](https://www.retroarch.com/) and the [libretro](https://www.libretro.com/) core authors
-- [pkgforge-dev](https://github.com/pkgforge-dev) — community AppImage builds for Dolphin and melonDS
-- All the emulator teams whose work powers this bundle
-- [Team Pixel Nostalgia](https://pixelnostalgia.github.io/) — [ES-DE - Convert RGS ROMpacks for use with ES-DE](https://www.youtube.com/watch?v=ee0j1yGnqwA)
-
----
+- RPCS3 requires PlayStation 3 firmware installed through RPCS3.
+- shadPS4 requires dumped PS4 firmware modules.
+- xemu requires Xbox BIOS/HDD setup.
+- 86Box requires your own OS install media and machine configuration.
+- Switch family tools require your own firmware and keys.
+- Source ports such as DevilutionX, CorsixTH, Commander Genius, EDuke32, OpenJazz, OpenRCT2, OpenLoco, Xash3D, Yamagi Quake II, ioquake3, and dhewm3 may need original game data.
 
 ## Legal
 
-This script downloads open-source emulator software. It does not include, distribute, or facilitate downloading of any copyrighted game ROMs, BIOS files, or firmware. You are responsible for ensuring you have the legal right to use any game software you run with this bundle.
+This project downloads open source emulator software, source ports, and helper assets. It does not include commercial games, ROMs, BIOS files, firmware, keys, or copyrighted game data.
+
+Only import or use software and data you are legally allowed to use.
 
 ---
 
-*Made with ❤️ for the Linux retro gaming community*
+Made with ❤️ for the Linux retro gaming community<img width="771" height="5741" alt="image" src="https://github.com/user-attachments/assets/6eb3f030-3332-4d7c-bdac-fd7308e5cf35" />
