@@ -237,4 +237,4 @@ Only import or use software and data you are legally allowed to use.
 
 ---
 
-Made with ❤️ for the Linux retro gaming community<img width="771" height="5741" alt="image" src="https://github.com/user-attachments/assets/6eb3f030-3332-4d7c-bdac-fd7308e5cf35" />
+Made with ❤️ for the Linux retro gaming community
