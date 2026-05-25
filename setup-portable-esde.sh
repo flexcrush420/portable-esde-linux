@@ -5266,6 +5266,8 @@ declare -A SYS_MAP=(
     [tgcd]=tg-cd
     # SNK
     [neogeomvs]=neogeo
+    # Cave (bullet-hell shmups nested as a folder inside arcade)
+    [cave]=arcade
     # Philips
     [cdi]=cdimono1
     # Art Book Next safe Ports / Engines — visible under ports/ only
@@ -5316,6 +5318,7 @@ declare -A MSU_NESTED_FOLDER=(
     [megadrive-msu]=msu-md
     [nes-msu]=nes-msu
     [neogeomvs]=neogeomvs
+    [cave]=cave
     # Art Book Next safe Ports / Engines: data folders nest under ROMs/ports,
     # media under downloaded_media/ports/<type>/<engine>, and any launchable
     # menu entry should be a .sh script in ROMs/ports.
@@ -5344,6 +5347,7 @@ declare -A MSU_NESTED_FOLDER=(
 # points at a nested folder under another visual hardware folder.
 declare -A MSU_ROM_PARENT=(
     [nes-msu]=nes
+    [cave]=arcade
 )
 
 # If set, the custom system path itself is the nested folder. Media and
