@@ -14,6 +14,8 @@
 
 > RetroBat style portability for Linux, built around ES-DE, curated AppImages, RetroArch cores, tidy media paths, and a safer import workflow.
 
+![ES-DE Portable Ports Preview](ports-system-preview.png)
+
 ## Quick start
 
 ```bash
