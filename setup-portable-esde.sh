@@ -320,6 +320,10 @@ EMULATOR_CHECKLIST=(
     "yquake2|Yamagi Quake II — Quake II engine"
     "ioquake3|ioquake3 — Quake III Arena engine"
     "dhewm3|dhewm3 — Doom 3 engine"
+    "openlara|OpenLara — Tomb Raider engine"
+    "cannonball|Cannonball — OutRun engine"
+    "nxengine|NXEngine — Cave Story engine"
+    "ecwolf|ECWolf — Wolfenstein 3D engine"
 )
 
 # Section divider tags used in CORE_CHECKLIST to group cores visually.
@@ -599,9 +603,8 @@ emu_selected() { [[ "${SELECTED_EMULATORS[$1]:-1}" == "1" ]]; }
 # Full mode: SELECTED_CORES is empty (no checklist was shown), so every core
 # is installable. Custom mode: SELECTED_CORES was populated by the checklist,
 # so a missing key means the core is NOT in CORE_CHECKLIST and must default
-# to deselected — otherwise EASY-batch cores (bk, vice_x128, cannonball,
-# pd777, nxengine, dice, dinothawr, ep128emu_core, openlara, m2000,
-# vice_xpet, prboom, tyrquake, theodore, ecwolf, etc.) silently slip past
+# to deselected — otherwise EASY-batch cores (bk, vice_x128, pd777, dice,
+# ep128emu_core, m2000, vice_xpet, theodore, etc.) silently slip past
 # a "RetroArch deselected" choice and still get pulled from the buildbot.
 # (Closes In Progress #10.)
 core_selected() {
@@ -983,17 +986,11 @@ download_cores() {
         # on the libretro Linux x86_64 buildbot (core-info repo).
         [bk]="Elektronika BK-0010/0011"
         [vice_x128]="Commodore 128"
-        [cannonball]="CannonBall (OutRun engine)"
         [pd777]="Epoch Cassette Vision"
-        [nxengine]="Cave Story (NXEngine)"
         [dice]="DICE (discrete-logic arcade)"
-        [dinothawr]="Dinothawr"
         [ep128emu_core]="Enterprise 64/128"
-        [openlara]="OpenLara (Tomb Raider engine)"
         [m2000]="Philips P2000T"
         [vice_xpet]="Commodore PET"
-        [prboom]="PrBoom (DOOM engine)"
-        [tyrquake]="Quake (TyrQuake engine)"
         [theodore]="Thomson MO/TO"
         # NOTE: bennugd_libretro.so.zip 404s on the Linux x86_64 buildbot
         # (https://buildbot.libretro.com/nightly/linux/x86_64/latest/) —
@@ -1003,7 +1000,6 @@ download_cores() {
         # ever appears. Re-enable by uncommenting the line below and
         # confirming the URL returns HTTP 200.
         # [bennugd]="BennuGD game engine"
-        [ecwolf]="ECWolf (Wolfenstein 3D engine)"
     )
 
     local total=${#CORES[@]}
@@ -1127,9 +1123,9 @@ ROM_DIRS=(
     archimedes adam dragon32 fm7 supracan bbcmicro apple2 fbneo
     gx4000 markiii multivision amigacdtv sufami msx1
     aquarius atom coco electron gp32 pegasus socrates tutor vis
-    bk c128 cannonball cassettevision cavestory dice dinothawr enterprise
-    openlara p2000t pet prboom quake thomson
-    fmtowns bennugd ecwolf
+    bk c128 cassettevision dice enterprise
+    p2000t pet thomson
+    fmtowns bennugd
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -1182,6 +1178,10 @@ write_port_launcher "Half-Life (Xash3D FWGS)" "Xash3D*.AppImage"
 write_port_launcher "Quake II (Yamagi)" "Yamagi*.AppImage"
 write_port_launcher "Quake III Arena (ioquake3)" "ioquake3*.AppImage"
 write_port_launcher "Doom 3 (dhewm3)" "dhewm3*.AppImage"
+write_port_launcher "OpenLara (Tomb Raider)" "OpenLara*.AppImage"
+write_port_launcher "Cannonball (OutRun)" "Cannonball*.AppImage"
+write_port_launcher "Cave Story (NXEngine)" "NXEngine*.AppImage"
+write_port_launcher "ECWolf (Wolfenstein 3D)" "ECWolf*.AppImage"
 
 ok "Directory tree created"
 
@@ -2610,12 +2610,12 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>cannonball</name>
+    <name></name>
     <fullname>CannonBall (OutRun engine)</fullname>
-    <path>%ROMPATH%/cannonball</path>
+    <path>%ROMPATH%/</path>
     <extension>.zip .ZIP .7z .7Z .game .GAME</extension>
     <command label="CannonBall">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/cannonball_libretro.so %ROM%</command>
-    <platform>cannonball</platform>
+    <platform></platform>
     <theme>arcade</theme>
   </system>
 
@@ -2630,12 +2630,12 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>cavestory</name>
+    <name></name>
     <fullname>Cave Story (NXEngine)</fullname>
-    <path>%ROMPATH%/cavestory</path>
+    <path>%ROMPATH%/</path>
     <extension>.zip .ZIP .7z .7Z .exe .EXE</extension>
     <command label="NXEngine">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/nxengine_libretro.so %ROM%</command>
-    <platform>cavestory</platform>
+    <platform></platform>
     <theme>ports</theme>
   </system>
 
@@ -2650,12 +2650,12 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>dinothawr</name>
+    <name></name>
     <fullname>Dinothawr</fullname>
-    <path>%ROMPATH%/dinothawr</path>
+    <path>%ROMPATH%/</path>
     <extension>.zip .ZIP .7z .7Z .game .GAME</extension>
     <command label="Dinothawr">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dinothawr_libretro.so %ROM%</command>
-    <platform>dinothawr</platform>
+    <platform></platform>
     <theme>ports</theme>
   </system>
 
@@ -2670,12 +2670,12 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>openlara</name>
+    <name></name>
     <fullname>OpenLara (Tomb Raider engine)</fullname>
-    <path>%ROMPATH%/openlara</path>
+    <path>%ROMPATH%/</path>
     <extension>.zip .ZIP .7z .7Z .phd .PHD .psx .PSX .tr2 .TR2</extension>
     <command label="OpenLara">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/openlara_libretro.so %ROM%</command>
-    <platform>openlara</platform>
+    <platform></platform>
     <theme>ports</theme>
   </system>
 
@@ -2700,23 +2700,23 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>prboom</name>
+    <name></name>
     <fullname>PrBoom (DOOM engine)</fullname>
-    <path>%ROMPATH%/prboom</path>
+    <path>%ROMPATH%/</path>
     <extension>.zip .ZIP .7z .7Z .wad .WAD .iwad .IWAD .pwad .PWAD</extension>
     <command label="PrBoom">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/prboom_libretro.so %ROM%</command>
-    <platform>prboom</platform>
+    <platform></platform>
     <theme>doom</theme>
   </system>
 
   <system>
-    <name>quake</name>
+    <name></name>
     <fullname>Quake (TyrQuake engine)</fullname>
-    <path>%ROMPATH%/quake</path>
+    <path>%ROMPATH%/</path>
     <extension>.zip .ZIP .7z .7Z .pak .PAK</extension>
     <command label="TyrQuake">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/tyrquake_libretro.so %ROM%</command>
-    <platform>quake</platform>
-    <theme>quake</theme>
+    <platform></platform>
+    <theme></theme>
   </system>
 
   <system>
@@ -2758,15 +2758,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <theme>ports</theme>
   </system>
 
-  <system>
-    <name>ecwolf</name>
-    <fullname>ECWolf (Wolfenstein 3D)</fullname>
-    <path>%ROMPATH%/ecwolf</path>
-    <extension>.wl6 .WL6 .wl1 .WL1 .sod .SOD .sdm .SDM .n3d .N3D .pk3 .PK3 .exe .EXE .zip .ZIP .7z .7Z</extension>
-    <command label="ECWolf">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/ecwolf_libretro.so %ROM%</command>
-    <platform>ecwolf</platform>
-    <theme>ports</theme>
-  </system>
 </systemList>
 CUSTOMSYSTEMS
 backup_file_if_changed "$CUSTOM_SYSTEMS_FILE" "$CUSTOM_SYSTEMS_TMP" "custom es_systems.xml"
@@ -4604,6 +4595,30 @@ install_dhewm3() {
         "$EMUS/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
+install_openlara() {
+    github_appimage "pkgforge-dev/OpenLara-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_cannonball() {
+    github_appimage "pkgforge-dev/Cannonball-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_nxengine() {
+    github_appimage "pkgforge-dev/NXEngine-evo-AppImage-Enhanced" \
+        ".*\.AppImage$" \
+        "$EMUS/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_ecwolf() {
+    github_appimage "pkgforge-dev/ECWolf-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
 install_engine_by_key() {
     case "$1" in
         devilutionx) install_devilutionx ;;
@@ -4623,6 +4638,10 @@ install_engine_by_key() {
         yquake2)     install_yquake2 ;;
         ioquake3)    install_ioquake3 ;;
         dhewm3)      install_dhewm3 ;;
+        openlara)    install_openlara ;;
+        cannonball)  install_cannonball ;;
+        nxengine)    install_nxengine ;;
+        ecwolf)      install_ecwolf ;;
         *)           fail "Unknown engine/AppImage key: $1"; return 1 ;;
     esac
 }
@@ -4819,7 +4838,7 @@ fi
 
 echo ""
 echo "   ── Ports / Engines AppImages ──"
-for engine_key in devilutionx corsixth cgenius cdogs eduke32 ghostship gzdoom openbor openjazz opentyrian openrct2 openloco openra xash3d yquake2 ioquake3 dhewm3; do
+for engine_key in devilutionx corsixth cgenius cdogs eduke32 ghostship gzdoom openbor openjazz opentyrian openrct2 openloco openra xash3d yquake2 ioquake3 dhewm3 openlara cannonball nxengine ecwolf; do
     if emu_selected "$engine_key"; then
         install_engine_by_key "$engine_key" || true
     else
@@ -5537,15 +5556,16 @@ declare -A SYS_TO_CORE=(
     [vis]=mame
     # EASY systems batch — 14 single-libretro-core systems.
     [bk]=bk                           [c128]=vice_x128
-    [cannonball]=cannonball           [cassettevision]=pd777
-    [cavestory]=nxengine              [dice]=dice
-    [dinothawr]=dinothawr             [enterprise]=ep128emu_core
-    [openlara]=openlara               [p2000t]=m2000
-    [pet]=vice_xpet                   [prboom]=prboom
-    [quake]=tyrquake                  [thomson]=theodore
+    []=[cassettevision]=pd777
+    []=nxengine              [dice]=dice
+    [cassettevision]=pd777
+    [dice]=dice
+    [enterprise]=ep128emu_core
+    [p2000t]=m2000
+    [pet]=vice_xpet                   [thomson]=theodore
     # IN PROGRESS batch
     [fmtowns]=mame                    # FM Towns — MAME fmtownsux driver
-    [bennugd]=bennugd                 [ecwolf]=ecwolf
+    [bennugd]=bennugd
     # apple2 launches via the mame libretro core (apple2e driver) per its
     # es_systems.xml entry — route it so the importer installs that core.
     [apple2]=mame
@@ -6435,6 +6455,30 @@ install_dhewm3() {
         "$EMUS/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
+install_openlara() {
+    github_appimage "pkgforge-dev/OpenLara-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_cannonball() {
+    github_appimage "pkgforge-dev/Cannonball-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_nxengine() {
+    github_appimage "pkgforge-dev/NXEngine-evo-AppImage-Enhanced" \
+        ".*\.AppImage$" \
+        "$EMUS/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_ecwolf() {
+    github_appimage "pkgforge-dev/ECWolf-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
 install_emulator() {
     case "$1" in
         rpcs3)        install_rpcs3 ;;
@@ -6478,6 +6522,10 @@ install_emulator() {
         yquake2)      install_yquake2 ;;
         ioquake3)     install_ioquake3 ;;
         dhewm3)       install_dhewm3 ;;
+        openlara)     install_openlara ;;
+        cannonball)   install_cannonball ;;
+        nxengine)     install_nxengine ;;
+        ecwolf)       install_ecwolf ;;
         *)            fail "Unknown emulator: $1"; return 1 ;;
     esac
 }
