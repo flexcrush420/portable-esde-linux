@@ -281,49 +281,58 @@ declare -A SELECTED_EMULATORS=()
 declare -A SELECTED_CORES=()
 
 EMULATOR_CHECKLIST=(
-    "retroarch|RetroArch — libretro frontend (needed for cores)"
-    "dolphin|Dolphin — GameCube / Wii"
-    "cemu|Cemu — Wii U"
-    "rpcs3|RPCS3 — PlayStation 3"
-    "pcsx2|PCSX2 — PlayStation 2"
-    "duckstation|DuckStation — PlayStation 1"
-    "ppsspp|PPSSPP — PlayStation Portable"
-    "shadps4|shadPS4 — PlayStation 4"
-    "ryujinx|Ryubing — Nintendo Switch (Ryujinx fork)"
-    "eden|Eden — Nintendo Switch (alt fork)"
-    "azahar|Azahar — Nintendo 3DS"
-    "melonds|melonDS — Nintendo DS"
-    "xemu|xemu — Original Xbox"
-    "xenia|Xenia Canary — Xbox 360"
-    "mame|MAME (standalone) — arcade + fallback"
-    "supermodel|Supermodel — Sega Model 3"
-    "_86box|86Box — Windows 9x / retro PC"
-    "vpinball|Visual Pinball — virtual pinball tables"
-    "solarus|Solarus — Zelda-like RPGs"
-    "ruffle|Ruffle — Adobe Flash games"
-    "simcoupe|SimCoupé — SAM Coupé"
-    "eka2l1|EKA2L1 — Symbian / N-Gage"
-    "devilutionx|DevilutionX — Diablo engine"
-    "corsixth|CorsixTH — Theme Hospital engine"
-    "cgenius|Commander Genius — Commander Keen engine"
-    "cdogs|C-Dogs SDL — top-down action engine"
-    "eduke32|EDuke32 — Duke Nukem 3D engine"
-    "ghostship|Ghostship — Super Mario 64 PC port"
-    "gzdoom|Nugget Doom + Crispy Doom — Doom source ports"
-    "openbor|OpenBOR — beat 'em up engine"
-    "openjazz|OpenJazz — Jazz Jackrabbit engine"
-    "opentyrian|OpenTyrian 2000 — Tyrian 2000 engine"
-    "openrct2|OpenRCT2 — RollerCoaster Tycoon 2 engine"
-    "openloco|OpenLoco — Chris Sawyer's Locomotion engine"
-    "openra|OpenRA — Red Alert / Tiberian Dawn / Dune 2000 engine"
-    "xash3d|Xash3D FWGS — Half-Life engine"
-    "yquake2|Yamagi Quake II — Quake II engine"
-    "ioquake3|ioquake3 — Quake III Arena engine"
-    "dhewm3|dhewm3 — Doom 3 engine"
-    "openlara|OpenLara — Tomb Raider engine"
-    "cannonball|Cannonball — OutRun engine"
-    "nxengine|NXEngine — Cave Story engine"
-    "ecwolf|ECWolf — Wolfenstein 3D engine"
+    "retroarch|RetroArch - libretro frontend (needed for cores)"
+    " |── Nintendo ──────────────────────────────────"
+    "dolphin|Dolphin - GameCube / Wii"
+    "cemu|Cemu - Wii U"
+    "ryujinx|Ryubing - Nintendo Switch (Ryujinx fork)"
+    "eden|Eden - Nintendo Switch (alt fork)"
+    "azahar|Azahar - Nintendo 3DS"
+    "melonds|melonDS - Nintendo DS"
+    "  |── Sony ─────────────────────────────────────"
+    "duckstation|DuckStation - PlayStation 1"
+    "pcsx2|PCSX2 - PlayStation 2"
+    "rpcs3|RPCS3 - PlayStation 3"
+    "shadps4|shadPS4 - PlayStation 4"
+    "ppsspp|PPSSPP - PlayStation Portable"
+    "   |── Microsoft ─────────────────────────────"
+    "xemu|xemu - Original Xbox"
+    "xenia|Xenia Canary - Xbox 360"
+    "    |── Arcade and Pinball ─────────────────────"
+    "mame|MAME (standalone) - arcade + fallback"
+    "supermodel|Supermodel - Sega Model 3"
+    "vpinball|Visual Pinball - virtual pinball tables"
+    "     |── PC and Mobile ──────────────────────────"
+    "_86box|86Box - Windows 9x / retro PC"
+    "simcoupe|SimCoupé - SAM Coupé"
+    "eka2l1|EKA2L1 - Symbian / N-Gage"
+    "ruffle|Ruffle - Adobe Flash games"
+    "      |── Ports: First Person Shooter ──────────────"
+    "ecwolf|ECWolf - Wolfenstein 3D engine (1992)"
+    "gzdoom|Nugget Doom + Crispy Doom - Doom ports (1993)"
+    "eduke32|EDuke32 - Duke Nukem 3D engine (1996)"
+    "yquake2|Yamagi Quake II - Quake II engine (1997)"
+    "xash3d|Xash3D FWGS - Half-Life engine (1998)"
+    "ioquake3|ioquake3 - Quake III Arena engine (1999)"
+    "dhewm3|dhewm3 - Doom 3 engine (2004)"
+    "       |── Ports: Action, Platformer, Arcade ────────"
+    "cannonball|Cannonball - OutRun engine"
+    "cdogs|C-Dogs SDL - top-down action engine"
+    "cgenius|Commander Genius - Commander Keen engine"
+    "ghostship|Ghostship - Super Mario 64 PC port"
+    "nxengine|NXEngine - Cave Story engine"
+    "openbor|OpenBOR - beat 'em up engine"
+    "openjazz|OpenJazz - Jazz Jackrabbit engine"
+    "opentyrian|OpenTyrian 2000 - Tyrian 2000 engine"
+    "        |── Ports: Adventure and RPG ───────────────"
+    "devilutionx|DevilutionX - Diablo engine"
+    "openlara|OpenLara - Tomb Raider engine"
+    "solarus|Solarus - Zelda-like RPGs"
+    "         |── Ports: Strategy, Simulation, Management ─"
+    "corsixth|CorsixTH - Theme Hospital engine"
+    "openloco|OpenLoco - Chris Sawyer's Locomotion engine"
+    "openra|OpenRA - Red Alert / Tiberian Dawn / Dune 2000"
+    "openrct2|OpenRCT2 - RollerCoaster Tycoon 2 engine"
 )
 
 # Section divider tags used in CORE_CHECKLIST to group cores visually.
@@ -331,6 +340,8 @@ EMULATOR_CHECKLIST=(
 declare -A IS_SECTION_HEADER=(
     [Nintendo]=1 [Sega]=1 [Sony]=1 [Atari]=1 [NEC]=1 [SNK]=1
     [Arcade]=1 [Portable]=1 [Computers]=1 [Consoles]=1 [Fantasy]=1 [Other]=1
+    [ ]=1 [  ]=1 [   ]=1 [    ]=1 [     ]=1
+    [      ]=1 [       ]=1 [        ]=1 [         ]=1
 )
 
 CORE_CHECKLIST=(
@@ -522,6 +533,10 @@ tui_select_components() {
     local args=() entry key desc state selections
     for entry in "${EMULATOR_CHECKLIST[@]}"; do
         key="${entry%%|*}"; desc="${entry#*|}"
+        if [[ -n "${IS_SECTION_HEADER[$key]:-}" ]]; then
+            args+=("$key" "$desc" "OFF")
+            continue
+        fi
         state="ON"
         [[ "${SELECTED_EMULATORS[$key]:-1}" == "0" ]] && state="OFF"
         args+=("$key" "$desc" "$state")
@@ -529,9 +544,13 @@ tui_select_components() {
     selections=$(tui_checklist "Standalone Emulators" "Custom — Screen 1 of 2" "${args[@]}") \
         || { echo "Aborted."; exit 0; }
     SELECTED_EMULATORS=()
-    for entry in "${EMULATOR_CHECKLIST[@]}"; do SELECTED_EMULATORS["${entry%%|*}"]=0; done
+    for entry in "${EMULATOR_CHECKLIST[@]}"; do
+        key="${entry%%|*}"
+        [[ -n "${IS_SECTION_HEADER[$key]:-}" ]] && continue
+        SELECTED_EMULATORS["$key"]=0
+    done
     while IFS= read -r key; do
-        [[ -z "$key" ]] && continue
+        [[ -z "$key" || -n "${IS_SECTION_HEADER[$key]:-}" ]] && continue
         SELECTED_EMULATORS["$key"]=1
     done <<< "$selections"
 
