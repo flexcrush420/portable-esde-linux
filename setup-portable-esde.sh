@@ -307,9 +307,11 @@ EMULATOR_CHECKLIST=(
     "simcoupe|SimCoupé - SAM Coupé"
     "eka2l1|EKA2L1 - Symbian / N-Gage"
     "ruffle|Ruffle - Adobe Flash games"
+    "scummvm|ScummVM - point-and-click adventures"
     "      |── Ports: First Person Shooter ──────────────"
     "ecwolf|ECWolf - Wolfenstein 3D engine (1992)"
-    "gzdoom|Nugget Doom + Crispy Doom - Doom ports (1993)"
+    "nuggetdoom|Nugget Doom - Doom port (1993)"
+    "crispydoom|Crispy Doom - Doom port (1993)"
     "eduke32|EDuke32 - Duke Nukem 3D engine (1996)"
     "yquake2|Yamagi Quake II - Quake II engine (1997)"
     "xash3d|Xash3D FWGS - Half-Life engine (1998)"
@@ -328,8 +330,11 @@ EMULATOR_CHECKLIST=(
     "devilutionx|DevilutionX - Diablo engine"
     "openlara|OpenLara - Tomb Raider engine"
     "solarus|Solarus - Zelda-like RPGs"
+    "vcmi|VCMI - Heroes of Might and Magic III engine"
     "         |── Ports: Strategy, Simulation, Management ─"
     "corsixth|CorsixTH - Theme Hospital engine"
+    "augustus|Augustus - Caesar III engine"
+    "openttd|OpenTTD - Transport Tycoon Deluxe engine"
     "openloco|OpenLoco - Chris Sawyer's Locomotion engine"
     "openra|OpenRA - Red Alert / Tiberian Dawn / Dune 2000"
     "openrct2|OpenRCT2 - RollerCoaster Tycoon 2 engine"
@@ -530,16 +535,44 @@ tui_select_components() {
         SELECTED_CORES=()
         return 0
     fi
-    local args=() entry key desc state selections
+    local args=() entry key desc state selections _name _w
+
+    # ── Emulator descriptions: align " - " per section ──
+    local -a _emu_widths=()   # per-item pad width
+    local -a _sec_items=()    # indices of items in current section
+    local _sec_max=0 _idx=0
+    for entry in "${EMULATOR_CHECKLIST[@]}"; do
+        key="${entry%%|*}"; desc="${entry#*|}"
+        if [[ -n "${IS_SECTION_HEADER[$key]:-}" ]]; then
+            for _i in "${_sec_items[@]}"; do _emu_widths[$_i]=$_sec_max; done
+            _sec_items=(); _sec_max=0; _emu_widths[$_idx]=0
+        else
+            _sec_items+=("$_idx")
+            if [[ "$desc" == *" - "* ]]; then
+                _name="${desc%% - *}"
+                (( ${#_name} > _sec_max )) && _sec_max=${#_name}
+            fi
+        fi
+        (( ++_idx ))
+    done
+    for _i in "${_sec_items[@]}"; do _emu_widths[$_i]=$_sec_max; done
+
+    _idx=0
     for entry in "${EMULATOR_CHECKLIST[@]}"; do
         key="${entry%%|*}"; desc="${entry#*|}"
         if [[ -n "${IS_SECTION_HEADER[$key]:-}" ]]; then
             args+=("$key" "$desc" "OFF")
-            continue
+            (( ++_idx )); continue
+        fi
+        _w=${_emu_widths[$_idx]:-0}
+        if (( _w > 0 )) && [[ "$desc" == *" - "* ]]; then
+            _name="${desc%% - *}"
+            desc=$(printf "%-${_w}s - %s" "$_name" "${desc#* - }")
         fi
         state="ON"
         [[ "${SELECTED_EMULATORS[$key]:-1}" == "0" ]] && state="OFF"
         args+=("$key" "$desc" "$state")
+        (( ++_idx ))
     done
     selections=$(tui_checklist "Standalone Emulators" "Custom — Screen 1 of 2" "${args[@]}") \
         || { echo "Aborted."; exit 0; }
@@ -570,16 +603,42 @@ Skipping the libretro cores picker — no cores will be installed (they all requ
         return 0
     fi
 
+    # ── Core descriptions: align " — " per section ──
     args=()
+    local -a _core_widths=()
+    _sec_items=(); _sec_max=0; _idx=0
+    for entry in "${CORE_CHECKLIST[@]}"; do
+        key="${entry%%|*}"; desc="${entry#*|}"
+        if [[ -n "${IS_SECTION_HEADER[$key]:-}" ]]; then
+            for _i in "${_sec_items[@]}"; do _core_widths[$_i]=$_sec_max; done
+            _sec_items=(); _sec_max=0; _core_widths[$_idx]=0
+        else
+            _sec_items+=("$_idx")
+            if [[ "$desc" == *" — "* ]]; then
+                _name="${desc%% — *}"
+                (( ${#_name} > _sec_max )) && _sec_max=${#_name}
+            fi
+        fi
+        (( ++_idx ))
+    done
+    for _i in "${_sec_items[@]}"; do _core_widths[$_i]=$_sec_max; done
+
+    _idx=0
     for entry in "${CORE_CHECKLIST[@]}"; do
         key="${entry%%|*}"; desc="${entry#*|}"
         if [[ -n "${IS_SECTION_HEADER[$key]:-}" ]]; then
             args+=("$key" "$desc" "OFF")
         else
+            _w=${_core_widths[$_idx]:-0}
+            if (( _w > 0 )) && [[ "$desc" == *" — "* ]]; then
+                _name="${desc%% — *}"
+                desc=$(printf "%-${_w}s — %s" "$_name" "${desc#* — }")
+            fi
             state="ON"
             [[ "${SELECTED_CORES[$key]:-1}" == "0" ]] && state="OFF"
             args+=("$key" "$desc" "$state")
         fi
+        (( ++_idx ))
     done
     selections=$(tui_checklist "RetroArch Libretro Cores" "Custom — Screen 2 of 2 — ↑/↓ to scroll, SPACE to toggle" "${args[@]}") \
         || { echo "Aborted."; exit 0; }
@@ -1013,11 +1072,12 @@ download_cores() {
         [theodore]="Thomson MO/TO"
         # NOTE: bennugd_libretro.so.zip 404s on the Linux x86_64 buildbot
         # (https://buildbot.libretro.com/nightly/linux/x86_64/latest/) —
-        # the core-info file exists but no binary is built. Removed from
-        # downloads. The es_systems entry, ROMs/bennugd folder, and
-        # SYS_TO_CORE mapping are kept so the bundle is ready if a binary
-        # ever appears. Re-enable by uncommenting the line below and
-        # confirming the URL returns HTTP 200.
+        # the core-info file exists but no binary is built. The es_systems
+        # entry, ROMs/bennugd folder, and SYS_TO_CORE mapping have all been
+        # removed so no dead/unlaunchable system is shown. To re-add bennugd
+        # later: confirm the URL returns HTTP 200, uncomment the line below,
+        # and restore the es_systems <system>, ROM_DIRS entry, and
+        # SYS_TO_CORE mapping.
         # [bennugd]="BennuGD game engine"
     )
 
@@ -1144,7 +1204,7 @@ ROM_DIRS=(
     aquarius atom coco electron gp32 pegasus socrates tutor vis
     bk c128 cassettevision dice enterprise
     p2000t pet thomson
-    fmtowns bennugd
+    fmtowns
     bios
 )
 for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
@@ -1201,6 +1261,9 @@ write_port_launcher "OpenLara (Tomb Raider)" "OpenLara*.AppImage"
 write_port_launcher "Cannonball (OutRun)" "Cannonball*.AppImage"
 write_port_launcher "Cave Story (NXEngine)" "NXEngine*.AppImage"
 write_port_launcher "ECWolf (Wolfenstein 3D)" "ECWolf*.AppImage"
+write_port_launcher "Heroes III (VCMI)" "vcmi*.AppImage"
+write_port_launcher "Caesar III (Augustus)" "Augustus*.AppImage"
+write_port_launcher "OpenTTD (Transport Tycoon)" "OpenTTD*.AppImage"
 
 ok "Directory tree created"
 
@@ -1226,6 +1289,10 @@ done
 STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Creating portable.txt..."
 touch "$BASE/portable.txt"
+# Record the install location. launch.sh compares this to its own runtime
+# directory and heals baked absolute paths (retroarch.cfg, es_find_rules.xml)
+# when the bundle has been moved to a different drive or folder.
+printf '%s\n' "$BASE" > "$BASE/.bundle-path"
 ok "portable.txt created"
 
 #=============================================================================
@@ -1352,8 +1419,6 @@ emu('EDUKE32', [fp('EDuke32*.AppImage'), fp('eduke32*.AppImage')], ['eduke32']),
 '',
 emu('GHOSTSHIP', [fp('Ghostship*.AppImage'), fp('ghostship*.AppImage')], ['ghostship']),
 '',
-emu('GZDOOM', [fp('Nugget-Doom*.AppImage'), fp('Nugget*.AppImage'), fp('Crispy-Doom*.AppImage'), fp('Crispy*.AppImage')], ['gzdoom']),
-'',
 emu('NUGGETDOOM', [fp('Nugget-Doom*.AppImage'), fp('Nugget*.AppImage')], ['nugget-doom']),
 '',
 emu('CRISPYDOOM', [fp('Crispy-Doom*.AppImage'), fp('Crispy*.AppImage')], ['crispy-doom']),
@@ -1381,6 +1446,12 @@ emu('DHEWM3', [fp('dhewm3*.AppImage'), fp('Dhewm3*.AppImage')], ['dhewm3']),
 emu('SUPERMODEL', [fp('supermodel-portable.sh'), fp('supermodel*.AppImage'), fp('Supermodel*.AppImage'), fp('supermodel')], ['supermodel']),
 '',
 emu('SOLARUS', [fp('solarus-run*.AppImage'), fp('solarus-portable.sh'), fp('solarus-run')], ['solarus-run']),
+'',
+emu('VCMI', [fp('vcmi*.AppImage'), fp('VCMI*.AppImage')], ['vcmi']),
+'',
+emu('AUGUSTUS', [fp('Augustus*.AppImage'), fp('augustus*.AppImage')], ['augustus']),
+'',
+emu('OPENTTD', [fp('OpenTTD*.AppImage'), fp('openttd*.AppImage')], ['openttd']),
 '',
 emu('RUFFLE', [fp('ruffle-portable.sh'), fp('ruffle*.AppImage'), fp('ruffle')], ['ruffle']),
 '',
@@ -2629,16 +2700,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name></name>
-    <fullname>CannonBall (OutRun engine)</fullname>
-    <path>%ROMPATH%/</path>
-    <extension>.zip .ZIP .7z .7Z .game .GAME</extension>
-    <command label="CannonBall">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/cannonball_libretro.so %ROM%</command>
-    <platform></platform>
-    <theme>arcade</theme>
-  </system>
-
-  <system>
     <name>cassettevision</name>
     <fullname>Epoch Cassette Vision</fullname>
     <path>%ROMPATH%/cassettevision</path>
@@ -2646,16 +2707,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <command label="pd777">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/pd777_libretro.so %ROM%</command>
     <platform>cassettevision</platform>
     <theme>pv1000</theme>
-  </system>
-
-  <system>
-    <name></name>
-    <fullname>Cave Story (NXEngine)</fullname>
-    <path>%ROMPATH%/</path>
-    <extension>.zip .ZIP .7z .7Z .exe .EXE</extension>
-    <command label="NXEngine">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/nxengine_libretro.so %ROM%</command>
-    <platform></platform>
-    <theme>ports</theme>
   </system>
 
   <system>
@@ -2669,16 +2720,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name></name>
-    <fullname>Dinothawr</fullname>
-    <path>%ROMPATH%/</path>
-    <extension>.zip .ZIP .7z .7Z .game .GAME</extension>
-    <command label="Dinothawr">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/dinothawr_libretro.so %ROM%</command>
-    <platform></platform>
-    <theme>ports</theme>
-  </system>
-
-  <system>
     <name>enterprise</name>
     <fullname>Enterprise 64/128</fullname>
     <path>%ROMPATH%/enterprise</path>
@@ -2686,16 +2727,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <command label="ep128emu">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/ep128emu_core_libretro.so %ROM%</command>
     <platform>enterprise</platform>
     <theme>pc</theme>
-  </system>
-
-  <system>
-    <name></name>
-    <fullname>OpenLara (Tomb Raider engine)</fullname>
-    <path>%ROMPATH%/</path>
-    <extension>.zip .ZIP .7z .7Z .phd .PHD .psx .PSX .tr2 .TR2</extension>
-    <command label="OpenLara">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/openlara_libretro.so %ROM%</command>
-    <platform></platform>
-    <theme>ports</theme>
   </system>
 
   <system>
@@ -2719,26 +2750,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name></name>
-    <fullname>PrBoom (DOOM engine)</fullname>
-    <path>%ROMPATH%/</path>
-    <extension>.zip .ZIP .7z .7Z .wad .WAD .iwad .IWAD .pwad .PWAD</extension>
-    <command label="PrBoom">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/prboom_libretro.so %ROM%</command>
-    <platform></platform>
-    <theme>doom</theme>
-  </system>
-
-  <system>
-    <name></name>
-    <fullname>Quake (TyrQuake engine)</fullname>
-    <path>%ROMPATH%/</path>
-    <extension>.zip .ZIP .7z .7Z .pak .PAK</extension>
-    <command label="TyrQuake">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/tyrquake_libretro.so %ROM%</command>
-    <platform></platform>
-    <theme></theme>
-  </system>
-
-  <system>
     <name>thomson</name>
     <fullname>Thomson MO/TO</fullname>
     <path>%ROMPATH%/thomson</path>
@@ -2749,8 +2760,10 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
 
-  <!-- ── IN PROGRESS batch: fmtowns (MAME fmtownsux driver),
-       bennugd + ecwolf (single libretro cores). ── -->
+  <!-- ── IN PROGRESS batch: fmtowns (MAME fmtownsux driver). ──
+       bennugd removed: bennugd_libretro.so has no Linux x86_64 buildbot
+       binary, so the system could never launch. Re-add a <system> here
+       AND the SYS_TO_CORE/ROM-dir entries if/when a binary ships. ── -->
 
   <system>
     <name>fmtowns</name>
@@ -2767,18 +2780,41 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <theme>fmtowns</theme>
   </system>
 
-  <system>
-    <name>bennugd</name>
-    <fullname>BennuGD</fullname>
-    <path>%ROMPATH%/bennugd</path>
-    <extension>.dcb .DCB .dat .DAT .exe .EXE .zip .ZIP .7z .7Z</extension>
-    <command label="BennuGD">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/bennugd_libretro.so %ROM%</command>
-    <platform>bennugd</platform>
-    <theme>ports</theme>
-  </system>
-
 </systemList>
 CUSTOMSYSTEMS
+# Safety net: validate the generated es_systems.xml before installing it.
+# A system with an empty <name>, a duplicate <name>, or a <path> pointing at
+# the ROMs root would make ES-DE skip systems or scan the whole ROM tree.
+# (This is the exact failure class that previously shipped silently.)
+if command -v python3 >/dev/null 2>&1; then
+    if ! python3 - "$CUSTOM_SYSTEMS_TMP" << 'VALIDATE_ES'
+import sys, xml.etree.ElementTree as ET
+try:
+    root = ET.parse(sys.argv[1]).getroot()
+except Exception as e:
+    print(f"   es_systems.xml is not well-formed XML: {e}"); sys.exit(1)
+names, bad = [], []
+for s in root.iter('system'):
+    n = (s.findtext('name') or '').strip()
+    p = (s.findtext('path') or '').strip()
+    if not n: bad.append("empty <name>")
+    if p in ('%ROMPATH%/', '%ROMPATH%'): bad.append(f"'{n or '?'}' path is the ROMs root")
+    names.append(n)
+dupes = sorted({n for n in names if n and names.count(n) > 1})
+if dupes: bad.append("duplicate <name>: " + ", ".join(dupes))
+if bad:
+    print("   es_systems.xml validation FAILED:")
+    for b in bad: print(f"     - {b}")
+    sys.exit(1)
+sys.exit(0)
+VALIDATE_ES
+    then
+        fail "Generated es_systems.xml is invalid — NOT installing it."
+        warn "Existing custom_systems/es_systems.xml (if any) left untouched."
+        rm -f "$CUSTOM_SYSTEMS_TMP"
+        exit 1
+    fi
+fi
 backup_file_if_changed "$CUSTOM_SYSTEMS_FILE" "$CUSTOM_SYSTEMS_TMP" "custom es_systems.xml"
 
 # Add ROM directories for all custom systems
@@ -3515,8 +3551,65 @@ apply_paths() {
     fi
 }
 
+# ── Portable path healing ──────────────────────────────────────────────
+# Setup bakes ABSOLUTE bundle paths into retroarch.cfg and es_find_rules.xml.
+# If the bundle is moved to another drive/folder (the whole point of a
+# portable bundle, and external-drive mount points differ per machine),
+# those stale paths break emulator, core, BIOS and save resolution.
+# es_settings.xml ROM/media paths are handled by apply_paths above; this
+# heals the other two on every launch.
+RA_CFG="$SCRIPT_DIR/.config/retroarch/retroarch.cfg"
+FIND_RULES="$SCRIPT_DIR/ES-DE/custom_systems/es_find_rules.xml"
+BUNDLE_MARK="$SCRIPT_DIR/.bundle-path"
+
+heal_paths() {
+    # retroarch.cfg: rewrite the known bundle-relative path keys to the
+    # CURRENT location. Idempotent; only the path keys are touched so all
+    # real user settings (video/audio/input) are preserved. This also fixes
+    # the case where retroarch.cfg is preserved (first-run-only) across a move.
+    if [[ -f "$RA_CFG" ]]; then
+        local esc; esc=$(printf '%s' "$SCRIPT_DIR" | sed -e 's/[#&\\]/\\&/g')
+        sed -i \
+            -e "s#^[[:space:]]*libretro_directory[[:space:]]*=.*#libretro_directory = \"$esc/Emulators/retroarch-cores\"#" \
+            -e "s#^[[:space:]]*system_directory[[:space:]]*=.*#system_directory = \"$esc/ROMs/bios\"#" \
+            -e "s#^[[:space:]]*savefile_directory[[:space:]]*=.*#savefile_directory = \"$esc/Saves/files\"#" \
+            -e "s#^[[:space:]]*savestate_directory[[:space:]]*=.*#savestate_directory = \"$esc/Saves/states\"#" \
+            -e "s#^[[:space:]]*screenshot_directory[[:space:]]*=.*#screenshot_directory = \"$esc/Saves/screenshots\"#" \
+            -e "s#^[[:space:]]*log_dir[[:space:]]*=.*#log_dir = \"$esc/Saves/logs\"#" \
+            -e "s#^[[:space:]]*cheat_database_path[[:space:]]*=.*#cheat_database_path = \"$esc/.config/retroarch/cheats\"#" \
+            "$RA_CFG" 2>/dev/null || true
+    fi
+
+    # es_find_rules.xml: entries interleave bundle paths with system/flatpak
+    # fallbacks, so we replace ONLY the old bundle base with the new one,
+    # tracked via .bundle-path. Literal replace via python3 (no escaping
+    # pitfalls); sed fallback if python3 is absent.
+    if [[ -f "$FIND_RULES" && -f "$BUNDLE_MARK" ]]; then
+        local old; old=$(cat "$BUNDLE_MARK" 2>/dev/null || true)
+        if [[ -n "$old" && "$old" != "$SCRIPT_DIR" ]]; then
+            if command -v python3 >/dev/null 2>&1; then
+                OLD_BASE="$old" NEW_BASE="$SCRIPT_DIR" python3 - "$FIND_RULES" <<'PYHEAL' 2>/dev/null || true
+import os, sys
+f = sys.argv[1]; old = os.environ["OLD_BASE"]; new = os.environ["NEW_BASE"]
+with open(f, encoding="utf-8", errors="replace") as fh: s = fh.read()
+with open(f, "w", encoding="utf-8") as fh: fh.write(s.replace(old, new))
+PYHEAL
+            else
+                local oe ne
+                oe=$(printf '%s' "$old" | sed -e 's/[][\\.^$*/]/\\&/g')
+                ne=$(printf '%s' "$SCRIPT_DIR" | sed -e 's/[&\\/]/\\&/g')
+                sed -i "s/$oe/$ne/g" "$FIND_RULES" 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    # Record current location so the next move is detectable.
+    printf '%s\n' "$SCRIPT_DIR" > "$BUNDLE_MARK" 2>/dev/null || true
+}
+
 apply_theme
 apply_paths
+heal_paths
 
 "$ESDE_BIN" --home "$SCRIPT_DIR" "$@"
 EXIT_CODE=$?
@@ -3733,6 +3826,9 @@ These launch from the visible ES-DE `ports` system for Art Book Next compatibili
 |---|---|
 | `DevilutionX.sh` | DevilutionX AppImage Enhanced |
 | `Theme Hospital (CorsixTH).sh` | CorsixTH AppImage Enhanced |
+| `Heroes III (VCMI).sh` | VCMI AppImage |
+| `Caesar III (Augustus).sh` | Augustus AppImage Enhanced |
+| `OpenTTD (Transport Tycoon).sh` | OpenTTD AppImage |
 | `Commander Genius.sh` | Commander Genius AppImage |
 | `C-Dogs SDL.sh` | C-Dogs SDL AppImage |
 | `EDuke32.sh` | EDuke32 AppImage |
@@ -3871,7 +3967,7 @@ Some emulators still need one time setup because firmware, keys, BIOS files, gam
 - xemu requires Xbox BIOS/HDD setup.
 - 86Box requires your own OS install media and machine configuration.
 - Switch family tools require your own firmware and keys.
-- Source ports such as DevilutionX, CorsixTH, Commander Genius, EDuke32, OpenJazz, OpenRCT2, OpenLoco, Xash3D, Yamagi Quake II, ioquake3, and dhewm3 may need original game data.
+- Source ports such as DevilutionX, CorsixTH, VCMI, Augustus, OpenTTD, Commander Genius, EDuke32, OpenJazz, OpenRCT2, OpenLoco, Xash3D, Yamagi Quake II, ioquake3, and dhewm3 may need original game data.
 
 ## Legal
 
@@ -4509,6 +4605,30 @@ install_corsixth() {
         "$EMUS/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
+install_vcmi() {
+    github_appimage "pkgforge-dev/vcmi-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_augustus() {
+    github_appimage "pkgforge-dev/Augustus-AppImage-Enhanced" \
+        ".*\.AppImage$" \
+        "$EMUS/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_openttd() {
+    github_appimage "pkgforge-dev/OpenTTD-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_scummvm_standalone() {
+    github_appimage "pkgforge-dev/ScummVM-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/ScummVM-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
 install_cgenius() {
     github_appimage "pkgforge-dev/Commander-Genius-AppImage" \
         ".*\.AppImage$" \
@@ -4646,7 +4766,13 @@ install_engine_by_key() {
         cdogs)       install_cdogs ;;
         eduke32)     install_eduke32 ;;
         ghostship)   install_ghostship ;;
-        gzdoom)      install_gzdoom ;;
+        gzdoom)      install_nuggetdoom; install_crispydoom ;;
+        nuggetdoom)  install_nuggetdoom ;;
+        crispydoom)  install_crispydoom ;;
+        vcmi)        install_vcmi ;;
+        augustus)     install_augustus ;;
+        openttd)     install_openttd ;;
+        scummvm)     install_scummvm_standalone ;;
         openbor)     install_openbor ;;
         openjazz)    install_openjazz ;;
         opentyrian)  install_opentyrian ;;
@@ -4856,8 +4982,16 @@ else
 fi
 
 echo ""
+echo "   ── ScummVM (standalone) ──"
+if emu_selected scummvm; then
+    install_scummvm_standalone
+else
+    info "Skipped scummvm (deselected)"
+fi
+
+echo ""
 echo "   ── Ports / Engines AppImages ──"
-for engine_key in devilutionx corsixth cgenius cdogs eduke32 ghostship gzdoom openbor openjazz opentyrian openrct2 openloco openra xash3d yquake2 ioquake3 dhewm3 openlara cannonball nxengine ecwolf; do
+for engine_key in devilutionx corsixth vcmi augustus openttd cgenius cdogs eduke32 ghostship nuggetdoom crispydoom openbor openjazz opentyrian openrct2 openloco openra xash3d yquake2 ioquake3 dhewm3 openlara cannonball nxengine ecwolf; do
     if emu_selected "$engine_key"; then
         install_engine_by_key "$engine_key" || true
     else
@@ -5360,7 +5494,9 @@ declare -A SYS_MAP=(
     # Art Book Next safe Ports / Engines — visible under ports/ only
     [devilutionx]=ports      [corsixth]=ports        [cgenius]=ports
     [cdogs]=ports            [eduke32]=ports         [ghostship]=ports
-    [gzdoom]=ports           [openbor]=ports         [openjazz]=ports
+    [nuggetdoom]=ports       [crispydoom]=ports      [openbor]=ports
+    [openjazz]=ports         [vcmi]=ports            [augustus]=ports
+    [openttd]=ports
     [opentyrian]=ports       [openrct2]=ports        [openloco]=ports
     [openra]=ports           [xash3d]=ports          [yquake2]=ports
     [yamagi-quake2]=ports    [quake2]=ports          [ioquake3]=ports
@@ -5411,11 +5547,15 @@ declare -A MSU_NESTED_FOLDER=(
     # menu entry should be a .sh script in ROMs/ports.
     [devilutionx]=devilutionx
     [corsixth]=corsixth
+    [vcmi]=vcmi
+    [augustus]=augustus
+    [openttd]=openttd
     [cgenius]=cgenius
     [cdogs]=cdogs
     [eduke32]=eduke32
     [ghostship]=ghostship
-    [gzdoom]=gzdoom
+    [nuggetdoom]=nuggetdoom
+    [crispydoom]=crispydoom
     [openbor]=openbor
     [openjazz]=openjazz
     [opentyrian]=opentyrian
@@ -5450,11 +5590,15 @@ declare -A MSU_PATH_IS_SYSTEM_ROOT=(
 declare -A PORT_ENGINE_FOR=(
     [devilutionx]=devilutionx
     [corsixth]=corsixth
+    [vcmi]=vcmi
+    [augustus]=augustus
+    [openttd]=openttd
     [cgenius]=cgenius
     [cdogs]=cdogs
     [eduke32]=eduke32
     [ghostship]=ghostship
-    [gzdoom]=gzdoom
+    [nuggetdoom]=nuggetdoom
+    [crispydoom]=crispydoom
     [openbor]=openbor
     [openjazz]=openjazz
     [opentyrian]=opentyrian
@@ -5575,8 +5719,10 @@ declare -A SYS_TO_CORE=(
     [vis]=mame
     # EASY systems batch — 14 single-libretro-core systems.
     [bk]=bk                           [c128]=vice_x128
-    []=[cassettevision]=pd777
-    []=nxengine              [dice]=dice
+    # NOTE: cavestory/nxengine, cannonball, openlara are STANDALONE ports
+    # (ROMs/ports/*.sh launchers), not libretro-core systems, so they are
+    # intentionally absent here. (Was a malformed '[]=' block that emitted
+    # 'bad array subscript' at runtime and silently dropped these keys.)
     [cassettevision]=pd777
     [dice]=dice
     [enterprise]=ep128emu_core
@@ -5584,7 +5730,7 @@ declare -A SYS_TO_CORE=(
     [pet]=vice_xpet                   [thomson]=theodore
     # IN PROGRESS batch
     [fmtowns]=mame                    # FM Towns — MAME fmtownsux driver
-    [bennugd]=bennugd
+    # bennugd removed — no Linux x86_64 buildbot binary exists.
     # apple2 launches via the mame libretro core (apple2e driver) per its
     # es_systems.xml entry — route it so the importer installs that core.
     [apple2]=mame
@@ -5647,6 +5793,10 @@ is_emulator_installed() {
         mame)        compgen -G "$EMUS/mame*" > /dev/null || compgen -G "$EMUS/MAME*" > /dev/null ;;
         devilutionx) compgen -G "$EMUS/[dD]evilution[Xx]*" > /dev/null ;;
         corsixth)    compgen -G "$EMUS/[cC]orsix[Tt][Hh]*" > /dev/null ;;
+        vcmi)        compgen -G "$EMUS/vcmi*" > /dev/null || compgen -G "$EMUS/VCMI*" > /dev/null ;;
+        augustus)     compgen -G "$EMUS/[aA]ugustus*" > /dev/null ;;
+        openttd)     compgen -G "$EMUS/[oO]pen[Tt][Tt][Dd]*" > /dev/null ;;
+        scummvm)     compgen -G "$EMUS/[sS]cumm[Vv][Mm]*" > /dev/null ;;
         cgenius)     compgen -G "$EMUS/[cC]ommander-[gG]enius*" > /dev/null || compgen -G "$EMUS/[cC]genius*" > /dev/null ;;
         cdogs)       compgen -G "$EMUS/C-Dogs*" > /dev/null || compgen -G "$EMUS/[cC]dogs*" > /dev/null ;;
         eduke32)     compgen -G "$EMUS/[eE][dD]uke32*" > /dev/null ;;
@@ -6370,8 +6520,32 @@ install_corsixth() {
 }
 
 install_cgenius() {
+
+install_vcmi() {
+    github_appimage "pkgforge-dev/vcmi-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_augustus() {
+    github_appimage "pkgforge-dev/Augustus-AppImage-Enhanced" \
+        ".*\.AppImage$" \
+        "$EMUS/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
     github_appimage "pkgforge-dev/Commander-Genius-AppImage" \
         ".*\.AppImage$" \
+
+install_openttd() {
+    github_appimage "pkgforge-dev/OpenTTD-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
+
+install_scummvm_standalone() {
+    github_appimage "pkgforge-dev/ScummVM-AppImage" \
+        ".*\.AppImage$" \
+        "$EMUS/ScummVM-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+}
         "$EMUS/Commander-Genius-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
@@ -6524,6 +6698,10 @@ install_emulator() {
         mame)         install_mame ;;
         devilutionx)  install_devilutionx ;;
         corsixth)     install_corsixth ;;
+        vcmi)         install_vcmi ;;
+        augustus)      install_augustus ;;
+        openttd)      install_openttd ;;
+        scummvm)      install_scummvm_standalone ;;
         cgenius)      install_cgenius ;;
         cdogs)        install_cdogs ;;
         eduke32)      install_eduke32 ;;
@@ -6776,16 +6954,37 @@ declare -a BIOS_TABLE=(
 # bios.7z, firmware.rar are extracted into ROMs/bios without overwriting.
 #=============================================================================
 
-declare -A BIOS_FILE_BY_NAME=()
+declare -A BIOS_FILE_BY_NAME=()      # lowercased name -> 1 (known marker)
+declare -A BIOS_CANON_NAME=()        # lowercased name -> canonical-cased name ("" if ambiguous)
 for _bios_entry in "${BIOS_TABLE[@]}"; do
     IFS='|' read -r _bios_sys _bios_file _bios_req _bios_conf _bios_md5 _bios_desc <<< "$_bios_entry"
-    [[ -n "$_bios_file" ]] && BIOS_FILE_BY_NAME["${_bios_file,,}"]=1
+    [[ -n "$_bios_file" ]] || continue
+    _bios_lk="${_bios_file,,}"
+    BIOS_FILE_BY_NAME["$_bios_lk"]=1
+    # Track the canonical case. If the table lists the SAME filename under
+    # two different cases on purpose (e.g. SCPH30004R.bin AND scph30004r.bin),
+    # mark it ambiguous ("") so import does NOT rename — the user's own case
+    # is then preserved for those entries.
+    if [[ -z "${BIOS_CANON_NAME[$_bios_lk]+x}" ]]; then
+        BIOS_CANON_NAME["$_bios_lk"]="$_bios_file"
+    elif [[ "${BIOS_CANON_NAME[$_bios_lk]}" != "$_bios_file" ]]; then
+        BIOS_CANON_NAME["$_bios_lk"]=""
+    fi
 done
-unset _bios_entry _bios_sys _bios_file _bios_req _bios_conf _bios_md5 _bios_desc
+unset _bios_entry _bios_sys _bios_file _bios_req _bios_conf _bios_md5 _bios_desc _bios_lk
 
 is_known_bios_file() {
     local base="${1##*/}"
     [[ -n "${BIOS_FILE_BY_NAME[${base,,}]:-}" ]]
+}
+
+# Canonical (table-cased) filename for a known BIOS file, or empty if the
+# table is case-ambiguous for that name. Used so a user's wrong-cased dump
+# (SCPH5501.BIN, BIOS_CD_U.BIN, ...) lands in ROMs/bios under the exact name
+# the libretro core expects on a case-sensitive filesystem.
+canonical_bios_name() {
+    local base="${1##*/}"
+    printf '%s' "${BIOS_CANON_NAME[${base,,}]:-}"
 }
 
 is_archive_file() {
@@ -6865,13 +7064,19 @@ _import_bios_file() {
 
     # Preserve required BIOS archives exactly as archives, e.g. neogeo.zip.
     if is_known_bios_file "$base"; then
+        # Normalise case to what the core expects. canonical_bios_name returns
+        # "" when the table is intentionally case-ambiguous for this name —
+        # in that case keep the user's original filename.
+        local canon; canon="$(canonical_bios_name "$base")"
+        [[ -z "$canon" ]] && canon="$base"
+        dest="$BIOS_DIR/$canon"
         if [[ -e "$dest" ]]; then
             return 0
         fi
         if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-            mv -n "$src" "$BIOS_DIR/" 2>/dev/null || cp -n "$src" "$BIOS_DIR/" 2>/dev/null || true
+            mv -n "$src" "$dest" 2>/dev/null || cp -n "$src" "$dest" 2>/dev/null || true
         else
-            cp -n "$src" "$BIOS_DIR/" 2>/dev/null || true
+            cp -n "$src" "$dest" 2>/dev/null || true
         fi
         return 0
     fi
@@ -8969,6 +9174,14 @@ check_and_update "DevilutionX" "DevilutionX*.AppImage" \
     "$(github_latest_url pkgforge-dev/DevilutionX-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "CorsixTH" "CorsixTH*.AppImage" \
     "$(github_latest_url pkgforge-dev/CorsixTH-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
+check_and_update "VCMI" "vcmi*.AppImage" \
+    "$(github_latest_url pkgforge-dev/vcmi-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
+check_and_update "Augustus" "Augustus*.AppImage" \
+    "$(github_latest_url pkgforge-dev/Augustus-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
+check_and_update "OpenTTD" "OpenTTD*.AppImage" \
+    "$(github_latest_url pkgforge-dev/OpenTTD-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
+check_and_update "ScummVM" "ScummVM*.AppImage" \
+    "$(github_latest_url pkgforge-dev/ScummVM-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "Commander Genius" "Commander-Genius*.AppImage" \
     "$(github_latest_url pkgforge-dev/Commander-Genius-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "C-Dogs SDL" "C-Dogs_SDL*.AppImage" \
