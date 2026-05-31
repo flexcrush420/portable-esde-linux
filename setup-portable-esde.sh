@@ -312,36 +312,16 @@ EMULATOR_CHECKLIST=(
     "eka2l1|EKA2L1 - Symbian / N-Gage"
     "ruffle|Ruffle - Adobe Flash games"
     "scummvm|ScummVM - point-and-click adventures"
-    "      |── Ports: First Person Shooter ──────────────"
-    "ecwolf|ECWolf - Wolfenstein 3D engine (1992)"
-    "nuggetdoom|Nugget Doom - Doom port (1993)"
-    "crispydoom|Crispy Doom - Doom port (1993)"
-    "eduke32|EDuke32 - Duke Nukem 3D engine (1996)"
-    "yquake2|Yamagi Quake II - Quake II engine (1997)"
-    "xash3d|Xash3D FWGS - Half-Life engine (1998)"
-    "ioquake3|ioquake3 - Quake III Arena engine (1999)"
-    "dhewm3|dhewm3 - Doom 3 engine (2004)"
     "       |── Ports: Action, Platformer, Arcade ────────"
-    "cannonball|Cannonball - OutRun engine"
     "cdogs|C-Dogs SDL - top-down action engine"
     "cgenius|Commander Genius - Commander Keen engine"
-    "ghostship|Ghostship - Super Mario 64 PC port"
     "nxengine|NXEngine - Cave Story engine"
-    "openbor|OpenBOR - beat 'em up engine"
-    "openjazz|OpenJazz - Jazz Jackrabbit engine"
     "opentyrian|OpenTyrian 2000 - Tyrian 2000 engine"
     "        |── Ports: Adventure and RPG ───────────────"
-    "devilutionx|DevilutionX - Diablo engine"
-    "openlara|OpenLara - Tomb Raider engine"
     "solarus|Solarus - Zelda-like RPGs"
-    "vcmi|VCMI - Heroes of Might and Magic III engine"
     "         |── Ports: Strategy, Simulation, Management ─"
-    "corsixth|CorsixTH - Theme Hospital engine"
-    "augustus|Augustus - Caesar III engine"
     "openttd|OpenTTD - Transport Tycoon Deluxe engine"
-    "openloco|OpenLoco - Chris Sawyer's Locomotion engine"
     "openra|OpenRA - Red Alert / Tiberian Dawn / Dune 2000"
-    "openrct2|OpenRCT2 - RollerCoaster Tycoon 2 engine"
 )
 
 # Section divider tags used in CORE_CHECKLIST to group cores visually.
@@ -866,7 +846,7 @@ Install command:
 
 Install it now? (sudo password may be required.)
 
-Choose No if you do not have sudo, prefer to install system packages yourself, or will only play PSN (.psn) games — those work without squashfuse."; then
+Choose No if you do not have sudo, prefer to install system packages yourself, or will only play PSN (.m3u) games — those work without squashfuse."; then
         if eval "$cmd"; then
             ok "squashfuse installed"
         else
@@ -878,7 +858,7 @@ Choose No if you do not have sudo, prefer to install system packages yourself, o
         warn "Skipped squashfuse install."
         warn "PS3 .squashfs games will NOT launch until you install it:"
         warn "    $cmd"
-        warn "(PSN .psn games will still work — they do not need squashfuse.)"
+        warn "(PSN .m3u games will still work — they do not need squashfuse.)"
     fi
 }
 
@@ -1215,7 +1195,6 @@ ROM_DIRS=(
     supergrafx switch tg-cd tg16 ti99 uzebox vectrex vic20 videopac
     virtualboy wii wiiu wonderswan wonderswancolor x68000
     xbox xbox360 zx81 zxspectrum
-    openbor
     ps4 win98 windows
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
     archimedes adam dragon32 fm7 supracan bbcmicro apple2 fbneo
@@ -1260,16 +1239,16 @@ app="\${matches[0]}"
 chmod +x "\$app" 2>/dev/null || true
 # The AppImage lives in its OWN folder, Emulators/<Port>/. Run the engine from
 # that folder so it finds user-supplied game data placed right beside it
-# (EDuke32 -> DUKE3D.GRP, CannonBall -> config.xml + roms/, ioquake3 -> baseq3/,
-# etc.). These engines look next to their own binary, which is why a flat
+# (Commander Genius -> Keen game files, Cave Story -> data/, OpenTyrian -> Tyrian
+# data, etc.). These engines look next to their own binary, which is why a flat
 # Emulators/ layout forced data into the shared root. Same folder = found.
 DATA="\$(dirname "\$app")"
 if [[ ! -e "\$DATA/_PUT-GAME-DATA-HERE.txt" ]]; then
     cat > "\$DATA/_PUT-GAME-DATA-HERE.txt" <<'PORTNOTE'
 Put this port's game data in THIS folder — right beside the AppImage — e.g.:
-  EDuke32     -> DUKE3D.GRP  (plus DUKE.RTS / any addon .grp files)
-  CannonBall  -> the OutRun "roms" folder  + config.xml
-  ioquake3    -> baseq3/      Yamagi Quake II -> baseq2/      dhewm3 -> base/
+  Commander Genius      -> Commander Keen episode game files
+  OpenTyrian 2000       -> Tyrian data files (freely redistributable)
+  Cave Story (NXEngine) -> the Cave Story data/ folder (freeware)
 The launcher runs the engine from this folder, so files here are found
 automatically. Preserved across setup re-runs and update.sh.
 PORTNOTE
@@ -1281,30 +1260,11 @@ PORT_LAUNCHER
     chmod +x "$out"
 }
 
-write_port_launcher "DevilutionX" "DevilutionX*.AppImage"
-write_port_launcher "Theme Hospital (CorsixTH)" "CorsixTH*.AppImage"
 write_port_launcher "Commander Genius" "Commander-Genius*.AppImage"
 write_port_launcher "C-Dogs SDL" "C-Dogs_SDL*.AppImage"
-write_port_launcher "EDuke32" "EDuke32*.AppImage"
-write_port_launcher "Ghostship" "Ghostship*.AppImage"
-write_port_launcher "Nugget Doom" "Nugget-Doom*.AppImage"
-write_port_launcher "Crispy Doom" "Crispy-Doom*.AppImage"
-write_port_launcher "OpenBOR" "OpenBOR*.AppImage"
-write_port_launcher "OpenJazz" "OpenJazz*.AppImage"
 write_port_launcher "OpenTyrian 2000" "OpenTyrian2000*.AppImage"
-write_port_launcher "OpenRCT2" "OpenRCT2*.AppImage"
-write_port_launcher "OpenLoco" "OpenLoco*.AppImage"
 write_port_launcher "OpenRA" "OpenRA*.AppImage"
-write_port_launcher "Half-Life (Xash3D FWGS)" "Xash3D*.AppImage"
-write_port_launcher "Quake II (Yamagi)" "Yamagi*.AppImage"
-write_port_launcher "Quake III Arena (ioquake3)" "ioquake3*.AppImage"
-write_port_launcher "Doom 3 (dhewm3)" "dhewm3*.AppImage"
-write_port_launcher "OpenLara (Tomb Raider)" "OpenLara*.AppImage"
-write_port_launcher "Cannonball (OutRun)" "Cannonball*.AppImage"
 write_port_launcher "Cave Story (NXEngine)" "NXEngine*.AppImage"
-write_port_launcher "ECWolf (Wolfenstein 3D)" "ECWolf*.AppImage"
-write_port_launcher "Heroes III (VCMI)" "vcmi*.AppImage"
-write_port_launcher "Caesar III (Augustus)" "Augustus*.AppImage"
 write_port_launcher "OpenTTD (Transport Tycoon)" "OpenTTD*.AppImage"
 
 ok "Directory tree created"
@@ -1412,7 +1372,6 @@ emu('CEMU', [fp('cemu-portable.sh'), fp('Cemu*.AppImage'), fp('cemu*.AppImage'),
 emu('RMG', [fp('RMG*.AppImage'),
     '/var/lib/flatpak/exports/bin/com.github.Rosalie241.RMG'], ['RMG']),
 '',
-emu('SCUMMVM', [fp('ScummVM*.AppImage'), fp('scummvm*.AppImage')], ['scummvm']),
 '',
 emu('MAME', [fp('mame*.AppImage')], ['mame']),
 '',
@@ -1449,49 +1408,19 @@ emu('GEARGRAFX', [fp('Geargrafx*.AppImage')], ['geargrafx']),
 '',
 emu('SIMCOUPE', [fp('simcoupe-portable.sh'), fp('SimCoupe*.AppImage'), fp('simcoupe')], ['simcoupe', 'SimCoupe']),
 '',
-emu('DEVILUTIONX', [fp('DevilutionX*.AppImage'), fp('devilutionx*.AppImage')], ['devilutionx']),
-'',
-emu('CORSIXTH', [fp('CorsixTH*.AppImage'), fp('corsixth*.AppImage')], ['corsix-th', 'corsixth']),
-'',
 emu('CGENIUS', [fp('Commander-Genius*.AppImage'), fp('Commander_Genius*.AppImage'), fp('cgenius*.AppImage')], ['CommanderGenius', 'cgenius']),
 '',
 emu('CDOGS', [fp('C-Dogs_SDL*.AppImage'), fp('C-Dogs*.AppImage'), fp('cdogs*.AppImage')], ['cdogs-sdl', 'cdogs']),
 '',
-emu('EDUKE32', [fp('EDuke32*.AppImage'), fp('eduke32*.AppImage')], ['eduke32']),
-'',
-emu('GHOSTSHIP', [fp('Ghostship*.AppImage'), fp('ghostship*.AppImage')], ['ghostship']),
-'',
-emu('NUGGETDOOM', [fp('Nugget-Doom*.AppImage'), fp('Nugget*.AppImage')], ['nugget-doom']),
-'',
-emu('CRISPYDOOM', [fp('Crispy-Doom*.AppImage'), fp('Crispy*.AppImage')], ['crispy-doom']),
-'',
-emu('OPENBOR', [fp('OpenBOR*.AppImage'), fp('openbor*.AppImage'), fp('OpenBOR'), fp('openbor')], ['openbor']),
-'',
-emu('OPENJAZZ', [fp('OpenJazz*.AppImage'), fp('openjazz*.AppImage')], ['openjazz']),
-'',
 emu('OPENTYRIAN', [fp('OpenTyrian2000*.AppImage'), fp('OpenTyrian*.AppImage'), fp('opentyrian*.AppImage')], ['opentyrian2000', 'opentyrian']),
 '',
-emu('OPENRCT2', [fp('OpenRCT2*.AppImage'), fp('openrct2*.AppImage')], ['openrct2']),
-'',
-emu('OPENLOCO', [fp('OpenLoco*.AppImage'), fp('openloco*.AppImage')], ['openloco']),
-'',
 emu('OPENRA', [fp('OpenRA*.AppImage'), fp('openra*.AppImage')], ['openra']),
-'',
-emu('XASH3D', [fp('Xash3D*.AppImage'), fp('xash3d*.AppImage')], ['xash3d']),
-'',
-emu('YQUAKE2', [fp('Yamagi*.AppImage'), fp('yamagi*.AppImage'), fp('quake2*.AppImage')], ['yquake2', 'yamagi-quake2']),
-'',
-emu('IOQUAKE3', [fp('ioquake3*.AppImage'), fp('Quake_III*.AppImage')], ['ioquake3']),
-'',
-emu('DHEWM3', [fp('dhewm3*.AppImage'), fp('Dhewm3*.AppImage')], ['dhewm3']),
 '',
 emu('SUPERMODEL', [fp('supermodel-portable.sh'), fp('supermodel*.AppImage'), fp('Supermodel*.AppImage'), fp('supermodel')], ['supermodel']),
 '',
 emu('SOLARUS', [fp('solarus-run*.AppImage'), fp('solarus-portable.sh'), fp('solarus-run')], ['solarus-run']),
 '',
-emu('VCMI', [fp('vcmi*.AppImage'), fp('VCMI*.AppImage')], ['vcmi']),
 '',
-emu('AUGUSTUS', [fp('Augustus*.AppImage'), fp('augustus*.AppImage')], ['augustus']),
 '',
 emu('OPENTTD', [fp('OpenTTD*.AppImage'), fp('openttd*.AppImage')], ['openttd']),
 '',
@@ -1520,67 +1449,6 @@ CUSTOM_SYSTEMS_TMP="$CUSTOM_SYSTEMS_FILE.tmp.$$"
 cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
 <?xml version="1.0"?>
 <systemList>
-
-  <system>
-    <name>snesh</name>
-    <fullname>Super Nintendo (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/snesh</path>
-    <extension>.sfc .smc .fig .swc .bs .st .zip .7z .SFC .SMC .ZIP .7Z</extension>
-    <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
-    <platform>snes</platform>
-    <theme>snes</theme>
-  </system>
-
-  <system>
-    <name>nesh</name>
-    <fullname>Nintendo Entertainment System (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/nesh</path>
-    <extension>.nes .unf .unif .fds .zip .7z .NES .ZIP .7Z</extension>
-    <command label="FCEUmm">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fceumm_libretro.so %ROM%</command>
-    <platform>nes</platform>
-    <theme>nes</theme>
-  </system>
-
-  <system>
-    <name>gbh</name>
-    <fullname>Game Boy (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/gbh</path>
-    <extension>.gb .gbc .zip .7z .GB .GBC .ZIP .7Z</extension>
-    <command label="Gambatte">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/gambatte_libretro.so %ROM%</command>
-    <platform>gb</platform>
-    <theme>gb</theme>
-  </system>
-
-  <system>
-    <name>gbch</name>
-    <fullname>Game Boy Color (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/gbch</path>
-    <extension>.gb .gbc .zip .7z .GB .GBC .ZIP .7Z</extension>
-    <command label="Gambatte">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/gambatte_libretro.so %ROM%</command>
-    <platform>gbc</platform>
-    <theme>gbc</theme>
-  </system>
-
-  <system>
-    <name>gbah</name>
-    <fullname>Game Boy Advance (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/gbah</path>
-    <extension>.gba .zip .7z .GBA .ZIP .7Z</extension>
-    <command label="mGBA">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mgba_libretro.so %ROM%</command>
-    <platform>gba</platform>
-    <theme>gba</theme>
-  </system>
-
-  <system>
-    <name>genh</name>
-    <fullname>Sega Genesis (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/genh</path>
-    <extension>.md .bin .smd .gen .zip .7z .MD .BIN .ZIP .7Z</extension>
-    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
-    <platform>genesis</platform>
-    <theme>genesis</theme>
-  </system>
-
   <!-- Portable overrides: Sega CD / Mega-CD use the bundled RetroArch
        and bundled libretro cores instead of whatever ES-DE finds on the host.
        This also exposes .m3u and .chd explicitly for multi-disc CD sets. -->
@@ -1607,31 +1475,10 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>n64h</name>
-    <fullname>Nintendo 64 (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/n64h</path>
-    <extension>.z64 .n64 .v64 .zip .7z .Z64 .N64 .V64 .ZIP .7Z</extension>
-    <command label="Mupen64Plus-Next">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/mupen64plus_next_libretro.so %ROM%</command>
-    <platform>n64</platform>
-    <theme>n64</theme>
-  </system>
-
-  <system>
-    <name>ggh</name>
-    <fullname>Game Gear (Hacks &amp; Homebrew)</fullname>
-    <path>%ROMPATH%/ggh</path>
-    <extension>.gg .zip .7z .GG .ZIP .7Z</extension>
-    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
-    <platform>gamegear</platform>
-    <theme>gamegear</theme>
-  </system>
-
-
-  <system>
     <name>ps3</name>
     <fullname>Sony PlayStation 3</fullname>
     <path>%ROMPATH%/ps3</path>
-    <extension>.psn .PSN .squashfs .SQUASHFS .m3u .M3U .pkg .PKG .iso .ISO .zip .ZIP</extension>
+    <extension>.m3u .M3U .squashfs .SQUASHFS .pkg .PKG .iso .ISO .zip .ZIP</extension>
     <!-- Default command uses the bundled ps3-launch.sh wrapper, which knows
          how to handle the .psn/.m3u text-payload pointers, mount .squashfs
          disc images via squashfuse, and pass .iso/.pkg straight through.
@@ -1647,7 +1494,7 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <name>ps3psn</name>
     <fullname>PlayStation 3 (PSN / Digital)</fullname>
     <path>%ROMPATH%/ps3psn</path>
-    <extension>.psn .PSN .lnk .LNK .pkg .PKG .m3u .M3U .rap .RAP</extension>
+    <extension>.m3u .M3U .pkg .PKG .rap .RAP</extension>
     <command label="RPCS3 (auto)">%EMULATOR_PS3LAUNCH% %ROM%</command>
     <command label="RPCS3 (raw)">%EMULATOR_RPCS3% %ROM%</command>
     <platform>ps3</platform>
@@ -2525,16 +2372,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   </system>
 
   <system>
-    <name>snes-msu</name>
-    <fullname>Super Nintendo (MSU-1)</fullname>
-    <path>%ROMPATH%/snes/snes-msu</path>
-    <extension>.sfc .smc .bs .st .zip .7z .SFC .SMC .ZIP .7Z</extension>
-    <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
-    <platform>snes</platform>
-    <theme>snes-msu1</theme>
-  </system>
-
-  <system>
     <name>nes-msu</name>
     <fullname>Nintendo Entertainment System (ProjectNested MSU-1)</fullname>
     <path>%ROMPATH%/nes/nes-msu</path>
@@ -2542,16 +2379,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
     <platform>nes</platform>
     <theme>nes</theme>
-  </system>
-
-  <system>
-    <name>msu-md</name>
-    <fullname>Sega Mega Drive (MSU-MD)</fullname>
-    <path>%ROMPATH%/megadrive/msu-md</path>
-    <extension>.md .bin .smd .gen .zip .7z .MD .BIN .SMD .GEN .ZIP .7Z</extension>
-    <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
-    <platform>megadrive</platform>
-    <theme>msu-md</theme>
   </system>
 
   <system>
@@ -2859,10 +2686,23 @@ fi
 backup_file_if_changed "$CUSTOM_SYSTEMS_FILE" "$CUSTOM_SYSTEMS_TMP" "custom es_systems.xml"
 
 # Add ROM directories for all custom systems
-for CUSTOM_SYS in snesh nesh gbh gbch gbah genh n64h ggh ps3psn xbla \
+for CUSTOM_SYS in ps3psn xbla \
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball; do
     mkdir -p "$ROMS/$CUSTOM_SYS"
 done
+
+# MSU content folds into its parent system (snes/megadrive) as a nested folder
+# rather than a standalone ES-DE system, so these paths are no longer in
+# es_systems.xml. Create them explicitly so the importer and manual drops have
+# a landing spot (nes-msu remains its own system and is covered below).
+mkdir -p "$ROMS/snes/snes-msu" "$ROMS/megadrive/msu-md"
+
+# Romhack/homebrew content folds into a "hacks" folder inside each parent
+# system (same console, same core), not a standalone ES-DE system. Create the
+# landing folders so the importer and manual drops have a target.
+mkdir -p "$ROMS/snes/hacks" "$ROMS/nes/hacks" "$ROMS/gb/hacks" \
+         "$ROMS/gbc/hacks" "$ROMS/gba/hacks" "$ROMS/megadrive/hacks" \
+         "$ROMS/n64/hacks" "$ROMS/gamegear/hacks"
 
 # Self-maintaining safety net: create a ROM folder for every <path>%ROMPATH%/...
 # entry in the custom es_systems.xml we just wrote. This guarantees that any
@@ -3663,6 +3503,15 @@ export XDG_STATE_HOME="$SCRIPT_DIR/.local/state"
 export XDG_CACHE_HOME="$SCRIPT_DIR/.cache"
 mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 
+# GPU shader/compute disk caches don't honor HOME or XDG_CACHE_HOME — the
+# NVIDIA driver writes ~/.nv/ComputeCache and ~/.nv/GLCache via its own vars,
+# and Mesa uses its own. Point them into the bundle explicitly so they don't
+# leak into the user's real home.
+export __GL_SHADER_DISK_CACHE_PATH="$SCRIPT_DIR/.cache/nv"
+export CUDA_CACHE_PATH="$SCRIPT_DIR/.cache/nv/ComputeCache"
+export MESA_SHADER_CACHE_DIR="$SCRIPT_DIR/.cache/mesa"
+mkdir -p "$__GL_SHADER_DISK_CACHE_PATH" "$CUDA_CACHE_PATH" "$MESA_SHADER_CACHE_DIR"
+
 # Apply desired theme before launch — ES-DE may overwrite settings on exit
 # so we also re-apply after. Belt and suspenders.
 SETTINGS="$SCRIPT_DIR/ES-DE/settings/es_settings.xml"
@@ -3949,7 +3798,7 @@ Run a read only import audit:
 | Microsoft | Xbox, Xbox 360, Windows 9x, Windows launchers |
 | Arcade | Arcade, FinalBurn Neo, CPS1/2/3, MAME software list systems |
 | Computers | Amiga, Atari ST, C64, MSX, Sharp X68000, DOS, PC variants |
-| Ports | Doom ports, Diablo, Theme Hospital, Commander Keen, Jazz Jackrabbit, Tyrian 2000, OpenBOR, OpenRCT2, OpenLoco, OpenRA, Half-Life, Quake II, Quake III, Doom 3 |
+| Ports | Commander Keen, C-Dogs, OpenTTD, Tyrian 2000, OpenRA, Cave Story |
 
 </details>
 
@@ -3960,31 +3809,12 @@ Each port appears in the ES-DE **Ports** system. Every port lives in its own fol
 
 | Port (in ES-DE "Ports") | Put game data in | You provide |
 |---|---|---|
-| DevilutionX (Diablo) | `Emulators/DevilutionX/` | `DIABDAT.MPQ` (or `spawn.mpq` shareware); Hellfire adds `hellfire.mpq` |
-| Theme Hospital (CorsixTH) | `Emulators/CorsixTH/` | Theme Hospital install files (`DATA`, `ANIMS`, `LEVELS`, ...) |
-| Heroes III (VCMI) | `Emulators/vcmi/` | Heroes of Might & Magic III data (`Data`, `Maps`, `Mp3`) |
-| Caesar III (Augustus) | `Emulators/Augustus/` | Caesar III install files (`c3.eng`, `.sg2`/`.555`) |
 | OpenTTD | `Emulators/OpenTTD/` | Nothing required — downloads free base graphics/sound on first run |
 | Commander Genius (Keen) | `Emulators/Commander-Genius/` | Commander Keen episode game files |
 | C-Dogs SDL | `Emulators/C-Dogs_SDL/` | Nothing — ships with free campaigns |
-| EDuke32 (Duke Nukem 3D) | `Emulators/EDuke32/` | `DUKE3D.GRP` (+ `DUKE.RTS`; addon `.grp` files) |
-| Ghostship (Super Mario 64) | `Emulators/Ghostship/` | A Super Mario 64 ROM (US `.z64`); first run builds its asset archive |
-| Nugget Doom | `Emulators/Nugget-Doom/` | A Doom IWAD (`DOOM.WAD`/`DOOM2.WAD`, or free Freedoom) |
-| Crispy Doom | `Emulators/Crispy-Doom/` | A Doom IWAD (as above) |
-| OpenBOR | `Emulators/OpenBOR/` | BOR game `.pak` modules |
-| OpenJazz (Jazz Jackrabbit) | `Emulators/OpenJazz/` | Jazz Jackrabbit (episode 1) game files |
 | OpenTyrian 2000 | `Emulators/OpenTyrian2000/` | Tyrian data files (freely redistributable) |
-| OpenRCT2 | `Emulators/OpenRCT2/` | RollerCoaster Tycoon 2 install files |
-| OpenLoco | `Emulators/OpenLoco/` | Chris Sawyer's Locomotion install files |
 | OpenRA | `Emulators/OpenRA/` | Nothing required — fetches C&C/Red Alert assets via its in-app installer |
-| Half-Life (Xash3D FWGS) | `Emulators/Xash3D-FWGS/` | Half-Life `valve/` game data |
-| Quake II (Yamagi) | `Emulators/Yamagi-Quake-II/` | `baseq2/` (Quake II `pak0.pak`, ...) |
-| Quake III Arena (ioquake3) | `Emulators/ioquake3/` | `baseq3/` (`pak0.pk3`, ...) |
-| Doom 3 (dhewm3) | `Emulators/dhewm3/` | `base/` (Doom 3 `pak*.pk4`) |
-| OpenLara (Tomb Raider) | `Emulators/OpenLara/` | Tomb Raider 1 level/data files (or the free demo data) |
-| Cannonball (OutRun) | `Emulators/Cannonball/` | OutRun arcade romset in a `roms/` subfolder (+ `config.xml`) |
 | Cave Story (NXEngine) | `Emulators/NXEngine/` | Cave Story `data/` folder (freeware) |
-| ECWolf (Wolfenstein 3D) | `Emulators/ECWolf/` | Wolfenstein 3D data (`VSWAP.WL6`, ...; shareware `*.WL1` works) |
 
 </details>
 <!-- PORTS_DATA_TABLE_END -->
@@ -4013,7 +3843,7 @@ ES-DE/
 │   ├── bios/
 │   ├── ports/
 │   │   ├── OpenTyrian 2000.sh
-│   │   ├── OpenRCT2.sh
+│   │   ├── OpenRA.sh
 │   │   └── other port launchers
 │   ├── nes/
 │   ├── snes/
@@ -4109,7 +3939,7 @@ Some emulators still need one time setup because firmware, keys, BIOS files, gam
 - xemu requires Xbox BIOS/HDD setup.
 - 86Box requires your own OS install media and machine configuration.
 - Switch family tools require your own firmware and keys.
-- Source ports such as DevilutionX, CorsixTH, VCMI, Augustus, OpenTTD, Commander Genius, EDuke32, OpenJazz, OpenRCT2, OpenLoco, Xash3D, Yamagi Quake II, ioquake3, and dhewm3 may need original game data.
+- Source ports such as Commander Genius, OpenTyrian 2000, and Cave Story (NXEngine) may need original game data.
 
 ## Legal
 
@@ -4737,29 +4567,9 @@ install_mame() {
 
 
 # Ports / engines AppImage batch
-install_devilutionx() {
-    github_appimage "pkgforge-dev/DevilutionX-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/DevilutionX/DevilutionX-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_corsixth() {
-    github_appimage "pkgforge-dev/CorsixTH-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/CorsixTH/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_vcmi() {
-    github_appimage "pkgforge-dev/vcmi-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/vcmi/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_augustus() {
-    github_appimage "pkgforge-dev/Augustus-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Augustus/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_openttd() {
     github_appimage "pkgforge-dev/OpenTTD-AppImage" \
@@ -4767,11 +4577,6 @@ install_openttd() {
         "$EMUS/OpenTTD/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_scummvm_standalone() {
-    github_appimage "pkgforge-dev/ScummVM-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/ScummVM-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_cgenius() {
     github_appimage "pkgforge-dev/Commander-Genius-AppImage" \
@@ -4785,50 +4590,12 @@ install_cdogs() {
         "$EMUS/C-Dogs_SDL/C-Dogs_SDL-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_eduke32() {
-    github_appimage "pkgforge-dev/EDuke32-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/EDuke32/EDuke32-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_ghostship() {
-    github_appimage "pkgforge-dev/Ghostship-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Ghostship/Ghostship-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_nuggetdoom() {
-    github_appimage "pkgforge-dev/Nugget-Doom-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Nugget-Doom/Nugget-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_crispydoom() {
-    github_appimage "pkgforge-dev/Crispy-Doom-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/Crispy-Doom/Crispy-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_gzdoom() {
-    install_nuggetdoom
-    install_crispydoom
-}
 
-install_openbor() {
-    github_appimage "DCurrent/openbor" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenBOR/OpenBOR-latest.AppImage" || {
-            warn "OpenBOR AppImage asset not found in DCurrent/openbor releases. Linux is supported upstream, but this may require a manual build or dropped-in AppImage/binary."
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-            # removed: return 1 — set -e would kill the script
-        }
-}
 
-install_openjazz() {
-    github_appimage "pkgforge-dev/OpenJazz-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenJazz/OpenJazz-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_opentyrian() {
     github_appimage "pkgforge-dev/OpenTyrian2000-AppImage" \
@@ -4836,17 +4603,7 @@ install_opentyrian() {
         "$EMUS/OpenTyrian2000/OpenTyrian2000-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_openrct2() {
-    github_appimage "pkgforge-dev/OpenRCT2-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenRCT2/OpenRCT2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_openloco() {
-    github_appimage "pkgforge-dev/OpenLoco-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenLoco/OpenLoco-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_openra() {
     github_appimage "pkgforge-dev/OpenRA-AppImage-Enhanced" \
@@ -4854,41 +4611,11 @@ install_openra() {
         "$EMUS/OpenRA/OpenRA-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_xash3d() {
-    github_appimage "pkgforge-dev/Xash3D-FWGS-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Xash3D-FWGS/Xash3D-FWGS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_yquake2() {
-    github_appimage "pkgforge-dev/Yamagi-Quake-II-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/Yamagi-Quake-II/Yamagi-Quake-II-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_ioquake3() {
-    github_appimage "pkgforge-dev/ioquake3-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/ioquake3/ioquake3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_dhewm3() {
-    github_appimage "pkgforge-dev/dhewm3-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/dhewm3/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_openlara() {
-    github_appimage "pkgforge-dev/OpenLara-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenLara/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_cannonball() {
-    github_appimage "pkgforge-dev/Cannonball-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/Cannonball/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_nxengine() {
     github_appimage "pkgforge-dev/NXEngine-evo-AppImage-Enhanced" \
@@ -4896,41 +4623,15 @@ install_nxengine() {
         "$EMUS/NXEngine/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_ecwolf() {
-    github_appimage "pkgforge-dev/ECWolf-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/ECWolf/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_engine_by_key() {
     case "$1" in
-        devilutionx) install_devilutionx ;;
-        corsixth)    install_corsixth ;;
         cgenius)     install_cgenius ;;
         cdogs)       install_cdogs ;;
-        eduke32)     install_eduke32 ;;
-        ghostship)   install_ghostship ;;
-        gzdoom)      install_nuggetdoom; install_crispydoom ;;
-        nuggetdoom)  install_nuggetdoom ;;
-        crispydoom)  install_crispydoom ;;
-        vcmi)        install_vcmi ;;
-        augustus)     install_augustus ;;
         openttd)     install_openttd ;;
-        scummvm)     install_scummvm_standalone ;;
-        openbor)     install_openbor ;;
-        openjazz)    install_openjazz ;;
         opentyrian)  install_opentyrian ;;
-        openrct2)    install_openrct2 ;;
-        openloco)    install_openloco ;;
         openra)      install_openra ;;
-        xash3d)      install_xash3d ;;
-        yquake2)     install_yquake2 ;;
-        ioquake3)    install_ioquake3 ;;
-        dhewm3)      install_dhewm3 ;;
-        openlara)    install_openlara ;;
-        cannonball)  install_cannonball ;;
         nxengine)    install_nxengine ;;
-        ecwolf)      install_ecwolf ;;
         *)           fail "Unknown engine/AppImage key: $1"; return 1 ;;
     esac
 }
@@ -5125,31 +4826,18 @@ else
     info "Skipped mame (deselected)"
 fi
 
-echo ""
-echo "   ── ScummVM (standalone) ──"
-if emu_selected scummvm; then
-    install_scummvm_standalone
-else
-    info "Skipped scummvm (deselected)"
-fi
 
 echo ""
 echo "   ── Ports / Engines AppImages ──"
 # ── Migrate any flat port AppImages into per-port folders ──
 # Ports now live in Emulators/<Port>/ so each engine finds game data placed
-# beside its own binary (EDuke32->DUKE3D.GRP, CannonBall->roms/, etc.). Older
+# beside its own binary (Commander Genius->Keen files, NXEngine->data/, etc.). Older
 # installs placed them flat in Emulators/; move them so re-runs don't re-download
 # and the Emulators/ listing stays tidy. Game data dropped flat must be moved
 # into the matching Emulators/<Port>/ folder by hand (see the README ports table).
-for _pf in DevilutionX-latest.AppImage CorsixTH-latest.AppImage vcmi-latest.AppImage \
-           Augustus-latest.AppImage OpenTTD-latest.AppImage Commander-Genius-latest.AppImage \
-           C-Dogs_SDL-latest.AppImage EDuke32-latest.AppImage Ghostship-latest.AppImage \
-           Nugget-Doom-latest.AppImage Crispy-Doom-latest.AppImage OpenBOR-latest.AppImage \
-           OpenJazz-latest.AppImage OpenTyrian2000-latest.AppImage OpenRCT2-latest.AppImage \
-           OpenLoco-latest.AppImage OpenRA-latest.AppImage Xash3D-FWGS-latest.AppImage \
-           Yamagi-Quake-II-latest.AppImage ioquake3-latest.AppImage dhewm3-latest.AppImage \
-           OpenLara-latest.AppImage Cannonball-latest.AppImage NXEngine-latest.AppImage \
-           ECWolf-latest.AppImage; do
+for _pf in OpenTTD-latest.AppImage Commander-Genius-latest.AppImage \
+           C-Dogs_SDL-latest.AppImage OpenTyrian2000-latest.AppImage \
+           OpenRA-latest.AppImage NXEngine-latest.AppImage; do
     _pdir="${_pf%-latest.AppImage}"
     if [[ -f "$EMUS/$_pf" && ! -f "$EMUS/$_pdir/$_pf" ]]; then
         mkdir -p "$EMUS/$_pdir"
@@ -5158,7 +4846,7 @@ for _pf in DevilutionX-latest.AppImage CorsixTH-latest.AppImage vcmi-latest.AppI
     fi
 done
 
-for engine_key in devilutionx corsixth vcmi augustus openttd cgenius cdogs eduke32 ghostship nuggetdoom crispydoom openbor openjazz opentyrian openrct2 openloco openra xash3d yquake2 ioquake3 dhewm3 openlara cannonball nxengine ecwolf; do
+for engine_key in openttd cgenius cdogs opentyrian openra nxengine; do
     if emu_selected "$engine_key"; then
         install_engine_by_key "$engine_key" || true
     else
@@ -5472,7 +5160,7 @@ Leave blank and press OK to finish adding paths and continue." \
         # Decide collection vs nested-single-system by what roms/ contains.
         # - subdirectories: classic RetroBat layout, each roms/<system>/ is one system.
         # - flat files only: source is itself a single-system folder whose games
-        #   happen to live in roms/ (e.g. /<root>/ps3/roms/*.psn). The PARENT
+        #   happen to live in roms/ (e.g. /<root>/ps3/roms/*.m3u). The PARENT
         #   folder name (ps3) is the system; roms/ is the game container.
         # Note: when counting subdirs we ignore known non-system folders that
         # may sit alongside the game files at this level (media/, bios/, etc.)
@@ -5623,6 +5311,13 @@ declare -A SYS_MAP=(
     # multivision, msx1 and fbneo stay as their own ES-DE systems.
     # Nested source folders are special: they import into a tidy visual folder
     # while resolving to whichever ES-DE system has the correct launch command.
+    # Romhacks / homebrew: fold into the parent system as a nested "hacks"
+    # folder (they share the parent's extensions + core), rather than standing
+    # as their own ES-DE systems. Resolve each to its base system here; the
+    # nested folder name is set in MSU_NESTED_FOLDER below.
+    [snesh]=snes            [nesh]=nes              [gbh]=gb
+    [gbch]=gbc              [gbah]=gba              [genh]=megadrive
+    [n64h]=n64              [ggh]=gamegear
     # SNES
     [snesna]=snes          [snes-msu]=snes
     # NES
@@ -5652,17 +5347,8 @@ declare -A SYS_MAP=(
     # Philips
     [cdi]=cdimono1
     # Art Book Next safe Ports / Engines — visible under ports/ only
-    [devilutionx]=ports      [corsixth]=ports        [cgenius]=ports
-    [cdogs]=ports            [eduke32]=ports         [ghostship]=ports
-    [nuggetdoom]=ports       [crispydoom]=ports      [openbor]=ports
-    [openjazz]=ports         [vcmi]=ports            [augustus]=ports
-    [openttd]=ports
-    [opentyrian]=ports       [openrct2]=ports        [openloco]=ports
-    [openra]=ports           [xash3d]=ports          [yquake2]=ports
-    [yamagi-quake2]=ports    [quake2]=ports          [ioquake3]=ports
-    [dhewm3]=ports
-    [openlara]=ports         [cannonball]=ports      [cavestory]=ports
-    [nxengine]=ports         [ecwolf]=ports
+    [cdogs]=ports            [openttd]=ports         [opentyrian]=ports
+    [openra]=ports           [nxengine]=ports
     # Easy roadmap: route to already-supported systems
     [hbmame]=mame
     # Bandai
@@ -5703,37 +5389,26 @@ declare -A MSU_NESTED_FOLDER=(
     [nes-msu]=nes-msu
     [neogeomvs]=neogeomvs
     [cave]=cave
+    # Romhacks / homebrew nest as a "hacks" folder inside the parent system
+    # (parent resolved via SYS_MAP above; MSU_PARENT then defaults to it).
+    [snesh]=hacks
+    [nesh]=hacks
+    [gbh]=hacks
+    [gbch]=hacks
+    [gbah]=hacks
+    [genh]=hacks
+    [n64h]=hacks
+    [ggh]=hacks
     # Art Book Next safe Ports / Engines: data folders nest under ROMs/ports,
     # media under downloaded_media/ports/<type>/<engine>, and any launchable
     # menu entry should be a .sh script in ROMs/ports.
-    [devilutionx]=devilutionx
-    [corsixth]=corsixth
-    [vcmi]=vcmi
-    [augustus]=augustus
     [openttd]=openttd
     [cgenius]=cgenius
     [cdogs]=cdogs
-    [eduke32]=eduke32
-    [ghostship]=ghostship
-    [nuggetdoom]=nuggetdoom
-    [crispydoom]=crispydoom
-    [openbor]=openbor
-    [openjazz]=openjazz
     [opentyrian]=opentyrian
-    [openrct2]=openrct2
-    [openloco]=openloco
     [openra]=openra
-    [xash3d]=xash3d
-    [yquake2]=yquake2
-    [yamagi-quake2]=yquake2
-    [quake2]=yquake2
-    [ioquake3]=ioquake3
-    [dhewm3]=dhewm3
-    [openlara]=openlara
-    [cannonball]=cannonball
     [cavestory]=nxengine
     [nxengine]=nxengine
-    [ecwolf]=ecwolf
 )
 
 # Optional physical ROM parent override. Used when a custom ES-DE system
@@ -5754,34 +5429,13 @@ declare -A MSU_PATH_IS_SYSTEM_ROOT=(
 # The visible ES-DE system is always ports, but import/audit can still detect
 # which backend should be installed for a given source folder.
 declare -A PORT_ENGINE_FOR=(
-    [devilutionx]=devilutionx
-    [corsixth]=corsixth
-    [vcmi]=vcmi
-    [augustus]=augustus
     [openttd]=openttd
     [cgenius]=cgenius
     [cdogs]=cdogs
-    [eduke32]=eduke32
-    [ghostship]=ghostship
-    [nuggetdoom]=nuggetdoom
-    [crispydoom]=crispydoom
-    [openbor]=openbor
-    [openjazz]=openjazz
     [opentyrian]=opentyrian
-    [openrct2]=openrct2
-    [openloco]=openloco
     [openra]=openra
-    [xash3d]=xash3d
-    [yquake2]=yquake2
-    [yamagi-quake2]=yquake2
-    [quake2]=yquake2
-    [ioquake3]=ioquake3
-    [dhewm3]=dhewm3
-    [openlara]=openlara
-    [cannonball]=cannonball
     [cavestory]=nxengine
     [nxengine]=nxengine
-    [ecwolf]=ecwolf
 )
 
 # ES-DE system → required standalone emulator (install_emulator handles it)
@@ -5891,8 +5545,8 @@ declare -A SYS_TO_CORE=(
     [vis]=mame
     # EASY systems batch — 14 single-libretro-core systems.
     [bk]=bk                           [c128]=vice_x128
-    # NOTE: cavestory/nxengine, cannonball, openlara are STANDALONE ports
-    # (ROMs/ports/*.sh launchers), not libretro-core systems, so they are
+    # NOTE: cavestory/nxengine is a STANDALONE port
+    # (ROMs/ports/*.sh launcher), not a libretro-core system, so it is
     # intentionally absent here. (Was a malformed '[]=' block that emitted
     # 'bad array subscript' at runtime and silently dropped these keys.)
     [cassettevision]=pd777
@@ -5963,29 +5617,11 @@ is_emulator_installed() {
         simcoupe)    compgen -G "$EMUS/[sS]im[cC]oupe*" > /dev/null ;;
         supermodel)  compgen -G "$EMUS/[sS]upermodel*" > /dev/null ;;
         mame)        compgen -G "$EMUS/mame*" > /dev/null || compgen -G "$EMUS/MAME*" > /dev/null ;;
-        devilutionx) compgen -G "$EMUS/[dD]evilution[Xx]*" > /dev/null ;;
-        corsixth)    compgen -G "$EMUS/[cC]orsix[Tt][Hh]*" > /dev/null ;;
-        vcmi)        compgen -G "$EMUS/vcmi*" > /dev/null || compgen -G "$EMUS/VCMI*" > /dev/null ;;
-        augustus)     compgen -G "$EMUS/[aA]ugustus*" > /dev/null ;;
         openttd)     compgen -G "$EMUS/[oO]pen[Tt][Tt][Dd]*" > /dev/null ;;
-        scummvm)     compgen -G "$EMUS/[sS]cumm[Vv][Mm]*" > /dev/null ;;
         cgenius)     compgen -G "$EMUS/[cC]ommander-[gG]enius*" > /dev/null || compgen -G "$EMUS/[cC]genius*" > /dev/null ;;
         cdogs)       compgen -G "$EMUS/C-Dogs*" > /dev/null || compgen -G "$EMUS/[cC]dogs*" > /dev/null ;;
-        eduke32)     compgen -G "$EMUS/[eE][dD]uke32*" > /dev/null ;;
-        ghostship)   compgen -G "$EMUS/[gG]hostship*" > /dev/null ;;
-        gzdoom)      compgen -G "$EMUS/Nugget-Doom*" > /dev/null || compgen -G "$EMUS/Crispy-Doom*" > /dev/null ;;
-        nuggetdoom)  compgen -G "$EMUS/Nugget-Doom*" > /dev/null || compgen -G "$EMUS/Nugget*" > /dev/null ;;
-        crispydoom)  compgen -G "$EMUS/Crispy-Doom*" > /dev/null || compgen -G "$EMUS/Crispy*" > /dev/null ;;
-        openbor)     compgen -G "$EMUS/[oO]pen[Bb][Oo][Rr]*" > /dev/null ;;
-        openjazz)    compgen -G "$EMUS/[oO]pen[Jj]azz*" > /dev/null ;;
         opentyrian)  compgen -G "$EMUS/[oO]pen[Tt]yrian*" > /dev/null || compgen -G "$EMUS/OpenTyrian2000*" > /dev/null ;;
-        openrct2)    compgen -G "$EMUS/[oO]pen[Rr][Cc][Tt]2*" > /dev/null ;;
-        openloco)    compgen -G "$EMUS/[oO]pen[Ll]oco*" > /dev/null ;;
         openra)      compgen -G "$EMUS/[oO]pen[Rr][Aa]*" > /dev/null ;;
-        xash3d)      compgen -G "$EMUS/[xX]ash3[Dd]*" > /dev/null ;;
-        yquake2)     compgen -G "$EMUS/[yY]amagi*" > /dev/null || compgen -G "$EMUS/*[qQ]uake*II*" > /dev/null ;;
-        ioquake3)    compgen -G "$EMUS/ioquake3*" > /dev/null || compgen -G "$EMUS/Quake_III*" > /dev/null ;;
-        dhewm3)      compgen -G "$EMUS/[dD]hewm3*" > /dev/null ;;
         *)           return 1 ;;
     esac
 }
@@ -6694,31 +6330,11 @@ install_mame() {
 # now the single tool that installs emulators on demand during an import.)
 
 # Ports / engines AppImage batch
-install_devilutionx() {
-    github_appimage "pkgforge-dev/DevilutionX-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/DevilutionX/DevilutionX-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_corsixth() {
-    github_appimage "pkgforge-dev/CorsixTH-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/CorsixTH/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_cgenius() {
 
-install_vcmi() {
-    github_appimage "pkgforge-dev/vcmi-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/vcmi/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_augustus() {
-    github_appimage "pkgforge-dev/Augustus-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Augustus/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
     github_appimage "pkgforge-dev/Commander-Genius-AppImage" \
         ".*\.AppImage$" \
 
@@ -6728,11 +6344,6 @@ install_openttd() {
         "$EMUS/OpenTTD/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_scummvm_standalone() {
-    github_appimage "pkgforge-dev/ScummVM-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/ScummVM-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
         "$EMUS/Commander-Genius/Commander-Genius-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
@@ -6742,50 +6353,12 @@ install_cdogs() {
         "$EMUS/C-Dogs_SDL/C-Dogs_SDL-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_eduke32() {
-    github_appimage "pkgforge-dev/EDuke32-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/EDuke32/EDuke32-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_ghostship() {
-    github_appimage "pkgforge-dev/Ghostship-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Ghostship/Ghostship-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_nuggetdoom() {
-    github_appimage "pkgforge-dev/Nugget-Doom-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Nugget-Doom/Nugget-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_crispydoom() {
-    github_appimage "pkgforge-dev/Crispy-Doom-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/Crispy-Doom/Crispy-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_gzdoom() {
-    install_nuggetdoom
-    install_crispydoom
-}
 
-install_openbor() {
-    github_appimage "DCurrent/openbor" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenBOR/OpenBOR-latest.AppImage" || {
-            warn "OpenBOR AppImage asset not found in DCurrent/openbor releases. Linux is supported upstream, but this may require a manual build or dropped-in AppImage/binary."
-            DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
-            # removed: return 1 — set -e would kill the script
-        }
-}
 
-install_openjazz() {
-    github_appimage "pkgforge-dev/OpenJazz-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenJazz/OpenJazz-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_opentyrian() {
     github_appimage "pkgforge-dev/OpenTyrian2000-AppImage" \
@@ -6793,17 +6366,7 @@ install_opentyrian() {
         "$EMUS/OpenTyrian2000/OpenTyrian2000-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_openrct2() {
-    github_appimage "pkgforge-dev/OpenRCT2-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenRCT2/OpenRCT2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_openloco() {
-    github_appimage "pkgforge-dev/OpenLoco-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenLoco/OpenLoco-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_openra() {
     github_appimage "pkgforge-dev/OpenRA-AppImage-Enhanced" \
@@ -6811,41 +6374,11 @@ install_openra() {
         "$EMUS/OpenRA/OpenRA-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_xash3d() {
-    github_appimage "pkgforge-dev/Xash3D-FWGS-AppImage-Enhanced" \
-        ".*\.AppImage$" \
-        "$EMUS/Xash3D-FWGS/Xash3D-FWGS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_yquake2() {
-    github_appimage "pkgforge-dev/Yamagi-Quake-II-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/Yamagi-Quake-II/Yamagi-Quake-II-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_ioquake3() {
-    github_appimage "pkgforge-dev/ioquake3-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/ioquake3/ioquake3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_dhewm3() {
-    github_appimage "pkgforge-dev/dhewm3-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/dhewm3/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_openlara() {
-    github_appimage "pkgforge-dev/OpenLara-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/OpenLara/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
-install_cannonball() {
-    github_appimage "pkgforge-dev/Cannonball-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/Cannonball/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_nxengine() {
     github_appimage "pkgforge-dev/NXEngine-evo-AppImage-Enhanced" \
@@ -6853,11 +6386,6 @@ install_nxengine() {
         "$EMUS/NXEngine/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
-install_ecwolf() {
-    github_appimage "pkgforge-dev/ECWolf-AppImage" \
-        ".*\.AppImage$" \
-        "$EMUS/ECWolf/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
-}
 
 install_emulator() {
     case "$1" in
@@ -6883,33 +6411,12 @@ install_emulator() {
         simcoupe)     install_simcoupe ;;
         supermodel)   install_supermodel ;;
         mame)         install_mame ;;
-        devilutionx)  install_devilutionx ;;
-        corsixth)     install_corsixth ;;
-        vcmi)         install_vcmi ;;
-        augustus)      install_augustus ;;
         openttd)      install_openttd ;;
-        scummvm)      install_scummvm_standalone ;;
         cgenius)      install_cgenius ;;
         cdogs)        install_cdogs ;;
-        eduke32)      install_eduke32 ;;
-        ghostship)    install_ghostship ;;
-        gzdoom)       install_gzdoom ;;
-        nuggetdoom)   install_nuggetdoom ;;
-        crispydoom)   install_crispydoom ;;
-        openbor)      install_openbor ;;
-        openjazz)     install_openjazz ;;
         opentyrian)   install_opentyrian ;;
-        openrct2)     install_openrct2 ;;
-        openloco)     install_openloco ;;
         openra)       install_openra ;;
-        xash3d)       install_xash3d ;;
-        yquake2)      install_yquake2 ;;
-        ioquake3)     install_ioquake3 ;;
-        dhewm3)       install_dhewm3 ;;
-        openlara)     install_openlara ;;
-        cannonball)   install_cannonball ;;
         nxengine)     install_nxengine ;;
-        ecwolf)       install_ecwolf ;;
         *)            fail "Unknown emulator: $1"; return 1 ;;
     esac
 }
@@ -8487,6 +7994,61 @@ if $DRY_RUN; then
     exit 0
 fi
 
+# Scan RPCS3's dev_hdd0 for installed PS3/PSN games and emit one .m3u launcher
+# per game into ROMs/ps3psn. Linux replacement for RetroBat's Windows .lnk
+# shortcuts: ps3-launch.sh reads the .m3u path and resolves EBOOT.BIN under the
+# bundle's dev_hdd0. Honors DRY_RUN (reports only, writes nothing).
+scan_ps3_hdd() {
+    local hdd="$BASE/.config/rpcs3/dev_hdd0/game"
+    local dest="$ROMS/ps3psn"
+    if [[ ! -d "$hdd" ]]; then
+        echo -e "   ${YELLOW}PSN: no RPCS3 dev_hdd0 at $hdd — install/migrate PS3 games into RPCS3 first.${NC}"
+        return 0
+    fi
+    local n=0 gdir tid eboot sfo title safe
+    for gdir in "$hdd"/*/; do
+        [[ -d "$gdir" ]] || continue
+        tid="$(basename "$gdir")"
+        eboot="${gdir}USRDIR/EBOOT.BIN"
+        [[ -f "$eboot" ]] || continue
+        sfo="${gdir}PARAM.SFO"
+        title=""
+        if [[ -f "$sfo" ]]; then
+            title="$(python3 - "$sfo" 2>/dev/null <<'PYSFO'
+import sys,struct
+try:
+    d=open(sys.argv[1],'rb').read()
+    assert d[:4]==b'\x00PSF'
+    key_off,data_off,num=struct.unpack('<III',d[8:20])
+    for i in range(num):
+        e=0x14+i*16
+        ko,fmt,ln,mx,do=struct.unpack('<HHIII',d[e:e+16])
+        k=d[key_off+ko:d.index(b'\x00',key_off+ko)].decode('ascii','ignore')
+        if k=='TITLE':
+            print(d[data_off+do:data_off+do+ln].split(b'\x00')[0].decode('utf-8','ignore')); break
+except Exception:
+    pass
+PYSFO
+)"
+        fi
+        [[ -z "$title" ]] && title="$tid"
+        safe="$(printf '%s' "$title" | tr -d '/\\:*?"<>|' | sed 's/  */ /g; s/ *$//')"
+        [[ -z "$safe" ]] && safe="$tid"
+        if [[ "$DRY_RUN" == true ]]; then
+            echo "   PSN would add: $safe  ($tid)"
+        else
+            mkdir -p "$dest"
+            printf 'dev_hdd0/game/%s/USRDIR/EBOOT.BIN\n' "$tid" > "$dest/$safe.m3u"
+        fi
+        n=$((n + 1))
+    done
+    if [[ "$DRY_RUN" == true ]]; then
+        echo "   PSN: $n installed game(s) found in dev_hdd0 (dry-run, nothing written)."
+    else
+        echo "   PSN: generated $n .m3u launcher(s) in ROMs/ps3psn."
+    fi
+}
+
 for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
     info "Importing from: $RETROBAT_PATH"
     if [[ -d "$RETROBAT_PATH/bios" ]]; then
@@ -8503,6 +8065,13 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
             RB_SYS=$(basename "$SYS_DIR")
         fi
         [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
+        # RetroBat's "psn" folder holds Windows .lnk shortcuts to PSN games
+        # installed in RPCS3's dev_hdd0 — useless on Linux. Instead of copying
+        # them, scan dev_hdd0 and emit .m3u launchers into ROMs/ps3psn.
+        if [[ "$RB_SYS" == "psn" ]]; then
+            scan_ps3_hdd
+            continue
+        fi
         # Resolve to a canonical ES-DE system. If the folder name is not a
         # known system or SYS_MAP alias, this pops a whiptail picker (skip /
         # import-as-is / choose a system) — In Progress #9.
@@ -9426,52 +8995,16 @@ fi
 
 
 # Ports / Engines AppImages
-check_and_update "DevilutionX" "DevilutionX*.AppImage" \
-    "$(github_latest_url pkgforge-dev/DevilutionX-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "CorsixTH" "CorsixTH*.AppImage" \
-    "$(github_latest_url pkgforge-dev/CorsixTH-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "VCMI" "vcmi*.AppImage" \
-    "$(github_latest_url pkgforge-dev/vcmi-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "Augustus" "Augustus*.AppImage" \
-    "$(github_latest_url pkgforge-dev/Augustus-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "OpenTTD" "OpenTTD*.AppImage" \
     "$(github_latest_url pkgforge-dev/OpenTTD-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "ScummVM" "ScummVM*.AppImage" \
-    "$(github_latest_url pkgforge-dev/ScummVM-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "Commander Genius" "Commander-Genius*.AppImage" \
     "$(github_latest_url pkgforge-dev/Commander-Genius-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "C-Dogs SDL" "C-Dogs_SDL*.AppImage" \
     "$(github_latest_url pkgforge-dev/C-Dogs_SDL-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "EDuke32" "EDuke32*.AppImage" \
-    "$(github_latest_url pkgforge-dev/EDuke32-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "Ghostship" "Ghostship*.AppImage" \
-    "$(github_latest_url pkgforge-dev/Ghostship-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "Nugget Doom" "Nugget-Doom*.AppImage" \
-    "$(github_latest_url pkgforge-dev/Nugget-Doom-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "Crispy Doom" "Crispy-Doom*.AppImage" \
-    "$(github_latest_url pkgforge-dev/Crispy-Doom-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "OpenJazz" "OpenJazz*.AppImage" \
-    "$(github_latest_url pkgforge-dev/OpenJazz-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "OpenTyrian 2000" "OpenTyrian2000*.AppImage" \
     "$(github_latest_url pkgforge-dev/OpenTyrian2000-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "OpenRCT2" "OpenRCT2*.AppImage" \
-    "$(github_latest_url pkgforge-dev/OpenRCT2-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "OpenLoco" "OpenLoco*.AppImage" \
-    "$(github_latest_url pkgforge-dev/OpenLoco-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
 check_and_update "OpenRA" "OpenRA*.AppImage" \
     "$(github_latest_url pkgforge-dev/OpenRA-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "Xash3D FWGS" "Xash3D*.AppImage" \
-    "$(github_latest_url pkgforge-dev/Xash3D-FWGS-AppImage-Enhanced '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "Yamagi Quake II" "Yamagi*.AppImage" \
-    "$(github_latest_url pkgforge-dev/Yamagi-Quake-II-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "ioquake3" "ioquake3*.AppImage" \
-    "$(github_latest_url pkgforge-dev/ioquake3-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-check_and_update "dhewm3" "dhewm3*.AppImage" \
-    "$(github_latest_url pkgforge-dev/dhewm3-AppImage '\.AppImage$' | grep -ivE 'aarch|arm')"
-
-# OpenBOR upstream may not publish an AppImage asset on every release.
-check_and_update "OpenBOR" "OpenBOR*.AppImage" \
-    "$(github_latest_url DCurrent/openbor '\.AppImage$' | grep -ivE 'aarch|arm')"
 
 # Supermodel
 check_and_update "Supermodel (Model 3)" "Supermodel*.AppImage"     "$(github_latest_url pkgforge-dev/Supermodel-AppImage '\.AppImage$' | grep -iv arm)"
@@ -9662,12 +9195,12 @@ box_line "    1. Add ROMs to ROMs/<system>/"
 box_line "    2. Add BIOS files to ROMs/bios/"
 box_line "    3. Run: ./launch.sh"
 box_blank
-box_line "  Source ports (Doom, Duke3D, Quake, Diablo, OutRun...):"
+box_line "  Source ports (Commander Keen, Tyrian, Cave Story, OpenRA...):"
 box_line "    Put each port's game data in its OWN folder:"
 box_line "      Emulators/<Port>/"
-box_line "      e.g. Emulators/EDuke32/DUKE3D.GRP"
-box_line "           Emulators/ioquake3/baseq3/"
-box_line "           Emulators/Cannonball/roms/"
+box_line "      e.g. Emulators/Commander-Genius/ (Keen game files)"
+box_line "           Emulators/OpenTyrian2000/ (Tyrian data)"
+box_line "           Emulators/NXEngine/ (Cave Story data/)"
 box_line "    Each folder has a _PUT-GAME-DATA-HERE.txt note;"
 box_line "    the README ports table lists what each one needs."
 box_blank
