@@ -7849,7 +7849,7 @@ dry_run_report() {
             RB_SYS=$(basename "$SYS_DIR")
         fi
         [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
-        if [[ "$RB_SYS" == "psn" ]]; then
+        if [[ "$RB_SYS" == "psn" || "$RB_SYS" == "ps3psn" ]]; then
             total_sys=$((total_sys + 1))
             preview_psn_import "$SYS_DIR"
             echo ""
@@ -8175,7 +8175,7 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         # RetroBat's "psn" folder holds Windows .lnk shortcuts to PSN games
         # installed in RPCS3's dev_hdd0 — useless on Linux. Instead of copying
         # them, scan dev_hdd0 and emit .m3u launchers into ROMs/ps3psn.
-        if [[ "$RB_SYS" == "psn" ]]; then
+        if [[ "$RB_SYS" == "psn" || "$RB_SYS" == "ps3psn" ]]; then
             # Merge the source's own RPCS3 dev_hdd0 into the bundle first, then
             # scan the now-complete hdd. Without this the source's installed
             # PSN games (often hundreds not yet in the bundle) are silently lost.
