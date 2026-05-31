@@ -22,8 +22,8 @@
 #=============================================================================
 set -euo pipefail
 
-VERSION="1.0.0"
-ESDE_VERSION="3.4.1"
+VERSION="1.1.0"
+# (ES-DE is downloaded as the latest GitLab release; no pinned version.)
 
 # ── Colors ──
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -141,6 +141,10 @@ wt_msg() {
 # detect_pkg_manager / ensure_whiptail
 # Run BEFORE any user-facing prompt so the rest of setup can use whiptail.
 #=============================================================================
+# Detect package manager for auto-installing whiptail when missing.
+# Sets PKG_INSTALL_CMD (array — runnable command) on mutable distros,
+# or PKG_MANUAL_HINT (string) on immutable distros where auto-install
+# isn't safe (rpm-ostree systems, SteamOS with read-only /usr).
 detect_pkg_manager() {
     PKG_INSTALL_CMD=()
     PKG_MANUAL_HINT=""
@@ -389,7 +393,6 @@ CORE_CHECKLIST=(
     "neocd|NeoCD — Neo Geo CD (dedicated)"
     "Arcade|─── Arcade / MAME ───"
     "mame|MAME — current (Archimedes, Model2/3, LCDs, etc.)"
-    "mame2003_plus|MAME 2003-Plus — arcade (post-2003 sets)"
     "mame2010|MAME 2010 — v0.139 (deeper BIOS fallback)"
     "Portable|─── Other handhelds / portables ───"
     "mednafen_vb|Beetle VB — Virtual Boy"
@@ -404,6 +407,8 @@ CORE_CHECKLIST=(
     "vice_x64sc|VICE x64sc — C64 (high accuracy, alt)"
     "vice_xvic|VICE xvic — VIC-20"
     "vice_xplus4|VICE xplus4 — Commodore Plus/4"
+    "vice_x128|VICE x128 — Commodore 128"
+    "vice_xpet|VICE xpet — Commodore PET"
     "puae|PUAE — Commodore Amiga"
     "bluemsx|blueMSX — MSX/MSX2/Turbo R/Spectravideo/Coleco"
     "cap32|Caprice32 — Amstrad CPC / GX4000"
@@ -411,6 +416,10 @@ CORE_CHECKLIST=(
     "x1|X1 — Sharp X1"
     "px68k|PX68k — Sharp X68000"
     "b2|B2 — BBC Micro / BBC Master"
+    "bk|BK — Elektronika BK (Soviet)"
+    "ep128emu_core|ep128emu — Enterprise 128"
+    "m2000|M2000 — Philips P2000T"
+    "theodore|Theodore — Thomson MO/TO"
     "Consoles|─── Other consoles ───"
     "o2em|O2EM — Odyssey²/Videopac"
     "vecx|VecX — GCE Vectrex"
@@ -419,7 +428,8 @@ CORE_CHECKLIST=(
     "uzem|Uzem — Uzebox"
     "opera|Opera — 3DO Interactive Multiplayer"
     "amiarcadia|Amiarcadia — Emerson Arcadia 2001"
-    "jollycv|JollyCV — VTech CreatiVision"
+    "pd777|PD777 — Epoch Cassette Vision"
+    "dice|DICE — discrete-logic arcade"
     "Fantasy|─── Fantasy consoles / engines ───"
     "retro8|Retro8 — PICO-8-compatible"
     "tic80|TIC-80 — fantasy console"
@@ -442,42 +452,7 @@ detect_tui_tool() {
     fi
 }
 
-# Detect package manager for auto-installing whiptail when missing.
-# Sets PKG_INSTALL_CMD (array — runnable command) on mutable distros,
-# or PKG_MANUAL_HINT (string) on immutable distros where auto-install
-# isn't safe (rpm-ostree systems, SteamOS with read-only /usr).
-detect_pkg_manager() {
-    PKG_INSTALL_CMD=()
-    PKG_MANUAL_HINT=""
-
-    # Immutable systems first — these need manual handling
-    if [[ -e /run/ostree-booted ]] && command -v rpm-ostree >/dev/null 2>&1; then
-        PKG_MANUAL_HINT="Your system is immutable (rpm-ostree — e.g. Bazzite, Silverblue, Kinoite).
-   Install with:
-     ${CYAN}sudo rpm-ostree install newt${NC}
-   Then reboot and re-run this installer."
-        return
-    fi
-    if [[ -f /etc/os-release ]] && grep -qiE '^ID=.*steamos' /etc/os-release; then
-        PKG_MANUAL_HINT="SteamOS has a read-only /usr. Disable it first:
-     ${CYAN}sudo steamos-readonly disable${NC}
-     ${CYAN}sudo pacman -Sy libnewt${NC}
-     ${CYAN}sudo steamos-readonly enable${NC}
-   Then re-run this installer."
-        return
-    fi
-
-    # Mutable systems — pick the package manager
-    if command -v apt-get >/dev/null 2>&1; then
-        PKG_INSTALL_CMD=(sudo apt-get install -y whiptail)
-    elif command -v dnf >/dev/null 2>&1; then
-        PKG_INSTALL_CMD=(sudo dnf install -y newt)
-    elif command -v pacman >/dev/null 2>&1; then
-        PKG_INSTALL_CMD=(sudo pacman -S --noconfirm libnewt)
-    elif command -v zypper >/dev/null 2>&1; then
-        PKG_INSTALL_CMD=(sudo zypper install -y newt)
-    fi
-}
+# (detect_pkg_manager is defined once near the top of the script.)
 
 load_selections_cache() {
     [[ -f "$SELECTIONS_CACHE" ]] || return 0
@@ -758,12 +733,23 @@ fi
 echo ""
 
 # ── Preflight ──
-for cmd in curl grep chmod unzip python3; do
+for cmd in curl grep chmod unzip python3 file find sed awk sort tar realpath; do
     if ! command -v "$cmd" &>/dev/null; then
         echo -e "${RED}ERROR: '$cmd' is required but not found.${NC}"
         exit 1
     fi
 done
+
+# The GitHub release-asset parsing below uses PCRE (grep -P, with \K). Not every
+# grep build ships PCRE (notably BusyBox and BSD/macOS grep). Detect it up front
+# with a clear message rather than letting each download silently find no asset.
+if ! printf 'x\n' | grep -qP 'x' 2>/dev/null; then
+    echo -e "${RED}ERROR: your 'grep' does not support PCRE (grep -P).${NC}"
+    echo "This script parses GitHub release assets with grep -P. Install GNU grep"
+    echo "(Debian/Ubuntu: 'sudo apt-get install grep'; Alpine/BusyBox: install the"
+    echo "full GNU grep package) and re-run."
+    exit 1
+fi
 
 #=============================================================================
 # DOWNLOAD HELPERS
@@ -775,17 +761,30 @@ github_appimage() {
         return 0
     fi
     info "Querying GitHub: $repo ..."
-    local url
-    url=$(curl -sfL "https://api.github.com/repos/$repo/releases?per_page=10" \
+    local resp url
+    resp=$(curl -sfL -H "Accept: application/vnd.github+json" \
+        ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+        "https://api.github.com/repos/$repo/releases?per_page=10" 2>/dev/null) || true
+    if [[ -z "$resp" ]]; then
+        fail "Could not reach GitHub for $repo (offline or network blocked)"
+        return 1
+    fi
+    if printf '%s' "$resp" | grep -q 'API rate limit exceeded'; then
+        fail "GitHub API rate-limited (anonymous limit is 60/hour) — could not check $repo"
+        warn "Wait ~1h and re-run, or 'export GITHUB_TOKEN=<token>' to raise the limit, then re-run."
+        return 2
+    fi
+    url=$(printf '%s' "$resp" \
         | grep -oP '"browser_download_url":\s*"\K[^"]*' \
         | grep -P "$pattern" \
         | grep -ivE 'aarch|arm64|armv7|zsync|sha256|\.sig$|\.asc$' \
         | head -1) || true
     if [[ -z "$url" ]]; then
-        fail "No match for pattern in $repo releases"
+        fail "No matching asset for pattern in $repo releases (release exists, asset does not)"
         return 1
     fi
     info "Downloading $(basename "$url") ..."
+    mkdir -p "$(dirname "$outfile")"
     if curl -#fL -o "$outfile" "$url"; then
         chmod +x "$outfile"
         ok "$(basename "$outfile") downloaded"
@@ -815,7 +814,7 @@ download_direct() {
 
 download_rpcs3() {
     local outdir="$1"
-    if compgen -G "$outdir/rpcs3*.AppImage" > /dev/null 2>&1; then
+    if find "$outdir" -maxdepth 1 -iname 'rpcs3*.AppImage' 2>/dev/null | grep -q .; then
         ok "RPCS3 already exists, skipping"
     else
         info "Downloading RPCS3 (latest nightly) ..."
@@ -905,8 +904,28 @@ download_esde() {
     info "Fetching ES-DE download URL from GitLab ..."
     local api_url="https://gitlab.com/api/v4/projects/es-de%2Femulationstation-de/releases/permalink/latest"
     local dl_url
-    # Extract the direct_asset_url for the x64 AppImage
-    dl_url=$(curl -sfL "$api_url" | grep -oP '"direct_asset_url":"\K[^"]*' | head -1) || true
+    # Pick the x64 AppImage from the release asset links. Match on the asset
+    # NAME (reliably "ES-DE_x64.AppImage") — GitLab's direct_asset_url is a
+    # permalink that does NOT contain the filename, so URL-only filtering fails.
+    # Falls back to any AppImage, then to the first link, so this never does
+    # worse than a blind first-asset pick.
+    local api_json; api_json=$(curl -sfL "$api_url") || true
+    dl_url=$(printf '%s' "$api_json" | python3 -c '
+import sys, json
+try: d = json.load(sys.stdin)
+except Exception: sys.exit(0)
+links = (d.get("assets") or {}).get("links") or []
+def u(l): return l.get("direct_asset_url") or l.get("url") or ""
+def s(l): return ((l.get("name") or "") + " " + u(l)).lower()
+def bad(t): return any(x in t for x in ["steamdeck","aarch64","arm64","armhf",".zsync",".sha",".sig",".asc",".deb",".rpm",".tar"])
+for l in links:
+    t = s(l)
+    if ".appimage" in t and ("x64" in t or "x86_64" in t or "x86-64" in t) and not bad(t): print(u(l)); sys.exit(0)
+for l in links:
+    t = s(l)
+    if ".appimage" in t and not bad(t): print(u(l)); sys.exit(0)
+if links: print(u(links[0]))
+') || true
 
     if [[ -z "$dl_url" ]]; then
         warn "Could not auto-detect ES-DE AppImage URL from GitLab"
@@ -946,13 +965,14 @@ download_core() {
         return 0  # Already have it
     fi
 
-    if curl -sfL -o "/tmp/$zip_name" "$CORE_BASE_URL/$zip_name" 2>/dev/null; then
-        if unzip -qo "/tmp/$zip_name" -d "$core_dir" 2>/dev/null; then
-            rm -f "/tmp/$zip_name"
+    local tmpd; tmpd=$(mktemp -d "${TMPDIR:-/tmp}/esde-core.XXXXXX") || return 1
+    if curl -sfL -o "$tmpd/$zip_name" "$CORE_BASE_URL/$zip_name" 2>/dev/null; then
+        if unzip -qo "$tmpd/$zip_name" -d "$core_dir" 2>/dev/null; then
+            rm -rf "$tmpd"
             return 0
         fi
     fi
-    rm -f "/tmp/$zip_name"
+    rm -rf "$tmpd"
     return 1
 }
 
@@ -985,7 +1005,6 @@ download_cores() {
 
         # Other
         [fbneo]="Arcade / Neo Geo / Neo Geo CD"
-        [mame2003_plus]="Arcade (MAME 2003+)"
         [mednafen_pce]="PC Engine / TG16 / SuperGrafx"
         [mednafen_pce_fast]="PC Engine CD / TG-CD"
         [mednafen_pcfx]="PC-FX"
@@ -1011,8 +1030,9 @@ download_cores() {
         [quasi88]="PC-88 (alt)"
 
         # MAME — two versions because BIOS romsets are MAME-version-locked.
-        # Only mame, mame2003_plus, and mame2010 exist on the libretro buildbot
-        # for Linux x86_64 (mame2014/2015/2016 were dropped or never built).
+        # We ship mame (current) and mame2010 (0.139). mame2003_plus also exists
+        # on the buildbot but is not shipped (no system defaults to it);
+        # mame2014/2015/2016 were dropped or never built for Linux x86_64.
         # current MAME = the modern default, used as the primary command for
         # all systems below. mame2010 = MAME 0.139, deeper fallback for very
         # old BIOS packs (selectable via ES-DE's alt-emu menu).
@@ -1054,7 +1074,6 @@ download_cores() {
         [lutro]="Lutro"
         [neocd]="Neo Geo CD"
         [tic80]="TIC-80"
-        [jollycv]="Creativision"
         [wasm4]="WASM-4"
         [potator]="Watara Supervision"
         [b2]="BBC Micro / BBC Master"
@@ -1188,16 +1207,16 @@ mkdir -p "$BASE/Saves/states"
 ROM_DIRS=(
     3do amiga amigacd32 amstradcpc arcade atari2600 atari5200 atari7800
     atarijaguar atarijaguarcd atarilynx atarist c64 channelf colecovision
-    cps1 cps2 cps3 daphne dos dreamcast famicom fds gamegear
+    cps1 cps2 cps3 dos dreamcast famicom fds gamegear
     gb gba gbc gc genesis intellivision mastersystem megacd megadrive
     msx msx2 n3ds n64 nds neogeo neogeocd nes ngp ngpc odyssey2
     pc pcengine pcenginecd pcfx pico8 pokemini ports ps2 ps3
-    psp psx saturn sc-3000 scummvm sega32x segacd sg-1000 snes
+    psp psx saturn scummvm sega32x segacd sg-1000 snes
     supergrafx switch tg-cd tg16 ti99 uzebox vectrex vic20 videopac
     virtualboy wii wiiu wonderswan wonderswancolor x68000
-    xbox xbox360 zmachine zx81 zxspectrum
-    triforce j2me openbor pcarcade type-x
-    ps4 windows9x windows3x
+    xbox xbox360 zx81 zxspectrum
+    openbor
+    ps4 win98 windows
     sfc n64dd wiiware megadrivejp saturnjp amiga500 amiga1200 videopacplus vpinball
     archimedes adam dragon32 fm7 supracan bbcmicro apple2 fbneo
     gx4000 markiii multivision amigacdtv sufami msx1
@@ -1215,8 +1234,8 @@ for dir in "${ROM_DIRS[@]}"; do mkdir -p "$ROMS/$dir"; done
 write_port_launcher() {
     local label="$1" pattern="$2"; shift 2
     local out="$ROMS/ports/${label}.sh"
-    [[ -e "$out" ]] && return 0
-    cat > "$out" <<PORT_LAUNCHER
+    local tmp="$out.tmp.$$"
+    cat > "$tmp" <<PORT_LAUNCHER
 #!/usr/bin/env bash
 set -euo pipefail
 BASE="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -1225,8 +1244,13 @@ export HOME="\$BASE"
 export XDG_CONFIG_HOME="\$BASE/.config"
 export XDG_DATA_HOME="\$BASE/.local/share"
 export XDG_STATE_HOME="\$BASE/.local/state"
-mkdir -p "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME"
-mapfile -t matches < <(find "\$EMUS" -maxdepth 1 -type f -iname "$pattern" 2>/dev/null | sort)
+export XDG_CACHE_HOME="\$BASE/.cache"
+mkdir -p "\$XDG_CONFIG_HOME" "\$XDG_DATA_HOME" "\$XDG_STATE_HOME" "\$XDG_CACHE_HOME"
+mapfile -t matches < <(find "\$EMUS" -mindepth 2 -maxdepth 2 -type f -iname "$pattern" 2>/dev/null | sort)
+# Fallback: also accept a still-flat AppImage from an older install layout.
+if [[ \${#matches[@]} -eq 0 ]]; then
+    mapfile -t matches < <(find "\$EMUS" -maxdepth 1 -type f -iname "$pattern" 2>/dev/null | sort)
+fi
 if [[ \${#matches[@]} -eq 0 ]]; then
     echo "Missing AppImage: $pattern" >&2
     echo "Run the ES-DE Portable setup again, or place the AppImage in: \$EMUS" >&2
@@ -1234,8 +1258,26 @@ if [[ \${#matches[@]} -eq 0 ]]; then
 fi
 app="\${matches[0]}"
 chmod +x "\$app" 2>/dev/null || true
+# The AppImage lives in its OWN folder, Emulators/<Port>/. Run the engine from
+# that folder so it finds user-supplied game data placed right beside it
+# (EDuke32 -> DUKE3D.GRP, CannonBall -> config.xml + roms/, ioquake3 -> baseq3/,
+# etc.). These engines look next to their own binary, which is why a flat
+# Emulators/ layout forced data into the shared root. Same folder = found.
+DATA="\$(dirname "\$app")"
+if [[ ! -e "\$DATA/_PUT-GAME-DATA-HERE.txt" ]]; then
+    cat > "\$DATA/_PUT-GAME-DATA-HERE.txt" <<'PORTNOTE'
+Put this port's game data in THIS folder — right beside the AppImage — e.g.:
+  EDuke32     -> DUKE3D.GRP  (plus DUKE.RTS / any addon .grp files)
+  CannonBall  -> the OutRun "roms" folder  + config.xml
+  ioquake3    -> baseq3/      Yamagi Quake II -> baseq2/      dhewm3 -> base/
+The launcher runs the engine from this folder, so files here are found
+automatically. Preserved across setup re-runs and update.sh.
+PORTNOTE
+fi
+cd "\$DATA"
 exec "\$app" "\$@"
 PORT_LAUNCHER
+    backup_file_if_changed "$out" "$tmp" "port: ${label}.sh"
     chmod +x "$out"
 }
 
@@ -1345,7 +1387,7 @@ emu('DOLPHIN', [fp('dolphin*.AppImage'), fp('Dolphin*.AppImage'),
 emu('PCSX2', [fp('pcsx2-portable.sh'), fp('pcsx2*.AppImage'), fp('PCSX2*.AppImage'),
     '/var/lib/flatpak/exports/bin/net.pcsx2.PCSX2'], ['pcsx2-qt']),
 '',
-emu('RPCS3', [fp('rpcs3*.AppImage'), fp('RPCS3*.AppImage'),
+emu('RPCS3', [fp('rpcs3-portable.sh'), fp('rpcs3*.AppImage'), fp('RPCS3*.AppImage'),
     '/var/lib/flatpak/exports/bin/net.rpcs3.RPCS3'], ['rpcs3']),
 '',
 # PS3LAUNCH: bundle wrapper that dispatches by extension (.psn/.m3u read
@@ -1356,21 +1398,21 @@ emu('PS3LAUNCH', [fp('ps3-launch.sh')], []),
 emu('DUCKSTATION', [fp('DuckStation*.AppImage'), fp('duckstation*.AppImage'),
     '/var/lib/flatpak/exports/bin/org.duckstation.DuckStation'], ['duckstation-qt']),
 '',
-emu('PPSSPP', [fp('PPSSPP*.AppImage'), fp('ppsspp*.AppImage'),
+emu('PPSSPP', [fp('ppsspp-portable.sh'), fp('PPSSPP*.AppImage'), fp('ppsspp*.AppImage'),
     '/var/lib/flatpak/exports/bin/org.ppsspp.PPSSPP'], ['PPSSPPQt']),
 '',
-emu('MELONDS', [fp('melonDS*.AppImage'),
+emu('MELONDS', [fp('melonds-portable.sh'), fp('melonDS*.AppImage'),
     '/var/lib/flatpak/exports/bin/net.kuribo64.melonDS'], ['melonDS']),
 '',
 emu('MGBA', [fp('mGBA*.AppImage'), fp('mgba*')], ['mgba-qt']),
 '',
-emu('CEMU', [fp('Cemu*.AppImage'), fp('cemu*.AppImage'),
+emu('CEMU', [fp('cemu-portable.sh'), fp('Cemu*.AppImage'), fp('cemu*.AppImage'),
     '/var/lib/flatpak/exports/bin/info.cemu.Cemu'], ['cemu']),
 '',
 emu('RMG', [fp('RMG*.AppImage'),
     '/var/lib/flatpak/exports/bin/com.github.Rosalie241.RMG'], ['RMG']),
 '',
-emu('SCUMMVM', [fp('scummvm*.AppImage')], ['scummvm']),
+emu('SCUMMVM', [fp('ScummVM*.AppImage'), fp('scummvm*.AppImage')], ['scummvm']),
 '',
 emu('MAME', [fp('mame*.AppImage')], ['mame']),
 '',
@@ -1378,7 +1420,7 @@ emu('FLYCAST', [fp('flycast*.AppImage')], ['flycast']),
 '',
 emu('RYUBING', [fp('Ryubing*.AppImage'), fp('ryubing*.AppImage'), fp('ryujinx*.AppImage')], ['Ryubing']),
 '',
-emu('EDEN', [fp('Eden*.AppImage'), fp('eden*.AppImage')], ['eden']),
+emu('EDEN', [fp('eden-portable.sh'), fp('Eden*.AppImage'), fp('eden*.AppImage')], ['eden']),
 '',
 emu('SHADPS4',
     [fp('shadps4-portable.sh'), fp('shadps4')],
@@ -1394,12 +1436,12 @@ emu('3DSEN',
      '~/.local/share/applications/3dSen'],
     ['3dSen']),
 '',
-emu('XEMU', [fp('xemu*.AppImage'),
+emu('XEMU', [fp('xemu-portable.sh'), fp('xemu*.AppImage'),
     '/var/lib/flatpak/exports/bin/app.xemu.xemu'], ['xemu']),
 '',
 emu('XENIA', [fp('xenia*.AppImage'), fp('xenia_canary')], ['xenia_canary']),
 '',
-emu('AZAHAR', [fp('azahar*.AppImage'), fp('Azahar*.AppImage')], ['azahar']),
+emu('AZAHAR', [fp('azahar-portable.sh'), fp('azahar*.AppImage'), fp('Azahar*.AppImage')], ['azahar']),
 '',
 emu('GEARGRAFX', [fp('Geargrafx*.AppImage')], ['geargrafx']),
 '',
@@ -1458,7 +1500,7 @@ emu('RUFFLE', [fp('ruffle-portable.sh'), fp('ruffle*.AppImage'), fp('ruffle')], 
 emu('EKA2L1', [fp('eka2l1-portable.sh'), fp('eka2l1*.AppImage'), fp('eka2l1')], ['eka2l1']),
 '',
 emu('VPINBALL',
-    [fp('vpinball-portable.sh'), fp('VPinballX_BGFX'), fp('VPinballX_GL')],
+    [fp('VPinball/vpinball-portable.sh'), fp('VPinball/VPinballX_BGFX'), fp('VPinball/VPinballX_GL')],
     ['vpinball-portable.sh', 'VPinballX_BGFX', 'VPinballX_GL']),
 '',
 '</ruleList>']
@@ -1947,7 +1989,6 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
     <fullname>PICO-8</fullname>
     <path>%ROMPATH%/pico8</path><extension>.png .PNG .p8 .P8</extension>
     <command label="retro8">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/retro8_libretro.so %ROM%</command>
-    <command label="fake-08">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/fake08_libretro.so %ROM%</command>
     <platform>pico8</platform>
     <theme>pico8</theme>
   </system>
@@ -2486,7 +2527,7 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   <system>
     <name>snes-msu</name>
     <fullname>Super Nintendo (MSU-1)</fullname>
-    <path>%ROMPATH%/snes-msu</path>
+    <path>%ROMPATH%/snes/snes-msu</path>
     <extension>.sfc .smc .bs .st .zip .7z .SFC .SMC .ZIP .7Z</extension>
     <command label="Snes9x">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/snes9x_libretro.so %ROM%</command>
     <platform>snes</platform>
@@ -2506,7 +2547,7 @@ cat > "$CUSTOM_SYSTEMS_TMP" << 'CUSTOMSYSTEMS'
   <system>
     <name>msu-md</name>
     <fullname>Sega Mega Drive (MSU-MD)</fullname>
-    <path>%ROMPATH%/msu-md</path>
+    <path>%ROMPATH%/megadrive/msu-md</path>
     <extension>.md .bin .smd .gen .zip .7z .MD .BIN .SMD .GEN .ZIP .7Z</extension>
     <command label="Genesis Plus GX">%EMULATOR_RETROARCH% -L %CORE_RETROARCH%/genesis_plus_gx_libretro.so %ROM%</command>
     <platform>megadrive</platform>
@@ -2823,6 +2864,16 @@ for CUSTOM_SYS in snesh nesh gbh gbch gbah genh n64h ggh ps3psn xbla \
     mkdir -p "$ROMS/$CUSTOM_SYS"
 done
 
+# Self-maintaining safety net: create a ROM folder for every <path>%ROMPATH%/...
+# entry in the custom es_systems.xml we just wrote. This guarantees that any
+# custom (or future) system has a landing folder even if it was never added to
+# ROM_DIRS or the explicit loop above. %ROMPATH% maps to $ROMS; nested paths
+# (e.g. snes/snes-msu, megadrive/msu-md) are created via mkdir -p.
+while IFS= read -r _custom_path; do
+    [[ -n "$_custom_path" ]] && mkdir -p "$ROMS/$_custom_path"
+done < <(grep -oE '<path>%ROMPATH%/[^<]+</path>' "$CUSTOM_SYSTEMS_FILE" 2>/dev/null \
+    | sed -E 's#<path>%ROMPATH%/##; s#</path>##')
+
 #=============================================================================
 # STEP 4: RETROARCH CONFIG
 #=============================================================================
@@ -3064,9 +3115,17 @@ cat > "$EMUS/rpcs3-portable.sh" << 'RPCS3WRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'rpcs3*.AppImage' -o -name 'RPCS3*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "rpcs3-portable.sh: no RPCS3 AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" "$@"
 RPCS3WRAP
 chmod +x "$EMUS/rpcs3-portable.sh"
@@ -3080,8 +3139,12 @@ cat > "$EMUS/pcsx2-portable.sh" << 'PCSX2WRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -iname 'pcsx2*.AppImage' -o -iname 'PCSX2*.AppImage' | head -1)
 if [[ -z "$BIN" ]]; then
     echo "pcsx2-portable.sh: no PCSX2 AppImage found in $SCRIPT_DIR" >&2
@@ -3196,6 +3259,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 mkdir -p "$BASE_DIR/.config/ppsspp"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'PPSSPP*.AppImage' -o -name 'ppsspp*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "ppsspp-portable.sh: no PPSSPP AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" --memstick "$BASE_DIR/.config/ppsspp" "$@"
 PPSSPPWRAP
 chmod +x "$EMUS/ppsspp-portable.sh"
@@ -3205,9 +3272,17 @@ cat > "$EMUS/melonds-portable.sh" << 'MELONDSWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'melonDS*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "melonds-portable.sh: no melonDS AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" "$@"
 MELONDSWRAP
 chmod +x "$EMUS/melonds-portable.sh"
@@ -3217,9 +3292,17 @@ cat > "$EMUS/azahar-portable.sh" << 'AZAHARWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'azahar*.AppImage' -o -name 'Azahar*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "azahar-portable.sh: no Azahar AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" "$@"
 AZAHARWRAP
 chmod +x "$EMUS/azahar-portable.sh"
@@ -3229,9 +3312,17 @@ cat > "$EMUS/cemu-portable.sh" << 'CEMUWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Cemu*.AppImage' -o -name 'cemu*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "cemu-portable.sh: no Cemu AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" "$@"
 CEMUWRAP
 chmod +x "$EMUS/cemu-portable.sh"
@@ -3241,9 +3332,17 @@ cat > "$EMUS/xemu-portable.sh" << 'XEMUWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'xemu*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "xemu-portable.sh: no xemu AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" "$@"
 XEMUWRAP
 chmod +x "$EMUS/xemu-portable.sh"
@@ -3253,9 +3352,17 @@ cat > "$EMUS/eden-portable.sh" << 'EDENWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 BIN=$(find "$SCRIPT_DIR" -maxdepth 1 -name 'Eden*.AppImage' -o -name 'eden*.AppImage' | head -1)
+if [[ -z "$BIN" ]]; then
+    echo "eden-portable.sh: no Eden AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BIN" "$@"
 EDENWRAP
 chmod +x "$EMUS/eden-portable.sh"
@@ -3265,8 +3372,16 @@ cat > "$EMUS/shadps4-portable.sh" << 'SHADWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
+export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
+export XDG_STATE_HOME="$BASE_DIR/.local/state"
+export XDG_CACHE_HOME="$BASE_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
+if [[ ! -x "$SCRIPT_DIR/shadps4" ]]; then
+    echo "shadps4-portable.sh: shadps4 binary not found or not executable at $SCRIPT_DIR/shadps4" >&2
+    exit 1
+fi
 exec "$SCRIPT_DIR/shadps4" "$@"
 SHADWRAP
 chmod +x "$EMUS/shadps4-portable.sh"
@@ -3278,6 +3393,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR="$(dirname "$SCRIPT_DIR")"
 mkdir -p "$BASE_DIR/.config/86box"
 BOX=$(find "$SCRIPT_DIR" -maxdepth 1 -name '86Box*.AppImage' -o -name '86box*.AppImage' | head -1)
+if [[ -z "$BOX" ]]; then
+    echo "86box-portable.sh: no 86Box AppImage found in $SCRIPT_DIR" >&2
+    exit 1
+fi
 exec "$BOX" --vmpath "$BASE_DIR/.config/86box" "$@"
 BOXWRAP
 chmod +x "$EMUS/86box-portable.sh"
@@ -3291,10 +3410,14 @@ chmod +x "$EMUS/86box-portable.sh"
 # convention pointing at the bundle's table folder.
 # PinMAME (machine ROMs) and Music are kept inside ROMs/vpinball so the
 # whole bundle survives drive moves and Linux reinstalls.
-cat > "$EMUS/vpinball-portable.sh" << 'VPINWRAP'
+mkdir -p "$EMUS/VPinball"
+cat > "$EMUS/VPinball/vpinball-portable.sh" << 'VPINWRAP'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BASE_DIR="$(dirname "$SCRIPT_DIR")"
+# This wrapper lives in Emulators/VPinball/ alongside the VPinball binary, its
+# shared libs and support dirs, so SCRIPT_DIR IS that contained folder. BASE_DIR
+# climbs two levels (VPinball -> Emulators -> bundle root).
+BASE_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
 export HOME="$BASE_DIR"
 export XDG_CONFIG_HOME="$BASE_DIR/.config"
 export XDG_DATA_HOME="$BASE_DIR/.local/share"
@@ -3325,7 +3448,7 @@ fi
 # VPX Standalone reads music from THREE places, in order:
 #   1. The table-local Music/ folder (cwd-relative to the .vpx file)
 #   2. $HOME/.vpinball/music/ (because HOME is redirected to $BASE_DIR)
-#   3. ./Music/ relative to cwd (= $SCRIPT_DIR = Emulators/)
+#   3. ./Music/ relative to cwd (= $SCRIPT_DIR = Emulators/VPinball/)
 # The bundle stores music canonically at ROMs/vpinball/music. Bridge all
 # three lookup points with relative symlinks that never replace a real dir.
 if [[ -L "$BASE_DIR/.vpinball/music" ]]; then
@@ -3333,10 +3456,10 @@ if [[ -L "$BASE_DIR/.vpinball/music" ]]; then
 elif [[ ! -e "$BASE_DIR/.vpinball/music" ]]; then
     ln -s "../ROMs/vpinball/music" "$BASE_DIR/.vpinball/music" 2>/dev/null || true
 fi
-if [[ -L "$BASE_DIR/Emulators/Music" ]]; then
-    ln -sfn "../ROMs/vpinball/music" "$BASE_DIR/Emulators/Music"
-elif [[ ! -e "$BASE_DIR/Emulators/Music" ]]; then
-    ln -s "../ROMs/vpinball/music" "$BASE_DIR/Emulators/Music" 2>/dev/null || true
+if [[ -L "$SCRIPT_DIR/Music" ]]; then
+    ln -sfn "../../ROMs/vpinball/music" "$SCRIPT_DIR/Music"
+elif [[ ! -e "$SCRIPT_DIR/Music" ]]; then
+    ln -s "../../ROMs/vpinball/music" "$SCRIPT_DIR/Music" 2>/dev/null || true
 fi
 
 ensure_ini_key() {
@@ -3374,7 +3497,7 @@ if [[ ! -x "$BIN" ]]; then
 fi
 exec "$BIN" "$@"
 VPINWRAP
-chmod +x "$EMUS/vpinball-portable.sh"
+chmod +x "$EMUS/VPinball/vpinball-portable.sh"
 
 mkdir -p "$ROMS/vpinball/pinmame/roms" "$ROMS/vpinball/pinmame/nvram" \
          "$ROMS/vpinball/pinmame/altcolor" "$ROMS/vpinball/pinmame/altsound" \
@@ -3529,6 +3652,16 @@ fi
 
 cd "$SCRIPT_DIR"
 export HOME="$SCRIPT_DIR"
+# Redirect XDG base dirs into the bundle too. HOME alone is not enough: many
+# desktops preset XDG_CONFIG_HOME/XDG_DATA_HOME in the session, which child
+# emulators (launched by ES-DE from the raw AppImage) would otherwise inherit
+# and write to the user's real home — breaking portability. Setting them here
+# covers every emulator uniformly, not just the ones with *-portable.sh wrappers.
+export XDG_CONFIG_HOME="$SCRIPT_DIR/.config"
+export XDG_DATA_HOME="$SCRIPT_DIR/.local/share"
+export XDG_STATE_HOME="$SCRIPT_DIR/.local/state"
+export XDG_CACHE_HOME="$SCRIPT_DIR/.cache"
+mkdir -p "$XDG_CONFIG_HOME" "$XDG_DATA_HOME" "$XDG_STATE_HOME" "$XDG_CACHE_HOME"
 
 # Apply desired theme before launch — ES-DE may overwrite settings on exit
 # so we also re-apply after. Belt and suspenders.
@@ -3667,7 +3800,6 @@ will name the exact files it looked for.
 | ColecoVision    | coleco.col                                 | blueMSX     |
 | MSX / MSX2      | MSX system ROMs (various)                  | blueMSX     |
 | Spectravideo    | SVI-318 / SVI-328 ROMs                     | blueMSX     |
-| CreatiVision    | bioscv.rom                                 | JollyCV     |
 | Sharp X68000    | iplrom.dat, cgrom.dat                      | PX68K       |
 
 ## MAME-driven systems (zip up the BIOS files into the matching name)
@@ -3709,7 +3841,6 @@ because the internal filenames have changed.
 To handle this, the bundle ships multiple MAME cores side-by-side:
 - mame_libretro (current, MAME 0.287+)
 - mame2010_libretro (MAME 0.139 — older BIOS fallback)
-- mame2003_plus_libretro (MAME 0.78 with backports — oldest fallback)
 
 Note: mame2014/2016 cores are NOT built for Linux x86_64 on the libretro
 buildbot, so they aren't included. mame2010 is the closest available
@@ -3771,6 +3902,11 @@ cd ./ES-DE
 ./launch.sh
 ```
 
+> On its first launch ES-DE creates the full `ROMs/<system>/` folder tree for
+> every supported system (including custom ones not pre-created by setup), so
+> run `./launch.sh` once before dropping ROMs in if a folder is missing. The
+> importer also creates any needed system folder on demand.
+
 Run a read only import audit:
 
 ```bash
@@ -3787,7 +3923,7 @@ Run a read only import audit:
 | Standalone emulators | Dolphin, DuckStation, PCSX2, RPCS3, PPSSPP, Azahar, melonDS, Cemu, xemu, Xenia Canary, shadPS4, MAME, Supermodel, VPinball, and more |
 | Ports and engines | Launchers inside `ROMs/ports`, backed by bundled AppImages in `Emulators/` |
 | Importer | RetroBat and Batocera style collection importer with media, gamelist, BIOS, and nested system handling |
-| Maintenance | Update script for emulator AppImages and RetroArch cores |
+| Maintenance | Update script for ES-DE/emulator AppImages and RetroArch cores |
 
 ## Highlights
 
@@ -3818,35 +3954,41 @@ Run a read only import audit:
 </details>
 
 <details>
-<summary><strong>Ports and engines currently wired</strong></summary>
+<summary><strong>Ports and engines — where to put game data</strong></summary>
 
-These launch from the visible ES-DE `ports` system for Art Book Next compatibility. The actual AppImages live in `Emulators/`.
+Each port appears in the ES-DE **Ports** system. Every port lives in its own folder `Emulators/<Port>/` — the AppImage *and* its game data go there together, because these engines look for data right beside their own binary. Drop the port's user-supplied game data into that folder (a `_PUT-GAME-DATA-HERE.txt` reminder is created there on first launch); it is found automatically and is preserved across setup re-runs and `update.sh`.
 
-| Port launcher | Runtime source |
-|---|---|
-| `DevilutionX.sh` | DevilutionX AppImage Enhanced |
-| `Theme Hospital (CorsixTH).sh` | CorsixTH AppImage Enhanced |
-| `Heroes III (VCMI).sh` | VCMI AppImage |
-| `Caesar III (Augustus).sh` | Augustus AppImage Enhanced |
-| `OpenTTD (Transport Tycoon).sh` | OpenTTD AppImage |
-| `Commander Genius.sh` | Commander Genius AppImage |
-| `C-Dogs SDL.sh` | C-Dogs SDL AppImage |
-| `EDuke32.sh` | EDuke32 AppImage |
-| `Ghostship.sh` | Ghostship AppImage Enhanced |
-| `Nugget Doom.sh` | Nugget Doom AppImage Enhanced |
-| `Crispy Doom.sh` | Crispy Doom AppImage |
-| `OpenBOR.sh` | OpenBOR, AppImage if upstream release provides one |
-| `OpenJazz.sh` | OpenJazz AppImage |
-| `OpenTyrian 2000.sh` | OpenTyrian2000 AppImage |
-| `OpenRCT2.sh` | OpenRCT2 AppImage Enhanced |
-| `OpenLoco.sh` | OpenLoco AppImage |
-| `OpenRA.sh` | OpenRA AppImage Enhanced |
-| `Half-Life (Xash3D FWGS).sh` | Xash3D FWGS AppImage Enhanced |
-| `Quake II (Yamagi).sh` | Yamagi Quake II AppImage |
-| `Quake III Arena (ioquake3).sh` | ioquake3 AppImage |
-| `Doom 3 (dhewm3).sh` | dhewm3 AppImage |
+| Port (in ES-DE "Ports") | Put game data in | You provide |
+|---|---|---|
+| DevilutionX (Diablo) | `Emulators/DevilutionX/` | `DIABDAT.MPQ` (or `spawn.mpq` shareware); Hellfire adds `hellfire.mpq` |
+| Theme Hospital (CorsixTH) | `Emulators/CorsixTH/` | Theme Hospital install files (`DATA`, `ANIMS`, `LEVELS`, ...) |
+| Heroes III (VCMI) | `Emulators/vcmi/` | Heroes of Might & Magic III data (`Data`, `Maps`, `Mp3`) |
+| Caesar III (Augustus) | `Emulators/Augustus/` | Caesar III install files (`c3.eng`, `.sg2`/`.555`) |
+| OpenTTD | `Emulators/OpenTTD/` | Nothing required — downloads free base graphics/sound on first run |
+| Commander Genius (Keen) | `Emulators/Commander-Genius/` | Commander Keen episode game files |
+| C-Dogs SDL | `Emulators/C-Dogs_SDL/` | Nothing — ships with free campaigns |
+| EDuke32 (Duke Nukem 3D) | `Emulators/EDuke32/` | `DUKE3D.GRP` (+ `DUKE.RTS`; addon `.grp` files) |
+| Ghostship (Super Mario 64) | `Emulators/Ghostship/` | A Super Mario 64 ROM (US `.z64`); first run builds its asset archive |
+| Nugget Doom | `Emulators/Nugget-Doom/` | A Doom IWAD (`DOOM.WAD`/`DOOM2.WAD`, or free Freedoom) |
+| Crispy Doom | `Emulators/Crispy-Doom/` | A Doom IWAD (as above) |
+| OpenBOR | `Emulators/OpenBOR/` | BOR game `.pak` modules |
+| OpenJazz (Jazz Jackrabbit) | `Emulators/OpenJazz/` | Jazz Jackrabbit (episode 1) game files |
+| OpenTyrian 2000 | `Emulators/OpenTyrian2000/` | Tyrian data files (freely redistributable) |
+| OpenRCT2 | `Emulators/OpenRCT2/` | RollerCoaster Tycoon 2 install files |
+| OpenLoco | `Emulators/OpenLoco/` | Chris Sawyer's Locomotion install files |
+| OpenRA | `Emulators/OpenRA/` | Nothing required — fetches C&C/Red Alert assets via its in-app installer |
+| Half-Life (Xash3D FWGS) | `Emulators/Xash3D-FWGS/` | Half-Life `valve/` game data |
+| Quake II (Yamagi) | `Emulators/Yamagi-Quake-II/` | `baseq2/` (Quake II `pak0.pak`, ...) |
+| Quake III Arena (ioquake3) | `Emulators/ioquake3/` | `baseq3/` (`pak0.pk3`, ...) |
+| Doom 3 (dhewm3) | `Emulators/dhewm3/` | `base/` (Doom 3 `pak*.pk4`) |
+| OpenLara (Tomb Raider) | `Emulators/OpenLara/` | Tomb Raider 1 level/data files (or the free demo data) |
+| Cannonball (OutRun) | `Emulators/Cannonball/` | OutRun arcade romset in a `roms/` subfolder (+ `config.xml`) |
+| Cave Story (NXEngine) | `Emulators/NXEngine/` | Cave Story `data/` folder (freeware) |
+| ECWolf (Wolfenstein 3D) | `Emulators/ECWolf/` | Wolfenstein 3D data (`VSWAP.WL6`, ...; shareware `*.WL1` works) |
 
 </details>
+<!-- PORTS_DATA_TABLE_END -->
+
 
 <details>
 <summary><strong>Directory structure</strong></summary>
@@ -3940,7 +4082,7 @@ The importer checks BIOS status and routes recognised BIOS sidecars into `ROMs/b
 ./update.sh
 ```
 
-The update helper checks emulator AppImages and RetroArch cores. It keeps existing files unless you choose to replace them.
+The update helper checks ES-DE and emulator AppImages, and can refresh all RetroArch cores from the buildbot. It keeps existing files unless you choose to replace them.
 
 </details>
 
@@ -4273,7 +4415,8 @@ install__86box() {
 }
 
 install_vpinball() {
-    if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+    VPDIR="$EMUS/VPinball"
+    if [[ -f "$VPDIR/VPinballX_BGFX" ]]; then
         ok "VPinball already exists, skipping"
     else
         # vpinball releases: BGFX and GL are separate zips, each containing one binary
@@ -4315,12 +4458,13 @@ install_vpinball() {
             rm -f "$VPINBALL_COUNT_FILE"
 
             if [[ $VPINBALL_GOT -gt 0 ]]; then
+                mkdir -p "$VPDIR"
                 # Copy binaries — search at any depth after extraction
                 for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
                     FOUND=$(find "$VPINBALL_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
                     if [[ -n "$FOUND" ]]; then
-                        cp "$FOUND" "$EMUS/$BIN"
-                        chmod +x "$EMUS/$BIN"
+                        cp "$FOUND" "$VPDIR/$BIN"
+                        chmod +x "$VPDIR/$BIN"
                         ok "  Installed: $BIN"
                     fi
                 done
@@ -4331,8 +4475,8 @@ install_vpinball() {
                     DNAME=$(basename "$D")
                     # Skip the extract dir itself and temp root
                     [[ "$DNAME" == "extract" ]] && continue
-                    [[ ! -d "$EMUS/$DNAME" ]] && mkdir -p "$EMUS/$DNAME"
-                    cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null || true
+                    [[ ! -d "$VPDIR/$DNAME" ]] && mkdir -p "$VPDIR/$DNAME"
+                    cp -rn "$D/." "$VPDIR/$DNAME/" 2>/dev/null || true
                 done
                 # Copy bundled shared libraries — VPinball ships libbgfx.so,
                 # libSDL3*.so, libfreeimage.so etc. as ROOT-LEVEL files in the
@@ -4345,8 +4489,8 @@ install_vpinball() {
                 while IFS= read -r LIB; do
                     [[ -z "$LIB" ]] && continue
                     LIBNAME=$(basename "$LIB")
-                    [[ -f "$EMUS/$LIBNAME" ]] && continue
-                    cp "$LIB" "$EMUS/$LIBNAME" 2>/dev/null && VP_LIBS=$((VP_LIBS + 1))
+                    [[ -f "$VPDIR/$LIBNAME" ]] && continue
+                    cp "$LIB" "$VPDIR/$LIBNAME" 2>/dev/null && VP_LIBS=$((VP_LIBS + 1))
                 done < <(find "$EXTRACT_ROOT" -type f -name '*.so*' 2>/dev/null)
                 # Synthesize SONAME symlinks (libFOO.so.1.2.3 -> libFOO.so.1).
                 # find -type f copies only the real versioned files; the binary
@@ -4354,7 +4498,7 @@ install_vpinball() {
                 # the loader fails with "libSDL3.so.0: cannot open shared
                 # object file". This mini-ldconfig pass makes it work whether
                 # or not the archive shipped the symlinks.
-                ( cd "$EMUS" && for real in lib*.so.*; do
+                ( cd "$VPDIR" && for real in lib*.so.*; do
                     [[ -f "$real" && ! -L "$real" ]] || continue
                     soname=$(printf '%s' "$real" | sed -E 's/(\.so\.[0-9]+)\..*/\1/')
                     [[ "$soname" != "$real" && ! -e "$soname" ]] && ln -s "$real" "$soname"
@@ -4596,31 +4740,31 @@ install_mame() {
 install_devilutionx() {
     github_appimage "pkgforge-dev/DevilutionX-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/DevilutionX-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/DevilutionX/DevilutionX-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_corsixth() {
     github_appimage "pkgforge-dev/CorsixTH-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/CorsixTH/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_vcmi() {
     github_appimage "pkgforge-dev/vcmi-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/vcmi/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_augustus() {
     github_appimage "pkgforge-dev/Augustus-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Augustus/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openttd() {
     github_appimage "pkgforge-dev/OpenTTD-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenTTD/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_scummvm_standalone() {
@@ -4632,37 +4776,37 @@ install_scummvm_standalone() {
 install_cgenius() {
     github_appimage "pkgforge-dev/Commander-Genius-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Commander-Genius-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Commander-Genius/Commander-Genius-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_cdogs() {
     github_appimage "pkgforge-dev/C-Dogs_SDL-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/C-Dogs_SDL-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/C-Dogs_SDL/C-Dogs_SDL-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_eduke32() {
     github_appimage "pkgforge-dev/EDuke32-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/EDuke32-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/EDuke32/EDuke32-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_ghostship() {
     github_appimage "pkgforge-dev/Ghostship-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Ghostship-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Ghostship/Ghostship-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_nuggetdoom() {
     github_appimage "pkgforge-dev/Nugget-Doom-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Nugget-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Nugget-Doom/Nugget-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_crispydoom() {
     github_appimage "pkgforge-dev/Crispy-Doom-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Crispy-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Crispy-Doom/Crispy-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_gzdoom() {
@@ -4673,7 +4817,7 @@ install_gzdoom() {
 install_openbor() {
     github_appimage "DCurrent/openbor" \
         ".*\.AppImage$" \
-        "$EMUS/OpenBOR-latest.AppImage" || {
+        "$EMUS/OpenBOR/OpenBOR-latest.AppImage" || {
             warn "OpenBOR AppImage asset not found in DCurrent/openbor releases. Linux is supported upstream, but this may require a manual build or dropped-in AppImage/binary."
             DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
             # removed: return 1 — set -e would kill the script
@@ -4683,79 +4827,79 @@ install_openbor() {
 install_openjazz() {
     github_appimage "pkgforge-dev/OpenJazz-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenJazz-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenJazz/OpenJazz-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_opentyrian() {
     github_appimage "pkgforge-dev/OpenTyrian2000-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenTyrian2000-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenTyrian2000/OpenTyrian2000-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openrct2() {
     github_appimage "pkgforge-dev/OpenRCT2-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/OpenRCT2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenRCT2/OpenRCT2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openloco() {
     github_appimage "pkgforge-dev/OpenLoco-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenLoco-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenLoco/OpenLoco-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openra() {
     github_appimage "pkgforge-dev/OpenRA-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/OpenRA-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenRA/OpenRA-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_xash3d() {
     github_appimage "pkgforge-dev/Xash3D-FWGS-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Xash3D-FWGS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Xash3D-FWGS/Xash3D-FWGS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_yquake2() {
     github_appimage "pkgforge-dev/Yamagi-Quake-II-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Yamagi-Quake-II-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Yamagi-Quake-II/Yamagi-Quake-II-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_ioquake3() {
     github_appimage "pkgforge-dev/ioquake3-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/ioquake3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/ioquake3/ioquake3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_dhewm3() {
     github_appimage "pkgforge-dev/dhewm3-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/dhewm3/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openlara() {
     github_appimage "pkgforge-dev/OpenLara-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenLara/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_cannonball() {
     github_appimage "pkgforge-dev/Cannonball-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Cannonball/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_nxengine() {
     github_appimage "pkgforge-dev/NXEngine-evo-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/NXEngine/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_ecwolf() {
     github_appimage "pkgforge-dev/ECWolf-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/ECWolf/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_engine_by_key() {
@@ -4991,6 +5135,29 @@ fi
 
 echo ""
 echo "   ── Ports / Engines AppImages ──"
+# ── Migrate any flat port AppImages into per-port folders ──
+# Ports now live in Emulators/<Port>/ so each engine finds game data placed
+# beside its own binary (EDuke32->DUKE3D.GRP, CannonBall->roms/, etc.). Older
+# installs placed them flat in Emulators/; move them so re-runs don't re-download
+# and the Emulators/ listing stays tidy. Game data dropped flat must be moved
+# into the matching Emulators/<Port>/ folder by hand (see the README ports table).
+for _pf in DevilutionX-latest.AppImage CorsixTH-latest.AppImage vcmi-latest.AppImage \
+           Augustus-latest.AppImage OpenTTD-latest.AppImage Commander-Genius-latest.AppImage \
+           C-Dogs_SDL-latest.AppImage EDuke32-latest.AppImage Ghostship-latest.AppImage \
+           Nugget-Doom-latest.AppImage Crispy-Doom-latest.AppImage OpenBOR-latest.AppImage \
+           OpenJazz-latest.AppImage OpenTyrian2000-latest.AppImage OpenRCT2-latest.AppImage \
+           OpenLoco-latest.AppImage OpenRA-latest.AppImage Xash3D-FWGS-latest.AppImage \
+           Yamagi-Quake-II-latest.AppImage ioquake3-latest.AppImage dhewm3-latest.AppImage \
+           OpenLara-latest.AppImage Cannonball-latest.AppImage NXEngine-latest.AppImage \
+           ECWolf-latest.AppImage; do
+    _pdir="${_pf%-latest.AppImage}"
+    if [[ -f "$EMUS/$_pf" && ! -f "$EMUS/$_pdir/$_pf" ]]; then
+        mkdir -p "$EMUS/$_pdir"
+        mv "$EMUS/$_pf" "$EMUS/$_pdir/$_pf"
+        info "Moved $_pf into Emulators/$_pdir/"
+    fi
+done
+
 for engine_key in devilutionx corsixth vcmi augustus openttd cgenius cdogs eduke32 ghostship nuggetdoom crispydoom openbor openjazz opentyrian openrct2 openloco openra xash3d yquake2 ioquake3 dhewm3 openlara cannonball nxengine ecwolf; do
     if emu_selected "$engine_key"; then
         install_engine_by_key "$engine_key" || true
@@ -4999,18 +5166,11 @@ for engine_key in devilutionx corsixth vcmi augustus openttd cgenius cdogs eduke
     fi
 done
 
-# ── PICO-8 — retro8 libretro is the default (free, on libretro buildbot) ──
-# fake08 also supported as alt emulator if user manually compiles & drops in.
-# The actual retro8 core download happens earlier in STEP 9 via download_cores(),
-# which prints [exists] vs [ok] vs [fail]. This block is informational only —
-# don't claim "downloaded" since the core may have been a no-op skip.
-echo "   ── PICO-8 ──"
+# ── PICO-8 — retro8 is the libretro core (downloaded in STEP 10). fake08 was
+#    dropped as an alt-emu: it has no Linux x86_64 buildbot binary, so the
+#    entry could only ever fail. retro8 is the single PICO-8 emulator. ──
 if [[ -f "$EMUS/retroarch-cores/retro8_libretro.so" ]]; then
-    ok "PICO-8: retro8 core available (default). For fake08 alt, compile from"
-    ok "  https://github.com/jtothebell/fake-08 and drop into Emulators/retroarch-cores/"
-else
-    info "PICO-8: retro8 core not present (deselected or download failed). For fake08 alt,"
-    info "  compile from https://github.com/jtothebell/fake-08 and drop into Emulators/retroarch-cores/"
+    ok "PICO-8: retro8 core ready"
 fi
 
 ok "Additional standalone emulators done"
@@ -5392,7 +5552,7 @@ declare -A MEDIA_MAP=(
     [snap]=screenshots      [snaps]=screenshots       [titleshot]=titlescreens
     [titlescreen]=titlescreens                        [title]=titlescreens
     [fanart_image]=fanart   [video]=videos            [mix]=miximages
-    [miximage]=miximages    [miximages]=miximages     [cart]=physicalmedia
+    [miximage]=miximages    [cart]=physicalmedia
     [cartridge]=physicalmedia                         [support]=physicalmedia
     [media3d]=3dboxes       [box3dfront]=3dboxes
 )
@@ -5501,6 +5661,8 @@ declare -A SYS_MAP=(
     [openra]=ports           [xash3d]=ports          [yquake2]=ports
     [yamagi-quake2]=ports    [quake2]=ports          [ioquake3]=ports
     [dhewm3]=ports
+    [openlara]=ports         [cannonball]=ports      [cavestory]=ports
+    [nxengine]=ports         [ecwolf]=ports
     # Easy roadmap: route to already-supported systems
     [hbmame]=mame
     # Bandai
@@ -5510,7 +5672,6 @@ declare -A SYS_MAP=(
     # MSX
     [msx2+]=msx2
     # Arcade
-    [cave]=arcade
     [gaelco]=arcade         [igspgm]=arcade          [aleck64]=arcade
 )
 FLAT_ROM_SYSTEMS=(c64 amiga amiga500 amiga1200 amigacd32 msx msx2 msx1 vic20 atarist zxspectrum zx81 dos atari800 pc vpinball)
@@ -5568,6 +5729,11 @@ declare -A MSU_NESTED_FOLDER=(
     [quake2]=yquake2
     [ioquake3]=ioquake3
     [dhewm3]=dhewm3
+    [openlara]=openlara
+    [cannonball]=cannonball
+    [cavestory]=nxengine
+    [nxengine]=nxengine
+    [ecwolf]=ecwolf
 )
 
 # Optional physical ROM parent override. Used when a custom ES-DE system
@@ -5611,12 +5777,18 @@ declare -A PORT_ENGINE_FOR=(
     [quake2]=yquake2
     [ioquake3]=ioquake3
     [dhewm3]=dhewm3
+    [openlara]=openlara
+    [cannonball]=cannonball
+    [cavestory]=nxengine
+    [nxengine]=nxengine
+    [ecwolf]=ecwolf
 )
 
 # ES-DE system → required standalone emulator (install_emulator handles it)
 declare -A SYS_TO_EMU=(
     [gc]=dolphin           [wii]=dolphin             [wiiware]=dolphin
     [wiiu]=cemu
+    [psx]=duckstation
     [ps2]=pcsx2
     [ps3]=rpcs3            [ps3psn]=rpcs3
     [ps4]=shadps4
@@ -5648,10 +5820,10 @@ declare -A SYS_TO_EMU=(
 declare -A SYS_TO_CORE=(
     [psx]=mednafen_psx_hw
     [dos]=dosbox_pure                 # DOS — DOSBox Pure libretro core (default)
-    [saturn]=mednafen_saturn          [saturnjp]=mednafen_saturn
+    [saturn]=mednafen_saturn          [saturnjp]=kronos
     [snes]=snes9x                     [sfc]=snes9x
     [snesh]=snes9x                    [sgb]=snes9x
-    [nes]=fceumm                      [famicom]=fceumm    [nesh]=fceumm
+    [nes]=mesen                       [famicom]=mesen     [nesh]=fceumm
     [gb]=gambatte                     [gbh]=gambatte
     [gbc]=gambatte                    [gbch]=gambatte
     [gba]=mgba                        [gbah]=mgba
@@ -5680,14 +5852,14 @@ declare -A SYS_TO_CORE=(
     [neogeo]=fbneo
     [neogeocd]=neocd
     [pcengine]=mednafen_pce           [tg16]=mednafen_pce
-    [supergrafx]=mednafen_pce
+    [supergrafx]=mednafen_supergrafx
     [pcenginecd]=mednafen_pce_fast    [tg-cd]=mednafen_pce_fast
     [pcfx]=mednafen_pcfx
     [virtualboy]=mednafen_vb
     [ngp]=mednafen_ngp                [ngpc]=mednafen_ngp
     [wonderswan]=mednafen_wswan       [wonderswancolor]=mednafen_wswan
     [zxspectrum]=fuse                 [zx81]=81
-    [c64]=vice_x64                    [vic20]=vice_xvic   [plus4]=vice_xplus4
+    [c64]=vice_x64sc                  [vic20]=vice_xvic   [plus4]=vice_xplus4
     [amiga]=puae                      [amiga500]=puae
     [amiga1200]=puae                  [amigacd32]=puae
     [amstradcpc]=cap32
@@ -5698,7 +5870,7 @@ declare -A SYS_TO_CORE=(
     # arcade = FBNeo-curated arcade (es_systems.xml routes arcade to FBNeo by
     # default); mame = full current MAME, the system for modern romsets like
     # RGS 0.2xx sets. They are NOT interchangeable — a 0.265 romset only runs
-    # on current MAME, not FBNeo and not mame2003_plus (each is romset-locked).
+    # on current MAME, not FBNeo and not mame2010 (each is romset-locked).
     [arcade]=fbneo
     [mame]=mame
     # Split-system and legacy explicit mappings.
@@ -5869,17 +6041,30 @@ github_appimage() {
         return 0
     fi
     info "Querying GitHub: $repo ..."
-    local url
-    url=$(curl -sfL "https://api.github.com/repos/$repo/releases?per_page=10" \
+    local resp url
+    resp=$(curl -sfL -H "Accept: application/vnd.github+json" \
+        ${GITHUB_TOKEN:+-H "Authorization: Bearer $GITHUB_TOKEN"} \
+        "https://api.github.com/repos/$repo/releases?per_page=10" 2>/dev/null) || true
+    if [[ -z "$resp" ]]; then
+        fail "Could not reach GitHub for $repo (offline or network blocked)"
+        return 1
+    fi
+    if printf '%s' "$resp" | grep -q 'API rate limit exceeded'; then
+        fail "GitHub API rate-limited (anonymous limit is 60/hour) — could not check $repo"
+        warn "Wait ~1h and re-run, or 'export GITHUB_TOKEN=<token>' to raise the limit, then re-run."
+        return 2
+    fi
+    url=$(printf '%s' "$resp" \
         | grep -oP '"browser_download_url":\s*"\K[^"]*' \
         | grep -P "$pattern" \
         | grep -ivE 'aarch|arm64|armv7|zsync|sha256|\.sig$|\.asc$' \
         | head -1) || true
     if [[ -z "$url" ]]; then
-        fail "No match for pattern in $repo releases"
+        fail "No matching asset for pattern in $repo releases (release exists, asset does not)"
         return 1
     fi
     info "Downloading $(basename "$url") ..."
+    mkdir -p "$(dirname "$outfile")"
     if curl -#fL -o "$outfile" "$url"; then
         chmod +x "$outfile"
         ok "$(basename "$outfile") downloaded"
@@ -5909,7 +6094,7 @@ download_direct() {
 
 download_rpcs3() {
     local outdir="$1"
-    if compgen -G "$outdir/rpcs3*.AppImage" > /dev/null 2>&1; then
+    if find "$outdir" -maxdepth 1 -iname 'rpcs3*.AppImage' 2>/dev/null | grep -q .; then
         ok "RPCS3 already exists, skipping"
     else
         info "Downloading RPCS3 (latest nightly) ..."
@@ -6184,7 +6369,8 @@ install__86box() {
 }
 
 install_vpinball() {
-    if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+    VPDIR="$EMUS/VPinball"
+    if [[ -f "$VPDIR/VPinballX_BGFX" ]]; then
         ok "VPinball already exists, skipping"
     else
         # vpinball releases: BGFX and GL are separate zips, each containing one binary
@@ -6226,12 +6412,13 @@ install_vpinball() {
             rm -f "$VPINBALL_COUNT_FILE"
 
             if [[ $VPINBALL_GOT -gt 0 ]]; then
+                mkdir -p "$VPDIR"
                 # Copy binaries — search at any depth after extraction
                 for BIN in VPinballX_BGFX VPinballX_GL VPinballX; do
                     FOUND=$(find "$VPINBALL_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
                     if [[ -n "$FOUND" ]]; then
-                        cp "$FOUND" "$EMUS/$BIN"
-                        chmod +x "$EMUS/$BIN"
+                        cp "$FOUND" "$VPDIR/$BIN"
+                        chmod +x "$VPDIR/$BIN"
                         ok "  Installed: $BIN"
                     fi
                 done
@@ -6242,8 +6429,8 @@ install_vpinball() {
                     DNAME=$(basename "$D")
                     # Skip the extract dir itself and temp root
                     [[ "$DNAME" == "extract" ]] && continue
-                    [[ ! -d "$EMUS/$DNAME" ]] && mkdir -p "$EMUS/$DNAME"
-                    cp -rn "$D/." "$EMUS/$DNAME/" 2>/dev/null || true
+                    [[ ! -d "$VPDIR/$DNAME" ]] && mkdir -p "$VPDIR/$DNAME"
+                    cp -rn "$D/." "$VPDIR/$DNAME/" 2>/dev/null || true
                 done
                 # Copy bundled shared libraries — VPinball ships libbgfx.so,
                 # libSDL3*.so, libfreeimage.so etc. as ROOT-LEVEL files in the
@@ -6256,8 +6443,8 @@ install_vpinball() {
                 while IFS= read -r LIB; do
                     [[ -z "$LIB" ]] && continue
                     LIBNAME=$(basename "$LIB")
-                    [[ -f "$EMUS/$LIBNAME" ]] && continue
-                    cp "$LIB" "$EMUS/$LIBNAME" 2>/dev/null && VP_LIBS=$((VP_LIBS + 1))
+                    [[ -f "$VPDIR/$LIBNAME" ]] && continue
+                    cp "$LIB" "$VPDIR/$LIBNAME" 2>/dev/null && VP_LIBS=$((VP_LIBS + 1))
                 done < <(find "$EXTRACT_ROOT" -type f -name '*.so*' 2>/dev/null)
                 # Synthesize SONAME symlinks (libFOO.so.1.2.3 -> libFOO.so.1).
                 # find -type f copies only the real versioned files; the binary
@@ -6265,7 +6452,7 @@ install_vpinball() {
                 # the loader fails with "libSDL3.so.0: cannot open shared
                 # object file". This mini-ldconfig pass makes it work whether
                 # or not the archive shipped the symlinks.
-                ( cd "$EMUS" && for real in lib*.so.*; do
+                ( cd "$VPDIR" && for real in lib*.so.*; do
                     [[ -f "$real" && ! -L "$real" ]] || continue
                     soname=$(printf '%s' "$real" | sed -E 's/(\.so\.[0-9]+)\..*/\1/')
                     [[ "$soname" != "$real" && ! -e "$soname" ]] && ln -s "$real" "$soname"
@@ -6510,13 +6697,13 @@ install_mame() {
 install_devilutionx() {
     github_appimage "pkgforge-dev/DevilutionX-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/DevilutionX-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/DevilutionX/DevilutionX-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_corsixth() {
     github_appimage "pkgforge-dev/CorsixTH-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/CorsixTH/CorsixTH-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_cgenius() {
@@ -6524,13 +6711,13 @@ install_cgenius() {
 install_vcmi() {
     github_appimage "pkgforge-dev/vcmi-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/vcmi/vcmi-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_augustus() {
     github_appimage "pkgforge-dev/Augustus-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Augustus/Augustus-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
     github_appimage "pkgforge-dev/Commander-Genius-AppImage" \
         ".*\.AppImage$" \
@@ -6538,7 +6725,7 @@ install_augustus() {
 install_openttd() {
     github_appimage "pkgforge-dev/OpenTTD-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenTTD/OpenTTD-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_scummvm_standalone() {
@@ -6546,37 +6733,37 @@ install_scummvm_standalone() {
         ".*\.AppImage$" \
         "$EMUS/ScummVM-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
-        "$EMUS/Commander-Genius-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Commander-Genius/Commander-Genius-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_cdogs() {
     github_appimage "pkgforge-dev/C-Dogs_SDL-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/C-Dogs_SDL-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/C-Dogs_SDL/C-Dogs_SDL-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_eduke32() {
     github_appimage "pkgforge-dev/EDuke32-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/EDuke32-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/EDuke32/EDuke32-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_ghostship() {
     github_appimage "pkgforge-dev/Ghostship-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Ghostship-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Ghostship/Ghostship-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_nuggetdoom() {
     github_appimage "pkgforge-dev/Nugget-Doom-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Nugget-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Nugget-Doom/Nugget-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_crispydoom() {
     github_appimage "pkgforge-dev/Crispy-Doom-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Crispy-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Crispy-Doom/Crispy-Doom-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_gzdoom() {
@@ -6587,7 +6774,7 @@ install_gzdoom() {
 install_openbor() {
     github_appimage "DCurrent/openbor" \
         ".*\.AppImage$" \
-        "$EMUS/OpenBOR-latest.AppImage" || {
+        "$EMUS/OpenBOR/OpenBOR-latest.AppImage" || {
             warn "OpenBOR AppImage asset not found in DCurrent/openbor releases. Linux is supported upstream, but this may require a manual build or dropped-in AppImage/binary."
             DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1))
             # removed: return 1 — set -e would kill the script
@@ -6597,79 +6784,79 @@ install_openbor() {
 install_openjazz() {
     github_appimage "pkgforge-dev/OpenJazz-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenJazz-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenJazz/OpenJazz-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_opentyrian() {
     github_appimage "pkgforge-dev/OpenTyrian2000-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenTyrian2000-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenTyrian2000/OpenTyrian2000-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openrct2() {
     github_appimage "pkgforge-dev/OpenRCT2-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/OpenRCT2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenRCT2/OpenRCT2-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openloco() {
     github_appimage "pkgforge-dev/OpenLoco-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenLoco-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenLoco/OpenLoco-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openra() {
     github_appimage "pkgforge-dev/OpenRA-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/OpenRA-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenRA/OpenRA-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_xash3d() {
     github_appimage "pkgforge-dev/Xash3D-FWGS-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/Xash3D-FWGS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Xash3D-FWGS/Xash3D-FWGS-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_yquake2() {
     github_appimage "pkgforge-dev/Yamagi-Quake-II-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Yamagi-Quake-II-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Yamagi-Quake-II/Yamagi-Quake-II-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_ioquake3() {
     github_appimage "pkgforge-dev/ioquake3-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/ioquake3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/ioquake3/ioquake3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_dhewm3() {
     github_appimage "pkgforge-dev/dhewm3-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/dhewm3/dhewm3-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_openlara() {
     github_appimage "pkgforge-dev/OpenLara-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/OpenLara/OpenLara-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_cannonball() {
     github_appimage "pkgforge-dev/Cannonball-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/Cannonball/Cannonball-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_nxengine() {
     github_appimage "pkgforge-dev/NXEngine-evo-AppImage-Enhanced" \
         ".*\.AppImage$" \
-        "$EMUS/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/NXEngine/NXEngine-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_ecwolf() {
     github_appimage "pkgforge-dev/ECWolf-AppImage" \
         ".*\.AppImage$" \
-        "$EMUS/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
+        "$EMUS/ECWolf/ECWolf-latest.AppImage" || DOWNLOAD_ERRORS=$((DOWNLOAD_ERRORS + 1)) || true
 }
 
 install_emulator() {
@@ -6930,6 +7117,7 @@ declare -a BIOS_TABLE=(
     # ── Nintendo Famicom Disk System / NES disk addon ──
     "nes|disksys.rom|OPT|HIGH|ca30b50f880eb660a320674ed365ef7a|FDS BIOS (required only for .fds games)"
     "famicom|disksys.rom|OPT|HIGH|ca30b50f880eb660a320674ed365ef7a|FDS BIOS (required only for .fds games)"
+    "fds|disksys.rom|REQ|HIGH|ca30b50f880eb660a320674ed365ef7a|Famicom Disk System BIOS (required for all FDS disk images)"
 
     # ── Nintendo Game Boy Advance (gba) ──
     "gba|gba_bios.bin|OPT_BOOT|HIGH|a860e8c0b6d573d191e4ec7db1b1e4f6|GBA BIOS (boot logo + some games)"
@@ -7105,16 +7293,66 @@ _import_bios_file() {
     return 1
 }
 
+_is_bios_junk() {
+    # True for files that are clearly NOT BIOS and must never be copied into
+    # ROMs/bios on import. RetroBat's bios/ ships a lot of these alongside the
+    # real BIOS (.map files, readmes, images, manuals, OS cruft); the keep-
+    # unknown import rule has no other way to tell them apart, so they pile up
+    # as clutter. Deliberately does NOT exclude .xml/.dat/.cfg — blueMSX-style
+    # core trees legitimately use those (e.g. bios/Databases/*.xml).
+    local b="${1,,}"
+    case "$b" in
+        *.txt|*.md|*.nfo|*.diz|*.htm|*.html|*.pdf|*.doc|*.docx|*.rtf|*.url|*.log|*.csv) return 0 ;;
+        *.jpg|*.jpeg|*.png|*.gif|*.bmp|*.webp|*.ico|*.svg|*.tga) return 0 ;;
+        *.map|*.m3u|*.cue|*.toc|*.sav|*.srm|*.state|*.bak|*.old) return 0 ;;
+        readme*|read.me|license*|licence*|changelog*|authors*|copying*|history*|whatsnew*) return 0 ;;
+        thumbs.db|desktop.ini|.ds_store|*.lnk) return 0 ;;
+    esac
+    return 1
+}
+
 _import_bios_tree() {
     local src_dir="$1"
     [[ -d "$src_dir" ]] || return 0
+    src_dir="${src_dir%/}"
 
-    local imported=0 extracted=0 skipped=0 f base before_count after_count
+    local imported=0 extracted=0 skipped=0 nested=0 junk=0 f base rel before_count after_count
     mkdir -p "$BIOS_DIR"
 
     while IFS= read -r -d '' f; do
         base="$(basename "$f")"
+        rel="${f#"$src_dir"/}"
 
+        # Skip obvious non-BIOS clutter (maps, docs, images, OS cruft) so it
+        # never lands in ROMs/bios — at any depth. Recognized BIOS files are
+        # always kept, even if their extension looks junky.
+        if _is_bios_junk "$base" && ! is_known_bios_file "$base"; then
+            junk=$((junk + 1)); continue
+        fi
+
+        # Files inside a SUBFOLDER of the source bios tree must keep their
+        # relative path under ROMs/bios. Several cores ship their system files
+        # as a directory tree, not loose files — e.g. blueMSX (ColecoVision,
+        # MSX, SVI) needs bios/Machines/<machine>/ and bios/Databases/. The old
+        # code flattened everything to the basename, which silently broke those
+        # systems (ColecoVision wouldn't launch). Replicate the structure as-is;
+        # never extract or rename nested files.
+        if [[ "$rel" == */* ]]; then
+            local ddest="$BIOS_DIR/$rel"
+            if [[ -e "$ddest" ]]; then
+                skipped=$((skipped + 1)); continue
+            fi
+            mkdir -p "$(dirname "$ddest")"
+            if [[ "$RETROBAT_MOVE" == "yes" ]]; then
+                mv -n "$f" "$ddest" 2>/dev/null || cp -n "$f" "$ddest" 2>/dev/null || true
+            else
+                cp -n "$f" "$ddest" 2>/dev/null || true
+            fi
+            nested=$((nested + 1))
+            continue
+        fi
+
+        # Root-level files: flat / case-canonical / archive-extract handling.
         if is_archive_file "$base" && ! is_known_bios_file "$base"; then
             before_count=$(find "$BIOS_DIR" -type f 2>/dev/null | wc -l)
             if _import_bios_file "$f" true; then
@@ -7130,7 +7368,7 @@ _import_bios_tree() {
         fi
     done < <(find "$src_dir" -type f -print0 2>/dev/null)
 
-    echo -e " ${GREEN}done${NC} ($imported file(s), $extracted archive(s), existing files skipped)"
+    echo -e " ${GREEN}done${NC} ($imported file(s), $nested nested, $extracted archive(s), $junk non-BIOS skipped, existing files skipped)"
 }
 
 _bios_sidecars_for_system_folder() {
@@ -7173,6 +7411,7 @@ declare -A ESDE_TO_BIOSKEY=(
     [nes]=nes
     [nesh]=nes
     [famicom]=famicom
+    [fds]=fds                # Famicom Disk System — needs disksys.rom (REQ)
     [n64]=""
     [n64h]=""
     [n64dd]=n64dd
@@ -7817,6 +8056,13 @@ resolve_system_or_ask() {
     # the literal __SKIP__ if the user chose to skip this folder.
     local rb="$1" mapped
     mapped="${SYS_MAP[$rb]:-$rb}"
+    # Port engines route to the generic 'ports' system, which has no SYS_TO_EMU/
+    # SYS_TO_CORE entry (it launches via bash %ROM%). Treat them as routable so
+    # they are not flagged unknown. Their data is placed in Emulators/<Port>/
+    # by the import loop (see PORT_DATA_DIR).
+    if [[ "$mapped" == "ports" && -n "${PORT_ENGINE_FOR[$rb]:-}" ]]; then
+        printf 'ports\n'; return 0
+    fi
     # Already routable (directly or via SYS_MAP)? Done.
     if _is_known_system "$mapped"; then printf '%s\n' "$mapped"; return 0; fi
     # Remembered from earlier in this run?
@@ -7835,7 +8081,7 @@ resolve_system_or_ask() {
         < <(printf '%s\n' "${known[@]}" | sort -u)
     # Menu: special actions first, then every known system.
     local -a menu=( "__SKIP__"   "Skip this folder — do not import it"
-                    "__ASIS__"   "Import as-is into ROMs/$rb/ (NO launch command)" )
+                    "__ASIS__"   "Copy files into ROMs/$rb/ (won't appear in ES-DE yet)" )
     for k in "${sys_sorted[@]}"; do menu+=( "$k" "Import '$rb' as the $k system" ); done
     local choice
     choice=$(wt_menu "Unrecognized system: '$rb'" \
@@ -7845,7 +8091,8 @@ it has no emulator/core mapping.
 Choose how to import it:
  • pick a system below to import '$rb' as that system, or
  • Skip it, or
- • Import as-is (ROMs copied but not launchable until you add a mapping)." \
+ • Copy as-is (files land in ROMs/$rb/, but ES-DE won't show this system
+   until you add an es_systems.xml entry AND a SYS_MAP/emulator mapping)." \
         "${menu[@]}") || choice="__SKIP__"
     [[ -z "$choice" ]] && choice="__SKIP__"
     case "$choice" in
@@ -8713,13 +8960,20 @@ can be re-run anytime via ./fetch-vpx-patches.sh"; then
         verify_system "$ESDE_SYS" || true
     done < <(enumerate_system_dirs "$RETROBAT_PATH")
     if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-        if [[ -d "$RETROBAT_PATH/roms" ]]; then
-            rm -rf "$RETROBAT_PATH/roms" "$RETROBAT_PATH/bios" 2>/dev/null || true
+        # Cut mode: each imported file was ALREADY moved out, file-by-file, via
+        # `mv -n`. We must NEVER bulk-delete the source tree. Anything still in
+        # it was NOT imported — skipped systems, unrecognized files, or name
+        # collisions (mv -n won't overwrite) — and is left for the user to review
+        # and delete manually. We only prune directories that are now genuinely
+        # empty (find -empty -delete cannot touch files or non-empty dirs).
+        find "$RETROBAT_PATH" -depth -type d -empty -delete 2>/dev/null || true
+        if [[ -e "$RETROBAT_PATH" ]]; then
+            warn "Cut mode: imported items were moved out. Anything still under"
+            warn "  $RETROBAT_PATH was NOT imported (skipped/unrecognized/collision)."
+            warn "  It has been left untouched — review and delete it yourself."
         else
-            # single-system folder — its ROMs were moved out; drop the now-empty dir
-            rmdir "$RETROBAT_PATH" 2>/dev/null || true
+            ok "Source fully imported; empty source folder removed"
         fi
-        ok "Removed source files from $RETROBAT_PATH"
     fi
 done
 echo ""
@@ -8946,7 +9200,7 @@ check_and_update() {
     # Args: label   current_glob   latest_url
     local label="$1" current_glob="$2" latest_url="$3"
     local current_file
-    current_file=$(find "$EMUS" -maxdepth 1 -name "$current_glob" 2>/dev/null | head -1)
+    current_file=$(find "$EMUS" -maxdepth 2 -name "$current_glob" 2>/dev/null | head -1)
     [[ -z "$current_file" ]] && { warn "$label — not installed"; return; }
 
     local current_name latest_name
@@ -9134,7 +9388,8 @@ if [[ -n "$SHADPS4_CURRENT" ]]; then
 fi
 
 # VPinball — zip-within-tar.gz, re-download to update
-if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
+VPDIR="$EMUS/VPinball"
+if [[ -f "$VPDIR/VPinballX_BGFX" ]] || [[ -f "$VPDIR/VPinballX_GL" ]]; then
     printf "   %-32s" "VPinball (Visual Pinball)"
     echo -e " ${CYAN}[zip release — re-download to update]${NC}"
     if wt_yesno "Update" "Re-download latest?"; then
@@ -9150,14 +9405,15 @@ if [[ -f "$EMUS/VPinballX_BGFX" ]] || [[ -f "$EMUS/VPinballX_GL" ]]; then
                     for TGZ in "$VPIN_TMP"/*.tar.gz "$VPIN_TMP"/*.tar.xz; do
                         [[ -f "$TGZ" ]] || continue
                         mkdir -p "$VPIN_TMP/extract"
-                        tar -xzf "$TGZ" -C "$VPIN_TMP/extract" 2>/dev/null || true
+                        tar -xzf "$TGZ" -C "$VPIN_TMP/extract" 2>/dev/null || \
+                        tar -xJf "$TGZ" -C "$VPIN_TMP/extract" 2>/dev/null || true
                         rm -f "$TGZ"
                     done
                 fi
             done <<< "$VPIN_URLS"
             for BIN in VPinballX_BGFX VPinballX_GL; do
                 FOUND=$(find "$VPIN_TMP" -name "$BIN" -type f 2>/dev/null | head -1)
-                [[ -n "$FOUND" ]] && cp "$FOUND" "$EMUS/$BIN" && chmod +x "$EMUS/$BIN"
+                [[ -n "$FOUND" ]] && cp "$FOUND" "$VPDIR/$BIN" && chmod +x "$VPDIR/$BIN"
             done
             rm -rf "$VPIN_TMP"
             ok "VPinball updated"
@@ -9356,11 +9612,19 @@ STEP=$((STEP + 1))
 echo -e "${CYAN}[$STEP/$TOTAL_STEPS]${NC} Summary"
 echo ""
 
-# Count what we got
-APPIMAGE_COUNT=0
-for f in "$BASE"/*.AppImage "$EMUS"/*.AppImage; do
-    [[ -f "$f" ]] && APPIMAGE_COUNT=$((APPIMAGE_COUNT + 1))
-done
+# Count what we got.
+# Enumerate every downloaded emulator binary ONCE into an array, then reuse it
+# for both the count and the listing below so the two can never disagree.
+# AppImages may sit flat in $BASE or $EMUS, or nested under $EMUS/<Port>/ and
+# $EMUS/VPinball/. A few emulators ship as plain binaries rather than AppImages
+# (xenia_canary, VPinballX_*) — include those explicitly. $EMUS lives inside
+# $BASE, so search $BASE once to avoid double-counting.
+mapfile -t DOWNLOADED_BINS < <(
+    find "$BASE" -maxdepth 3 -type f -iname '*.AppImage' 2>/dev/null
+    [[ -f "$EMUS/xenia_canary" ]] && printf '%s\n' "$EMUS/xenia_canary"
+    find "$EMUS" -maxdepth 2 -type f -name 'VPinballX*' 2>/dev/null
+)
+APPIMAGE_COUNT=${#DOWNLOADED_BINS[@]}
 CORE_COUNT=0
 [[ -d "$EMUS/retroarch-cores" ]] && CORE_COUNT=$(find "$EMUS/retroarch-cores" -name '*.so' 2>/dev/null | wc -l)
 
@@ -9389,7 +9653,7 @@ box_line "  $CORE_COUNT RetroArch cores installed"
 ((DOWNLOAD_ERRORS > 0)) && box_line "  $DOWNLOAD_ERRORS download(s) need manual attention"
 box_blank
 box_line "  Downloaded emulators:"
-for f in "$BASE"/*.AppImage "$EMUS"/*.AppImage "$EMUS"/xenia_canary; do
+for f in "${DOWNLOADED_BINS[@]}"; do
     [[ -f "$f" ]] && box_line "    - $(basename "$f")"
 done
 box_blank
@@ -9397,6 +9661,15 @@ box_line "  To start playing:"
 box_line "    1. Add ROMs to ROMs/<system>/"
 box_line "    2. Add BIOS files to ROMs/bios/"
 box_line "    3. Run: ./launch.sh"
+box_blank
+box_line "  Source ports (Doom, Duke3D, Quake, Diablo, OutRun...):"
+box_line "    Put each port's game data in its OWN folder:"
+box_line "      Emulators/<Port>/"
+box_line "      e.g. Emulators/EDuke32/DUKE3D.GRP"
+box_line "           Emulators/ioquake3/baseq3/"
+box_line "           Emulators/Cannonball/roms/"
+box_line "    Each folder has a _PUT-GAME-DATA-HERE.txt note;"
+box_line "    the README ports table lists what each one needs."
 box_blank
 box_line "  Bundle location:"
 box_line "    $BASE"
