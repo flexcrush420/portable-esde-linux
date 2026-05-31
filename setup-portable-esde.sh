@@ -7849,6 +7849,12 @@ dry_run_report() {
             RB_SYS=$(basename "$SYS_DIR")
         fi
         [[ -n "${CONV_SKIP[$RB_SYS]:-}" ]] && continue
+        if [[ "$RB_SYS" == "psn" ]]; then
+            total_sys=$((total_sys + 1))
+            preview_psn_import "$SYS_DIR"
+            echo ""
+            continue
+        fi
         ESDE_SYS="${SYS_MAP[$RB_SYS]:-$RB_SYS}"
         local MSU_SUBDIR="${MSU_NESTED_FOLDER[$RB_SYS]:-}"
         local MSU_PARENT="${MSU_ROM_PARENT[$RB_SYS]:-$ESDE_SYS}"
@@ -7981,6 +7987,122 @@ dry_run_report() {
     return 0
 }
 
+# ── PSN / PS3 (rpcs3) import helpers ─────────────────────────────────────────
+# Resolve a source RetroBat tree's RPCS3 dev_hdd0 (or rpcs3 config root),
+# probing RetroBat (system/configs/rpcs3), portable (emulators/rpcs3) and bare
+# dev_hdd0 layouts at the system dir and up to two levels above it. Echoes the
+# matched path; returns non-zero if none found.
+find_rpcs3_src_hdd() {
+    local sd="$1" parent gparent _p
+    parent="$(dirname "$sd")"
+    gparent="$(dirname "$parent")"
+    for _p in \
+        "$sd/system/configs/rpcs3/dev_hdd0"       "$sd/system/configs/rpcs3" \
+        "$sd/emulators/rpcs3/dev_hdd0"            "$sd/emulators/rpcs3" \
+        "$sd/dev_hdd0" \
+        "$parent/system/configs/rpcs3/dev_hdd0"   "$parent/system/configs/rpcs3" \
+        "$parent/emulators/rpcs3/dev_hdd0"        "$parent/emulators/rpcs3" \
+        "$parent/dev_hdd0" \
+        "$gparent/system/configs/rpcs3/dev_hdd0"  "$gparent/system/configs/rpcs3" \
+        "$gparent/emulators/rpcs3/dev_hdd0"       "$gparent/emulators/rpcs3"; do
+        [[ -d "$_p" ]] && { printf '%s\n' "$_p"; return 0; }
+    done
+    return 1
+}
+
+# Merge a source RPCS3 dev_hdd0 into the bundle's RPCS3 config home, no-clobber
+# (existing saves/installs/RAP licenses always win). Honors RETROBAT_MOVE. No-op
+# if no source hdd is found.
+relocate_rpcs3_hdd() {
+    local sd="$1" src dest
+    src="$(find_rpcs3_src_hdd "$sd")" || return 0
+    [[ -n "$src" ]] || return 0
+    dest="$BASE/.config/rpcs3"
+    [[ "$(basename "$src")" == "dev_hdd0" ]] && dest="$dest/dev_hdd0"
+    mkdir -p "$dest"
+    echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 ["
+    if [[ "${RETROBAT_MOVE:-no}" == "yes" ]]; then
+        echo -n "moving..."
+        find "$src" -mindepth 1 -maxdepth 1 -exec mv -n {} "$dest/" \; 2>/dev/null || true
+    else
+        echo -n "copying..."
+        cp -rn "$src/." "$dest/" 2>/dev/null || true
+    fi
+    echo -e " ${GREEN}done${NC}"
+}
+
+# Read a PS3 game folder's PARAM.SFO TITLE (UTF-8). Echoes nothing on failure.
+psn_title() {
+    local sfo="${1%/}/PARAM.SFO"
+    [[ -f "$sfo" ]] || return 0
+    python3 - "$sfo" 2>/dev/null <<'PYSFO'
+import sys,struct
+try:
+    d=open(sys.argv[1],'rb').read()
+    assert d[:4]==b'\x00PSF'
+    key_off,data_off,num=struct.unpack('<III',d[8:20])
+    for i in range(num):
+        e=0x14+i*16
+        ko,fmt,ln,mx,do=struct.unpack('<HHIII',d[e:e+16])
+        k=d[key_off+ko:d.index(b'\x00',key_off+ko)].decode('ascii','ignore')
+        if k=='TITLE':
+            print(d[data_off+do:data_off+do+ln].split(b'\x00')[0].decode('utf-8','ignore')); break
+except Exception:
+    pass
+PYSFO
+}
+
+# Sanitise a title into a safe launcher filename stem.
+psn_safe_name() {
+    printf '%s' "$1" | tr -d '/\\:*?"<>|' | sed 's/  */ /g; s/ *$//'
+}
+
+# Dry-run preview of the ps3psn (PSN/digital) path: locate the source dev_hdd0,
+# count NP* titles that would merge + emit, and print a short sample so a real
+# run's result is verifiable without listing hundreds of games.
+preview_psn_import() {
+    local sd="$1"
+    local bundle_game="$BASE/.config/rpcs3/dev_hdd0/game"
+    local src_hdd src_game=""
+    echo -e "  ${CYAN}psn${NC} ${YELLOW}→ ps3psn${NC}"
+    if src_hdd="$(find_rpcs3_src_hdd "$sd" 2>/dev/null)" && [[ -n "$src_hdd" ]]; then
+        if [[ "$(basename "$src_hdd")" == "dev_hdd0" ]]; then src_game="$src_hdd/game"; else src_game="$src_hdd/dev_hdd0/game"; fi
+        echo -e "     Source hdd:   ${src_hdd#"$sd"/}  ${GREEN}(found — merges into .config/rpcs3, no-clobber)${NC}"
+    else
+        echo -e "     Source hdd:   ${YELLOW}none found — would scan bundle hdd only${NC}"
+    fi
+    local tmp; tmp="$(mktemp -d)"
+    _psn_tids() {
+        local g="$1" d t
+        [[ -d "$g" ]] || return 0
+        for d in "$g"/*/; do
+            [[ -d "$d" ]] || continue
+            t="$(basename "$d")"; [[ "$t" == NP* ]] || continue
+            [[ -f "${d}USRDIR/EBOOT.BIN" ]] && printf '%s\n' "$t"
+        done | sort -u
+    }
+    _psn_tids "$src_game"    > "$tmp/src" 2>/dev/null
+    _psn_tids "$bundle_game" > "$tmp/bun" 2>/dev/null
+    local sc bc newc unionc
+    sc=$(wc -l < "$tmp/src"); bc=$(wc -l < "$tmp/bun")
+    newc=$(comm -23 "$tmp/src" "$tmp/bun" | wc -l)
+    sort -u "$tmp/src" "$tmp/bun" > "$tmp/all"; unionc=$(wc -l < "$tmp/all")
+    echo "     Titles:       source $sc, bundle $bc, new to merge $newc"
+    echo "     Would emit:   ~$unionc .m3u into ROMs/ps3psn  (NP* digital w/ EBOOT; disc/DLC/data skipped)"
+    echo "     Sample:"
+    local shown=0 t g title safe
+    while IFS= read -r t; do
+        [[ $shown -ge 6 ]] && break
+        if [[ -d "$bundle_game/$t" ]]; then g="$bundle_game/$t"; else g="$src_game/$t"; fi
+        title="$(psn_title "$g")"; [[ -z "$title" ]] && title="$t"
+        safe="$(psn_safe_name "$title")"; [[ -z "$safe" ]] && safe="$t"
+        echo "                   $safe  ($t)  →  $safe.m3u"
+        shown=$((shown + 1))
+    done < "$tmp/all"
+    [[ "$unionc" -gt 6 ]] && echo "                   … (+$((unionc - 6)) more)"
+    rm -rf "$tmp"
+}
+
 if $DRY_RUN; then
     for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         dry_run_report "$RETROBAT_PATH"
@@ -8009,30 +8131,15 @@ scan_ps3_hdd() {
     for gdir in "$hdd"/*/; do
         [[ -d "$gdir" ]] || continue
         tid="$(basename "$gdir")"
+        # ps3psn is digital-only: emit only for PSN title IDs (NP*). Disc IDs
+        # (BL*/BC*/BLJ*) belong to the ps3 system, and *-DATA / *GAMEDATA /
+        # install-staging dirs carry no bootable EBOOT of their own.
+        [[ "$tid" == NP* ]] || continue
         eboot="${gdir}USRDIR/EBOOT.BIN"
         [[ -f "$eboot" ]] || continue
-        sfo="${gdir}PARAM.SFO"
-        title=""
-        if [[ -f "$sfo" ]]; then
-            title="$(python3 - "$sfo" 2>/dev/null <<'PYSFO'
-import sys,struct
-try:
-    d=open(sys.argv[1],'rb').read()
-    assert d[:4]==b'\x00PSF'
-    key_off,data_off,num=struct.unpack('<III',d[8:20])
-    for i in range(num):
-        e=0x14+i*16
-        ko,fmt,ln,mx,do=struct.unpack('<HHIII',d[e:e+16])
-        k=d[key_off+ko:d.index(b'\x00',key_off+ko)].decode('ascii','ignore')
-        if k=='TITLE':
-            print(d[data_off+do:data_off+do+ln].split(b'\x00')[0].decode('utf-8','ignore')); break
-except Exception:
-    pass
-PYSFO
-)"
-        fi
+        title="$(psn_title "$gdir")"
         [[ -z "$title" ]] && title="$tid"
-        safe="$(printf '%s' "$title" | tr -d '/\\:*?"<>|' | sed 's/  */ /g; s/ *$//')"
+        safe="$(psn_safe_name "$title")"
         [[ -z "$safe" ]] && safe="$tid"
         if [[ "$DRY_RUN" == true ]]; then
             echo "   PSN would add: $safe  ($tid)"
@@ -8069,6 +8176,10 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         # installed in RPCS3's dev_hdd0 — useless on Linux. Instead of copying
         # them, scan dev_hdd0 and emit .m3u launchers into ROMs/ps3psn.
         if [[ "$RB_SYS" == "psn" ]]; then
+            # Merge the source's own RPCS3 dev_hdd0 into the bundle first, then
+            # scan the now-complete hdd. Without this the source's installed
+            # PSN games (often hundreds not yet in the bundle) are silently lost.
+            relocate_rpcs3_hdd "$SYS_DIR"
             scan_ps3_hdd
             continue
         fi
@@ -8121,45 +8232,14 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         # into ROMs/ps3/system/, and the user's installed games / saves /
         # licenses would be lost. Move (or copy) it to the right place and
         # drop the source system/ dir so the ROM-copy loop ignores it.
+        # PS3: merge the source's RPCS3 dev_hdd0 into the bundle config home
+        # (no-clobber — saves/installs/RAP licenses preserved). The helper probes
+        # RetroBat (system/configs/rpcs3), portable (emulators/rpcs3) and bare
+        # dev_hdd0 layouts at the system dir and up to two levels up. The source
+        # system/ shell is left in place (the ROM-copy loop skips a top-level
+        # 'system' dir); remove by hand after a cut-move.
         if [[ "$ESDE_SYS" == "ps3" || "$ESDE_SYS" == "ps3psn" ]]; then
-            RPCS3_SRC=""
-            # For nested-single-system sources where SYS_DIR is <source>/roms,
-            # the rpcs3 config tree lives one level up at <source>/system/...
-            _ps3_parent="$(dirname "$SYS_DIR")"
-            for _p in "$SYS_DIR/system/configs/rpcs3/dev_hdd0" \
-                      "$SYS_DIR/system/configs/rpcs3" \
-                      "$SYS_DIR/dev_hdd0" \
-                      "$_ps3_parent/system/configs/rpcs3/dev_hdd0" \
-                      "$_ps3_parent/system/configs/rpcs3" \
-                      "$_ps3_parent/dev_hdd0"; do
-                [[ -d "$_p" ]] && { RPCS3_SRC="$_p"; break; }
-            done
-            if [[ -n "$RPCS3_SRC" ]]; then
-                # Land dev_hdd0 under the bundle's RPCS3 config home.
-                RPCS3_DEST="$BASE/.config/rpcs3"
-                if [[ "$(basename "$RPCS3_SRC")" == "dev_hdd0" ]]; then
-                    RPCS3_DEST="$RPCS3_DEST/dev_hdd0"
-                fi
-                mkdir -p "$RPCS3_DEST"
-                echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 ["
-                if [[ "$RETROBAT_MOVE" == "yes" ]]; then
-                    echo -n "moving..."
-                    find "$RPCS3_SRC" -mindepth 1 -maxdepth 1 \
-                        -exec mv -n {} "$RPCS3_DEST/" \; 2>/dev/null || true
-                else
-                    echo -n "copying..."
-                    cp -rn "$RPCS3_SRC/." "$RPCS3_DEST/" 2>/dev/null || true
-                fi
-                echo -e " ${GREEN}done${NC}"
-                # NOTE: we deliberately do NOT rm -rf the source system/
-                # tree on cut mode — that was a destructive footgun that
-                # could delete anything else the user happened to have
-                # under system/. The ROM-copy loop further down already
-                # skips a top-level subdir named 'system' (see the case
-                # statement around CONV_SKIP), so leaving the source
-                # system/ shell in place is safe. On cut mode the user
-                # may need to remove the now-empty system/ shell by hand.
-            fi
+            relocate_rpcs3_hdd "$SYS_DIR"
         fi
         MEDIA_DIR="$SYS_DIR/media"
         if [[ -d "$MEDIA_DIR" ]]; then
