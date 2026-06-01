@@ -149,13 +149,11 @@ Run a read only import audit:
 | Sega Genesis / Mega Drive | genesis | genesis |
 | Sega Genesis (Hacks & Homebrew) | genh | genh |
 | Sega Gear (Hacks & Homebrew) | ggh | ggh |
-| Ghostship | ghostship | ghostship |
 | Hartung Game Master | gmaster | gmaster |
 | Game Park 32 | gp32 | gp32 |
 | Amstrad GX4000 | gx4000 | gx4000 |
 | Doom source ports | gzdoom | gzdoom |
 | Mattel Intellivision | intellivision | intellivision |
-| Quake III Arena (ioquake3) | ioquake3 | ioquake3 |
 | LCD Games | lcdgames | lcdgames |
 | Casio Loopy | loopy | loopy |
 | Lowres NX | lowresnx | lowresnx |
