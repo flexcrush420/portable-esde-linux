@@ -233,7 +233,6 @@ Run a read only import audit:
 | SNES Sufami Turbo | sufami | sufami |
 | NEC SuperGrafx | supergrafx | supergrafx |
 | Watara Supervision | supervision | supervision |
-| Funtech Super A'Can | supracan | supracan |
 | Nintendo Switch | switch | switch |
 | NEC TurboGrafx-CD | tg-cd | tg-cd |
 | NEC TurboGrafx-16 | tg16 | tg16 |
