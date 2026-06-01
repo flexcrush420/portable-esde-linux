@@ -6,7 +6,7 @@
 # |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
 #
 #  All-in-One Portable ES-DE Setup for Linux
-#  https://github.com/flexcrush420/portable-esde-linux
+#  Fail by default is not an option. -flexcrush
 #
 #  Creates a fully self-contained ES-DE retro gaming bundle:
 #    ✓ ES-DE frontend in portable mode
@@ -8021,14 +8021,14 @@ relocate_rpcs3_hdd() {
     dest="$BASE/.config/rpcs3"
     [[ "$(basename "$src")" == "dev_hdd0" ]] && dest="$dest/dev_hdd0"
     mkdir -p "$dest"
-    echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 ["
-    if [[ "${RETROBAT_MOVE:-no}" == "yes" ]]; then
-        echo -n "moving..."
-        find "$src" -mindepth 1 -maxdepth 1 -exec mv -n {} "$dest/" \; 2>/dev/null || true
-    else
-        echo -n "copying..."
-        cp -rn "$src/." "$dest/" 2>/dev/null || true
-    fi
+    # Always a file-level no-clobber MERGE, never a top-level mv. The bundle
+    # usually already has a dev_hdd0 (game/, home/), and `mv -n <dir> dest/`
+    # refuses to merge into an existing directory — it skips the whole subtree,
+    # silently dropping every not-yet-present game and RAP license. cp -rn merges
+    # per file: keeps existing saves/installs/licenses, adds only what's missing.
+    # Source is left intact; cut-mode cleanup is the user's call.
+    echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [merging..."
+    cp -rn "$src/." "$dest/" 2>/dev/null || true
     echo -e " ${GREEN}done${NC}"
 }
 
