@@ -62,6 +62,7 @@ Run a read only import audit:
 - Art Book Next is installed as the default theme.
 - Unsupported standalone ports are grouped under `ports`, keeping theme art clean.
 - RetroBat media folders are mapped to ES-DE media folders.
+- PSN Retrobat collection import (TID from .lnk to generate matching .m3u)
 - Gamelists are merged and cleaned instead of blindly overwritten.
 - BIOS files are routed to `ROMs/bios`, including BIOS files found beside ROMs.
 - Generic BIOS archives are extracted into `ROMs/bios` without overwriting existing files.
