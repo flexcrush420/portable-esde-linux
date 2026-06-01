@@ -48,7 +48,7 @@ Run a read only import audit:
 | Layer | Included |
 |---|---|
 | Frontend | ES-DE in portable mode |
-| Theme policy | Art Book Next by default. Unsupported standalone ports are grouped under `ports` so missing logos do not break the frontend look |
+| Theme policy | Art Book Next by default. Nested hack and MSU systems for a tidy frontend. |
 | Libretro | RetroArch AppImage plus curated `.so` cores |
 | Standalone emulators | Dolphin, DuckStation, PCSX2, RPCS3, PPSSPP, Azahar, melonDS, Cemu, xemu, Xenia Canary, shadPS4, MAME, Supermodel, VPinball, and more |
 | Ports and engines | Launchers inside `ROMs/ports`, backed by bundled AppImages in `Emulators/` |
@@ -57,7 +57,7 @@ Run a read only import audit:
 
 ## Highlights
 
-- Portable folder structure, no global install required.
+- Portable folder structure, no leaks, no global install required.
 - ES-DE custom systems and find rules are generated automatically.
 - Art Book Next is installed as the default theme.
 - Unsupported standalone ports are grouped under `ports`, keeping theme art clean.
@@ -69,45 +69,203 @@ Run a read only import audit:
 - Setup is rerun safe. User configs are preserved and managed generated files are backed up before replacement.
 
 <details>
-<summary><strong>Supported system categories</strong></summary>
+<summary><strong>Supported Systems</strong></summary>
 
-| Category | Examples |
-|---|---|
-| Nintendo | NES, SNES, N64, GameCube, Wii, Wii U, DS, 3DS, Switch, hacks and homebrew variants |
-| Sega | Master System, Genesis/Mega Drive, Sega CD, 32X, Saturn, Dreamcast, Model 3 |
-| Sony | PlayStation, PlayStation 2, PlayStation 3, PlayStation 4, PSP |
-| Microsoft | Xbox, Xbox 360, Windows 9x, Windows launchers |
-| Arcade | Arcade, FinalBurn Neo, CPS1/2/3, MAME software list systems |
-| Computers | Amiga, Atari ST, C64, MSX, Sharp X68000, DOS, PC variants |
-| Ports | Doom ports, Diablo, Theme Hospital, Commander Keen, Jazz Jackrabbit, Tyrian 2000, OpenBOR, OpenRCT2, OpenLoco, OpenRA, Half-Life, Quake II, Quake III, Doom 3 |
-
-</details>
-
-<details>
-<summary><strong>Ports and engines currently wired</strong></summary>
-
-These launch from the visible ES-DE `ports` system for Art Book Next compatibility. The actual AppImages live in `Emulators/`.
-
-| Port launcher | Runtime source |
-|---|---|
-| `DevilutionX.sh` | DevilutionX AppImage Enhanced |
-| `Theme Hospital (CorsixTH).sh` | CorsixTH AppImage Enhanced |
-| `Commander Genius.sh` | Commander Genius AppImage |
-| `C-Dogs SDL.sh` | C-Dogs SDL AppImage |
-| `EDuke32.sh` | EDuke32 AppImage |
-| `Ghostship.sh` | Ghostship AppImage Enhanced |
-| `Nugget Doom.sh` | Nugget Doom AppImage Enhanced |
-| `Crispy Doom.sh` | Crispy Doom AppImage |
-| `OpenBOR.sh` | OpenBOR, AppImage if upstream release provides one |
-| `OpenJazz.sh` | OpenJazz AppImage |
-| `OpenTyrian 2000.sh` | OpenTyrian2000 AppImage |
-| `OpenRCT2.sh` | OpenRCT2 AppImage Enhanced |
-| `OpenLoco.sh` | OpenLoco AppImage |
-| `OpenRA.sh` | OpenRA AppImage Enhanced |
-| `Half-Life (Xash3D FWGS).sh` | Xash3D FWGS AppImage Enhanced |
-| `Quake II (Yamagi).sh` | Yamagi Quake II AppImage |
-| `Quake III Arena (ioquake3).sh` | ioquake3 AppImage |
-| `Doom 3 (dhewm3).sh` | dhewm3 AppImage |
+| System | ES-DE Name | RetroBat Name |
+|---|---|---|
+| 3DO | 3do | 3do |
+| Nintendo 3DS | 3ds | 3ds |
+| Coleco Adam | adam | adam |
+| Entex Adventure Vision | advision | advision |
+| Commodore Amiga | amiga | amiga4000 |
+| amigacdtv | amigacdtv | amigacdtv |
+| Commodore Amiga 1200 | amiga1200 | amiga1200 |
+| Commodore Amiga 500 | amiga500 | amiga500 |
+| Amiga CD32 | amigacd32 | amigacd32 |
+| Commodore CDTV | amigacdtv | amigacdtv |
+| Amstrad CPC | amstradcpc | amstradcpc |
+| gx4000 | gx4000 | gx4000 |
+| APF Imagination Machine / M1000 | apfm1000 | apfm1000 |
+| Apple II | apple2 | apple2 |
+| Apple IIGS | apple2gs | apple2gs |
+| Mattel Aquarius | aquarius | aquarius |
+| Arcade | arcade | cave |
+| gaelco | gaelco | gaelco |
+| Arcadia 2001 | arcadia | arcadia |
+| Acorn Archimedes | archimedes | archimedes |
+| Arduboy | arduboy | arduboy |
+| Bally Astrocade | astrocade | astrocade |
+| Atari 2600 | atari2600 | atari2600 |
+| Atari 5200 | atari5200 | atari5200 |
+| Atari 7800 | atari7800 | atari7800 |
+| Atari 800 | atari800 | atari800 |
+| Atari Jaguar | atarijaguar | jaguar |
+| Atari Jaguar CD | atarijaguarcd | jaguarcd |
+| Atari Lynx | atarilynx | lynx |
+| Atari ST | atarist | atarist |
+| Acorn ATOM | atom | atom |
+| Sammy Atomiswave | atomiswave | atomiswave |
+| Acorn Computers BBC Micro | bbcmicro | bbcmicro |
+| Elektronica BK | bk | bk |
+| Commodore 128 | c128 | c128 |
+| Commodore 64 | c64 | c64 |
+| Cassette Vision | cassettevision | cassettevision |
+| Cavestory | cavestory | cavestory |
+| C-Dogs SDL | cdogs | cdogs |
+| Commander Genius | cgenius | cgenius |
+| Fairchild Channel F | channelf | channelf |
+| TRS-80 Color Computer | coco | coco |
+| ColecoVision | colecovision | colecovision |
+| Capcom Play System I | cps1 | cps1 |
+| Capcom Play System II | cps2 | cps2 |
+| Capcom Play System III | cps3 | cps3 |
+| DICE | dice | dice |
+| DOS | dos | dos |
+| Dragon Data Dragon 32 | dragon32 | dragon32 |
+| Dreamcast | dreamcast | dreamcast |
+| EasyRPG | easyrpg | easyrpg |
+| Acorn Electron | electron | electron |
+| Enterprise 64/128 | enterprise | enterprise |
+| Nintendo Famicom | famicom | famicom |
+| FinalBurn Neo | fbneo | fbneo |
+| Famicom Disk System | fds | fds |
+| Fujitsu FM-7 | fm7 | fm7 |
+| Adobe Flash | flash | flash |
+| FM Towns | fmtowns | fmtowns |
+| Bit Corporation Gamate | gamate | gamate |
+| Tiger Game.com | gamecom | gamecom |
+| Game Gear | gamegear | gamegear |
+| Epoch Game Pocket Computer | gamepock | gamepock |
+| Game Boy | gb | gb |
+| gb2players | gb2players | gb2players |
+| Game Boy Advance | gba | gba |
+| Game Boy Advance (Hacks & Homebrew) | gbah | gbah |
+| Game Boy Color | gbc | gbc |
+| gbc2players | gbc2players | gbc2players |
+| Game Boy Color (Hacks & Homebrew) | gbch | gbch |
+| Game Boy (Hacks & Homebrew) | gbh | gbh |
+| Nintendo GameCube | gc | gamecube |
+| Sega Genesis / Mega Drive | genesis | genesis |
+| Sega Genesis (Hacks & Homebrew) | genh | genh |
+| Sega Gear (Hacks & Homebrew) | ggh | ggh |
+| Ghostship | ghostship | ghostship |
+| Hartung Game Master | gmaster | gmaster |
+| Game Park 32 | gp32 | gp32 |
+| Amstrad GX4000 | gx4000 | gx4000 |
+| Doom source ports | gzdoom | gzdoom |
+| Mattel Intellivision | intellivision | intellivision |
+| Quake III Arena (ioquake3) | ioquake3 | ioquake3 |
+| LCD Games | lcdgames | lcdgames |
+| Casio Loopy | loopy | loopy |
+| Lowres NX | lowresnx | lowresnx |
+| Lutro Lua Framework | lutro | lutro |
+| Atari Lynx | lynx | lynx |
+| MAME | mame | hbmame |
+| Master System / Mark III | markiii | markiii |
+| Sega Mark III | mastersystem | mastersystem |
+| Mega CD | megacd | megacd |
+| Sega Mega Drive | megadrive | megadrive |
+| megadrive-msu | megadrive-msu | megadrive-msu |
+| Sega Mega Drive (Japan) | megadrivejp | megadrivejp |
+| Mega Duck | megaduck | megaduck |
+| Sega Model 2 | model2 | model2 |
+| Sega Model 3 | model3 | model3 |
+| Sega Mega Drive (MSU-MD) | msu-md | msu-md |
+| MSX | msx | msx1 |
+| MSX1 | msx1 | msx1 |
+| MSX2 | msx2 | msx2 |
+| MSX Turbo R | msxturbor | msxturbor |
+| Tsukuda Othello Multivision | multivision | multivision |
+| Nintendo 3DS | n3ds | 3ds |
+| Nintendo 64 | n64 | n64 |
+| Nintendo 64DD | n64dd | n64dd |
+| Nintendo 64 (Hacks & Homebrew) | n64h | n64h |
+| Sega NAOMI | naomi | naomi |
+| Sega NAOMI 2 | naomi2 | naomi2 |
+| Nintendo DS | nds | nds |
+| Neo Geo | neogeo | neogeo |
+| SNK Neo Geo CD | neogeocd | neogeocd |
+| Nintendo Entertainment System | nes | nes |
+| Nintendo Entertainment System (ProjectNested MSU-1) | nes-msu | nes-msu |
+| Nintendo Entertainment System (Hacks & Homebrew) | nesh | nesh |
+| Nokia N-Gage | ngage | ngage |
+| Neo Geo Pocket | ngp | ngp |
+| Neo Geo Pocket Color | ngpc | ngpc |
+| Odyssey 2 / Videopac | odyssey2 | odyssey2 |
+| OpenRA | openra | openra |
+| OpenTyrian 2000 | opentyrian | opentyrian |
+| Philips P2000T | p2000t | p2000t |
+| PC-8800 | pc88 | pc88 |
+| NEC PC-9800 | pc98 | pc98 |
+| PC Engine | pcengine | pcengine |
+| PC Engine CD | pcenginecd | pcenginecd |
+| PC-FX | pcfx | pcfx |
+| Aamber Pegasus | pegasus | pegasus |
+| Commodore PET | pet | pet |
+| Sega Pico | pico | pico |
+| Commodore Plus/4 | plus4 | cplus4 |
+| Pokemon Mini | pokemini | pokemini |
+| Ports | ports | ports |
+| PrBoom | prboom | prboom |
+| Sony PlayStation 2 | ps2 | ps2 |
+| Sony PlayStation 3 | ps3 | ps3 |
+| PlayStation 3 (PSN / Digital) | ps3psn | psn |
+| Sony PlayStation 4 | ps4 | ps4 |
+| PlayStation Portable | psp | psp |
+| Sony PlayStation | psx | psx |
+| Casio PV-1000 | pv1000 | pv1000 |
+| MGT SAM Coupé | samcoupe | samcoupe |
+| Satellaview | satellaview | satellaview |
+| Sega Saturn | saturn | saturn |
+| Sega Saturn (Japan) | saturnjp | saturnjp |
+| ScummVM | scummvm | scummvm |
+| Epoch Super Cassette Vision | scv | scv |
+| Sega 32X | sega32x | sega32x |
+| Sega CD | segacd | segacd |
+| Super Famicom | sfc | sfc |
+| Sega SG-1000 | sg-1000 | multivision |
+| Nintendo Super Game Boy | sgb | sgb |
+| Super Nintendo Entertainment System | snes | snes |
+| Super Nintendo (MSU-1) | snes-msu | snes-msu |
+| Super Nintendo (Hacks & Homebrew) | snesh | snesh |
+| VTech Socrates | socrates | socrates |
+| Solarus | solarus | solarus |
+| Spectravideo | spectravideo | spectravideo |
+| SNES Sufami Turbo | sufami | sufami |
+| NEC SuperGrafx | supergrafx | supergrafx |
+| Watara Supervision | supervision | supervision |
+| Funtech Super A'Can | supracan | supracan |
+| Nintendo Switch | switch | switch |
+| NEC TurboGrafx-CD | tg-cd | tg-cd |
+| NEC TurboGrafx-16 | tg16 | tg16 |
+| Thomson MO/TO | thomson | thomson |
+| Texas Instruments TI-99/4A | ti99 | ti99 |
+| TIC-80 | tic80 | tic80 |
+| Tomy Tutor | tutor | tutor |
+| Uzebox | uzebox | uzebox |
+| Vectrex | vectrex | vectrex |
+| VIC-20 | vic20 | c20 |
+| Videopac / Odyssey 2 | videopac | videopac |
+| Philips Videopac+ G7400 | videopacplus | videopacplus |
+| Virtual Boy | virtualboy | virtualboy |
+| Tandy VIS | vis | vis |
+| Visual Pinball | vpinball | vpinball |
+| VTech V.Smile | vsmile | vsmile |
+| WASM-4 | wasm4 | wasm4 |
+| Nintendo Wii | wii | wii |
+| Nintendo Wii U | wiiu | wiiu |
+| WiiWare | wiiware | wiiware |
+| Microsoft Windows 9x | win98 | win98 |
+| Microsoft Windows | windows | windows |
+| WonderSwan | wonderswan | wonderswan |
+| WonderSwan Color | wonderswancolor | wonderswancolor |
+| Sharp X1 | x1 | x1 |
+| Sharp X68000 | x68000 | x68000 |
+| Xbox Live Arcade | xbla | xbla |
+| Microsoft Xbox | xbox | xbox |
+| Microsoft Xbox 360 | xbox360 | xbox360 |
+| Sinclair ZX81 | zx81 | zx81 |
+| Sinclair ZX Spectrum | zxspectrum | zxspectrum |
 
 </details>
 
@@ -134,7 +292,6 @@ ES-DE/
 │   ├── bios/
 │   ├── ports/
 │   │   ├── OpenTyrian 2000.sh
-│   │   ├── OpenRCT2.sh
 │   │   └── other port launchers
 │   ├── nes/
 │   ├── snes/
@@ -178,7 +335,7 @@ The importer handles:
 <details>
 <summary><strong>BIOS and firmware notes</strong></summary>
 
-BIOS files are not included. Use files dumped from hardware you own.
+BIOS files are not included.
 
 Common examples:
 
@@ -224,18 +381,9 @@ Some AppImages may require `libfuse2` on certain distributions, although many ne
 
 Some emulators still need one time setup because firmware, keys, BIOS files, game data, or licensing cannot be bundled.
 
-- RPCS3 requires PlayStation 3 firmware installed through RPCS3.
-- shadPS4 requires dumped PS4 firmware modules.
-- xemu requires Xbox BIOS/HDD setup.
-- 86Box requires your own OS install media and machine configuration.
-- Switch family tools require your own firmware and keys.
-- Source ports such as DevilutionX, CorsixTH, Commander Genius, EDuke32, OpenJazz, OpenRCT2, OpenLoco, Xash3D, Yamagi Quake II, ioquake3, and dhewm3 may need original game data.
-
 ## Legal
 
 This project downloads open source emulator software, source ports, and helper assets. It does not include commercial games, ROMs, BIOS files, firmware, keys, or copyrighted game data.
-
-Only import or use software and data you are legally allowed to use.
 
 ---
 
