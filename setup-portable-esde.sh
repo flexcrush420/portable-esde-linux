@@ -5230,6 +5230,7 @@ declare -A MEDIA_MAP=(
     # Confirmed across multiple RGS packs (PSX, PS3). ES-DE has matching
     # separate slots, so each routes to its own destination — no collision.
     [thumbnails]=3dboxes      [box2d]=covers            [box3d]=3dboxes
+    [2dboxes]=covers          # newer RetroBat packs: flat 2D box front → covers
     [boxback]=backcovers    [fanarts]=fanart          [marquee]=marquees
     [images]=screenshots    [titles]=titlescreens     [cartridges]=physicalmedia
     # ── ES / Skraper / Batocera folder-name variants ──
@@ -8057,50 +8058,119 @@ psn_safe_name() {
     printf '%s' "$1" | tr -d '/\\:*?"<>|' | sed 's/  */ /g; s/ *$//'
 }
 
-# Dry-run preview of the ps3psn (PSN/digital) path: locate the source dev_hdd0,
-# count NP* titles that would merge + emit, and print a short sample so a real
-# run's result is verifiable without listing hundreds of games.
+# Extract a PS3 title ID from a RetroBat .lnk. The file is binary, but the TID
+# sits in it as %RPCS3_GAMEID%:<TID> (and again in the icon path); stripping NULs
+# collapses UTF-16LE to ASCII so one grep catches either encoding. Deterministic.
+psn_tid_from_lnk() {
+    tr -d '\000' < "$1" 2>/dev/null \
+        | grep -aoiE 'NP[A-Z]{2}[0-9]{5}|B[LC][A-Z]S[0-9]{5}' | head -1
+}
+
+# Full ps3psn import: merge the source RPCS3 dev_hdd0, then turn each RetroBat
+# .lnk into a stem-matched .m3u launcher and import the stem-named media so the
+# theme's cover art binds. .m3u stem == media stem == gamelist <name>.
+import_ps3psn() {
+    local sd="$1"
+    local hdd="$BASE/.config/rpcs3/dev_hdd0/game"
+    local dest="$ROMS/ps3psn"
+    local mbase="$MEDIA_BASE/ps3psn"
+    relocate_rpcs3_hdd "$sd"
+    if [[ ! -d "$hdd" ]]; then
+        echo -e "   ${YELLOW}PSN: no dev_hdd0 after merge ($hdd) — nothing to emit.${NC}"
+        return 0
+    fi
+    mkdir -p "$dest"
+    local n=0 miss=0 f stem tid
+    while IFS= read -r -d '' f; do
+        stem="$(basename "$f")"; stem="${stem%.[Ll][Nn][Kk]}"
+        tid="$(psn_tid_from_lnk "$f")"; tid="${tid^^}"
+        if [[ -z "$tid" ]]; then
+            echo -e "   ${YELLOW}⚠ no TID in '$stem.lnk' — skipped${NC}"; miss=$((miss + 1)); continue
+        fi
+        if [[ ! -f "$hdd/$tid/USRDIR/EBOOT.BIN" ]]; then
+            echo -e "   ${YELLOW}⚠ '$stem' → $tid not installed in dev_hdd0 — skipped${NC}"; miss=$((miss + 1)); continue
+        fi
+        printf 'dev_hdd0/game/%s/USRDIR/EBOOT.BIN\n' "$tid" > "$dest/$stem.m3u"
+        n=$((n + 1))
+    done < <(find "$sd" -maxdepth 1 -type f -iname '*.lnk' -print0 2>/dev/null)
+    echo "   PSN: generated $n .m3u launcher(s) in ROMs/ps3psn$([ "$miss" -gt 0 ] && echo " ($miss skipped)")."
+
+    # Media: route each stem-named source media folder into downloaded_media so
+    # cover art (2dboxes→covers) binds to the .m3u by filename stem.
+    local mdir key dstt mc=0
+    for mdir in "$sd"/*/; do
+        [[ -d "$mdir" ]] || continue
+        key="$(basename "$mdir")"; key="${key,,}"
+        dstt="${MEDIA_MAP[$key]:-}"; [[ -z "$dstt" ]] && continue
+        mkdir -p "$mbase/$dstt"
+        if [[ "${RETROBAT_MOVE:-no}" == "yes" ]]; then
+            find "$mdir" -mindepth 1 -maxdepth 1 -exec mv -n {} "$mbase/$dstt/" \; 2>/dev/null || true
+        else
+            cp -rn "$mdir/." "$mbase/$dstt/" 2>/dev/null || true
+        fi
+        mc=$((mc + 1))
+    done
+    [[ "$mc" -gt 0 ]] && echo "   PSN: imported $mc media folder(s) → downloaded_media/ps3psn."
+
+    # Gamelist: rewrite .lnk → .m3u in <path> so metadata binds. Written only when
+    # no target gamelist exists (never clobber an existing one).
+    local gsrc="$sd/gamelist.xml" gdir="$ESDE_DATA/gamelists/ps3psn" gdst
+    gdst="$gdir/gamelist.xml"
+    if [[ -f "$gsrc" ]]; then
+        mkdir -p "$gdir"
+        if [[ -f "$gdst" ]]; then
+            echo -e "   ${YELLOW}PSN: gamelist already present — left as-is (no clobber).${NC}"
+        else
+            sed -E 's#\.lnk</path>#.m3u</path>#g' "$gsrc" > "$gdst" 2>/dev/null || true
+            echo "   PSN: gamelist imported (paths rewritten .lnk → .m3u)."
+        fi
+    fi
+}
+
+# Dry-run preview of the ps3psn path: source hdd location, how each .lnk resolves
+# to an installed TID, would-emit count, a short sample, and which media folders
+# would bind — all without listing every game.
 preview_psn_import() {
     local sd="$1"
-    local bundle_game="$BASE/.config/rpcs3/dev_hdd0/game"
+    local hdd="$BASE/.config/rpcs3/dev_hdd0/game"
     local src_hdd src_game=""
-    echo -e "  ${CYAN}psn${NC} ${YELLOW}→ ps3psn${NC}"
+    echo -e "  ${CYAN}ps3psn${NC}"
     if src_hdd="$(find_rpcs3_src_hdd "$sd" 2>/dev/null)" && [[ -n "$src_hdd" ]]; then
-        if [[ "$(basename "$src_hdd")" == "dev_hdd0" ]]; then src_game="$src_hdd/game"; else src_game="$src_hdd/dev_hdd0/game"; fi
+        [[ "$(basename "$src_hdd")" == "dev_hdd0" ]] && src_game="$src_hdd/game" || src_game="$src_hdd/dev_hdd0/game"
         echo -e "     Source hdd:   ${src_hdd#"$sd"/}  ${GREEN}(found — merges into .config/rpcs3, no-clobber)${NC}"
     else
-        echo -e "     Source hdd:   ${YELLOW}none found — would scan bundle hdd only${NC}"
+        echo -e "     Source hdd:   ${YELLOW}none found — relies on existing bundle hdd${NC}"
     fi
-    local tmp; tmp="$(mktemp -d)"
-    _psn_tids() {
-        local g="$1" d t
-        [[ -d "$g" ]] || return 0
-        for d in "$g"/*/; do
-            [[ -d "$d" ]] || continue
-            t="$(basename "$d")"; [[ "$t" == NP* ]] || continue
-            [[ -f "${d}USRDIR/EBOOT.BIN" ]] && printf '%s\n' "$t"
-        done | sort -u
-    }
-    _psn_tids "$src_game"    > "$tmp/src" 2>/dev/null
-    _psn_tids "$bundle_game" > "$tmp/bun" 2>/dev/null
-    local sc bc newc unionc
-    sc=$(wc -l < "$tmp/src"); bc=$(wc -l < "$tmp/bun")
-    newc=$(comm -23 "$tmp/src" "$tmp/bun" | wc -l)
-    sort -u "$tmp/src" "$tmp/bun" > "$tmp/all"; unionc=$(wc -l < "$tmp/all")
-    echo "     Titles:       source $sc, bundle $bc, new to merge $newc"
-    echo "     Would emit:   ~$unionc .m3u into ROMs/ps3psn  (NP* digital w/ EBOOT; disc/DLC/data skipped)"
-    echo "     Sample:"
-    local shown=0 t g title safe
-    while IFS= read -r t; do
-        [[ $shown -ge 6 ]] && break
-        if [[ -d "$bundle_game/$t" ]]; then g="$bundle_game/$t"; else g="$src_game/$t"; fi
-        title="$(psn_title "$g")"; [[ -z "$title" ]] && title="$t"
-        safe="$(psn_safe_name "$title")"; [[ -z "$safe" ]] && safe="$t"
-        echo "                   $safe  ($t)  →  $safe.m3u"
-        shown=$((shown + 1))
-    done < "$tmp/all"
-    [[ "$unionc" -gt 6 ]] && echo "                   … (+$((unionc - 6)) more)"
-    rm -rf "$tmp"
+    local total=0 ok=0 miss=0 shown=0 f stem tid found
+    echo "     Sample (lnk → launcher):"
+    while IFS= read -r -d '' f; do
+        total=$((total + 1))
+        stem="$(basename "$f")"; stem="${stem%.[Ll][Nn][Kk]}"
+        tid="$(psn_tid_from_lnk "$f")"; tid="${tid^^}"
+        found=no
+        if [[ -n "$tid" ]] && { [[ -f "$hdd/$tid/USRDIR/EBOOT.BIN" ]] || { [[ -n "$src_game" ]] && [[ -f "$src_game/$tid/USRDIR/EBOOT.BIN" ]]; }; }; then
+            found=yes; ok=$((ok + 1))
+        else
+            miss=$((miss + 1))
+        fi
+        if [[ $shown -lt 6 ]]; then
+            if [[ "$found" == yes ]]; then
+                echo "                   $stem  ($tid) → $stem.m3u"
+            else
+                echo -e "                   $stem  (${YELLOW}${tid:-no-TID} not installed${NC}) → skip"
+            fi
+            shown=$((shown + 1))
+        fi
+    done < <(find "$sd" -maxdepth 1 -type f -iname '*.lnk' -print0 2>/dev/null)
+    [[ $total -gt 6 ]] && echo "                   … (+$((total - 6)) more .lnk)"
+    echo "     Launchers:    $ok of $total .lnk resolve to an installed game$([ "$miss" -gt 0 ] && echo "; $miss unresolved")"
+    local mlist="" mdir key klc
+    for mdir in "$sd"/*/; do
+        [[ -d "$mdir" ]] || continue
+        key="$(basename "$mdir")"; klc="${key,,}"
+        [[ -n "${MEDIA_MAP[$klc]:-}" ]] && mlist+="$key→${MEDIA_MAP[$klc]} "
+    done
+    [[ -n "$mlist" ]] && echo "     Media:        ${mlist}(stem-matched → binds to .m3u)"
 }
 
 if $DRY_RUN; then
@@ -8176,11 +8246,11 @@ for RETROBAT_PATH in "${RETROBAT_PATHS[@]}"; do
         # installed in RPCS3's dev_hdd0 — useless on Linux. Instead of copying
         # them, scan dev_hdd0 and emit .m3u launchers into ROMs/ps3psn.
         if [[ "$RB_SYS" == "psn" || "$RB_SYS" == "ps3psn" ]]; then
-            # Merge the source's own RPCS3 dev_hdd0 into the bundle first, then
-            # scan the now-complete hdd. Without this the source's installed
-            # PSN games (often hundreds not yet in the bundle) are silently lost.
-            relocate_rpcs3_hdd "$SYS_DIR"
-            scan_ps3_hdd
+            # Digital/PSN folder: RetroBat ships .lnk shortcuts, not ROMs. Merge
+            # the source RPCS3 dev_hdd0 into the bundle, then turn each .lnk into a
+            # stem-matched .m3u launcher (stem = media name; TID read from the .lnk
+            # body) and import the stem-named media so cover art binds.
+            import_ps3psn "$SYS_DIR"
             continue
         fi
         # Resolve to a canonical ES-DE system. If the folder name is not a
