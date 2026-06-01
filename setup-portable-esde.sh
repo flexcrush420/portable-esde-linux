@@ -6,7 +6,7 @@
 # |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
 #
 #  All-in-One Portable ES-DE Setup for Linux
-#  Fail by default is not an option. -flexcrush
+#  https://github.com/flexcrush420/portable-esde-linux
 #
 #  Creates a fully self-contained ES-DE retro gaming bundle:
 #    ✓ ES-DE frontend in portable mode
@@ -8027,8 +8027,18 @@ relocate_rpcs3_hdd() {
     # silently dropping every not-yet-present game and RAP license. cp -rn merges
     # per file: keeps existing saves/installs/licenses, adds only what's missing.
     # Source is left intact; cut-mode cleanup is the user's call.
-    echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [merging..."
-    cp -rn "$src/." "$dest/" 2>/dev/null || true
+    # Same filesystem → hardlink-merge (cp -rln): instant, no extra space, and
+    # deleting the source later leaves the bundle's link intact. Different fs →
+    # real copy. Always no-clobber, so existing saves/installs/licenses win and
+    # only missing files are added (a top-level mv would skip the whole game/
+    # tree when dest/game already exists, silently dropping games + licenses).
+    if [[ "$(stat -c %d "$src" 2>/dev/null)" == "$(stat -c %d "$dest" 2>/dev/null)" ]]; then
+        echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [hardlink-merging..."
+        cp -rln "$src/." "$dest/" 2>/dev/null || cp -rn "$src/." "$dest/" 2>/dev/null || true
+    else
+        echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [copy-merging..."
+        cp -rn "$src/." "$dest/" 2>/dev/null || true
+    fi
     echo -e " ${GREEN}done${NC}"
 }
 
@@ -8125,6 +8135,12 @@ import_ps3psn() {
             echo "   PSN: gamelist imported (paths rewritten .lnk → .m3u)."
         fi
     fi
+
+    # Reflect this branch's work in the final summary — the caller's early
+    # `continue` skips the generic per-system counters.
+    IMPORT_SYSTEMS=$((IMPORT_SYSTEMS + 1))
+    IMPORT_MEDIA=$((IMPORT_MEDIA + mc))
+    IMPORT_ROMS=$((IMPORT_ROMS + n))
 }
 
 # Dry-run preview of the ps3psn path: source hdd location, how each .lnk resolves
