@@ -1,7 +1,7 @@
 # Portable ES-DE for Linux
 
 <p align="center">
-<strong>A portable Linux retro gaming bundle built around ES-DE, RetroArch, curated AppImages, source ports, import tooling, BIOS checks, and update helpers.</strong>
+<strong>A portable Linux retro gaming setup built around ES-DE, RetroArch, and standalone emulators. Includes curated AppImages, BIOS validation, and RetroBat import tooling for a clean, consistent, portable game library.</strong>
 </p>
 
 <p align="center">
@@ -11,8 +11,6 @@
 <img alt="Platform" src="https://img.shields.io/badge/platform-Linux-blue">
 <img alt="Install" src="https://img.shields.io/badge/install-portable-purple">
 </p>
-
-> RetroBat style portability for Linux, built around ES-DE, curated AppImages, RetroArch cores, tidy media paths, and a safer import workflow.
 
 ![ES-DE Portable Ports Preview](ports-system-preview.png)
 
