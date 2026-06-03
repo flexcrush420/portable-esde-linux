@@ -3303,26 +3303,44 @@ elif [[ ! -e "$SCRIPT_DIR/Music" ]]; then
 fi
 
 ensure_ini_key() {
-    local section="$1" key="$2" value="$3"
-    if grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$VPI" 2>/dev/null; then
-        sed -i "s|^[[:space:]]*${key}[[:space:]]*=.*|${key} = ${value}|" "$VPI"
-    elif grep -qE "^[[:space:]]*\[${section}\]" "$VPI" 2>/dev/null; then
-        sed -i "/^[[:space:]]*\[${section}\]/a ${key} = ${value}" "$VPI"
-    else
-        printf '\n[%s]\n%s = %s\n' "$section" "$key" "$value" >> "$VPI"
-    fi
+    # Set key=value *within* the named section. Section-aware: the same key may
+    # live in two sections (e.g. PinMAMEPath under both [Standalone] and
+    # [Plugin.PinMAME]) without one clobbering the other. Updates in place if
+    # present in that section, adds under the header if the section exists, or
+    # appends a new section otherwise.
+    local section="$1" key="$2" value="$3" tmp
+    tmp="$(mktemp)" || return 0
+    awk -v s="$section" -v k="$key" -v v="$value" '
+        function ishdr(l){ return (l ~ /^[[:space:]]*\[.*\][[:space:]]*$/) }
+        BEGIN{ insec=0; done=0 }
+        {
+          if (ishdr($0)) {
+            if (insec && !done){ print k" = "v; done=1 }
+            cur=$0; sub(/^[[:space:]]*\[/,"",cur); sub(/\][[:space:]]*$/,"",cur)
+            insec=(cur==s); print; next
+          }
+          if (insec && !done && $0 ~ "^[[:space:]]*"k"[[:space:]]*="){ print k" = "v; done=1; next }
+          print
+        }
+        END{
+          if (insec && !done){ print k" = "v; done=1 }
+          if (!done){ print "["s"]"; print k" = "v }
+        }
+    ' "$VPI" > "$tmp" 2>/dev/null && mv "$tmp" "$VPI" || rm -f "$tmp"
 }
 
 if [[ ! -f "$VPI" ]]; then
     cat > "$VPI" << EOF
 [Standalone]
 VPRegPath = $VPREG_PATH
+PinMAMEPath = $PINMAME_PATH
 [Plugin.PinMAME]
 PinMAMEPath = $PINMAME_PATH
 PinMAMEIniPath = $PINMAME_INI_PATH
 EOF
 else
     ensure_ini_key "Standalone" "VPRegPath" "$VPREG_PATH"
+    ensure_ini_key "Standalone" "PinMAMEPath" "$PINMAME_PATH"
     ensure_ini_key "Plugin.PinMAME" "PinMAMEPath" "$PINMAME_PATH"
     ensure_ini_key "Plugin.PinMAME" "PinMAMEIniPath" "$PINMAME_INI_PATH"
 fi
@@ -6566,8 +6584,8 @@ declare -a BIOS_TABLE=(
     "amstradcpc|cpc464.rom|REQ_ANY:model|MED|-|Amstrad CPC 464 OS+BASIC"
 
     # ── Sharp X68000 (x68000) — PX68k ──
-    "x68000|iplrom.dat|REQ|MED|-|X68000 IPL ROM"
-    "x68000|cgrom.dat|REQ|MED|-|X68000 Character Generator ROM"
+    "x68000|keropi/iplrom.dat|REQ|MED|-|X68000 IPL ROM"
+    "x68000|keropi/cgrom.dat|REQ|MED|-|X68000 Character Generator ROM"
 
     # ── Sharp X1 (x1) — X Millennium ──
     "x1|ipl.x1|REQ|LOW|-|X1 IPL ROM"
@@ -8014,6 +8032,33 @@ find_rpcs3_src_hdd() {
 # Merge a source RPCS3 dev_hdd0 into the bundle's RPCS3 config home, no-clobber
 # (existing saves/installs/RAP licenses always win). Honors RETROBAT_MOVE. No-op
 # if no source hdd is found.
+# Fold a directory tree into a destination, honouring the user's cut/copy choice
+# (RETROBAT_MOVE) — the same contract the generic ROM/media branches use, so
+# every system behaves identically. No-clobber: existing files always win, only
+# missing ones are added. Never a top-level mv (which can't merge into an
+# existing dir). OS/debug cruft that rides along in dumped Windows trees
+# (Thumbs.db, .DS_Store, crash dumps) is stripped from the destination.
+#   cut  -> per-file move, source ends empty (instant rename on one filesystem)
+#   copy -> bulk copy, source left intact
+_merge_tree() {
+    local src="$1" dest="$2"
+    [[ -d "$src" ]] || return 0
+    mkdir -p "$dest"
+    if [[ "${RETROBAT_MOVE:-no}" == "yes" ]]; then
+        ( cd "$src" && find . -mindepth 1 -type f -print0 2>/dev/null \
+            | while IFS= read -r -d '' f; do
+                  mkdir -p "$dest/$(dirname "$f")" 2>/dev/null || true
+                  mv -n "$f" "$dest/$f" 2>/dev/null || true
+              done ) || true
+        find "$src" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+    else
+        cp -rn "$src/." "$dest/" 2>/dev/null || true
+    fi
+    find "$dest" -type f \( -iname 'Thumbs.db' -o -iname '.DS_Store' \
+         -o -iname 'desktop.ini' -o -iname '*.dmp' \) -delete 2>/dev/null || true
+    return 0
+}
+
 relocate_rpcs3_hdd() {
     local sd="$1" src dest
     src="$(find_rpcs3_src_hdd "$sd")" || return 0
@@ -8021,24 +8066,12 @@ relocate_rpcs3_hdd() {
     dest="$BASE/.config/rpcs3"
     [[ "$(basename "$src")" == "dev_hdd0" ]] && dest="$dest/dev_hdd0"
     mkdir -p "$dest"
-    # Always a file-level no-clobber MERGE, never a top-level mv. The bundle
-    # usually already has a dev_hdd0 (game/, home/), and `mv -n <dir> dest/`
-    # refuses to merge into an existing directory — it skips the whole subtree,
-    # silently dropping every not-yet-present game and RAP license. cp -rn merges
-    # per file: keeps existing saves/installs/licenses, adds only what's missing.
-    # Source is left intact; cut-mode cleanup is the user's call.
-    # Same filesystem → hardlink-merge (cp -rln): instant, no extra space, and
-    # deleting the source later leaves the bundle's link intact. Different fs →
-    # real copy. Always no-clobber, so existing saves/installs/licenses win and
-    # only missing files are added (a top-level mv would skip the whole game/
-    # tree when dest/game already exists, silently dropping games + licenses).
-    if [[ "$(stat -c %d "$src" 2>/dev/null)" == "$(stat -c %d "$dest" 2>/dev/null)" ]]; then
-        echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [hardlink-merging..."
-        cp -rln "$src/." "$dest/" 2>/dev/null || cp -rn "$src/." "$dest/" 2>/dev/null || true
-    else
-        echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [copy-merging..."
-        cp -rn "$src/." "$dest/" 2>/dev/null || true
-    fi
+    # Fold the source dev_hdd0 into the bundle's, honouring the user's cut/copy
+    # choice (never a top-level mv: the bundle usually already has a dev_hdd0,
+    # and `mv -n <dir> dest/` refuses to merge into an existing dir — it skips
+    # the whole subtree, silently dropping not-yet-present games + RAP licenses).
+    echo -n "      RPCS3 dev_hdd0 → .config/rpcs3 [merging..."
+    _merge_tree "$src" "$dest"
     echo -e " ${GREEN}done${NC}"
 }
 
@@ -8517,6 +8550,13 @@ GLFIX
             while IFS= read -r -d '' ROM; do
                 BASENAME=$(basename "$ROM")
                 [[ "$BASENAME" == _* || "$BASENAME" == "gamelist"* || "$BASENAME" == *.txt || "$BASENAME" == *.xml ]] && continue
+                # vpinball sources are full Windows dumps: the flat ROM dir also
+                # carries B2S server binaries/helpers that aren't tables. Scoped
+                # to vpinball so DOS/PC systems that legitimately ship .exe ROMs
+                # are unaffected; .vpx tables and per-table .ini are kept.
+                if [[ "$ESDE_SYS" == "vpinball" ]]; then
+                    case "${BASENAME,,}" in *.exe|*.dll|*.config|*.cmd|*.log) continue ;; esac
+                fi
                 if is_known_bios_file "$BASENAME" || looks_like_generic_bios_archive "$BASENAME"; then
                     _import_bios_file "$ROM" false
                     continue
@@ -8638,9 +8678,24 @@ GLFIX
                     [[ -d "$VPM/$VSUB" ]] || continue
                     mkdir -p "$ROMS/vpinball/pinmame/$VSUB"
                     echo -n "        pinmame/$VSUB ..."
-                    cp -rn "$VPM/$VSUB/." "$ROMS/vpinball/pinmame/$VSUB/" 2>/dev/null || true
+                    _merge_tree "$VPM/$VSUB" "$ROMS/vpinball/pinmame/$VSUB"
                     echo -e " ${GREEN}$(find "$ROMS/vpinball/pinmame/$VSUB" -maxdepth 1 -type f 2>/dev/null | wc -l) files${NC}"
                 done
+                # VPMAlias.txt lives in the VPinMAME ROOT (not a subfolder), so
+                # the per-subfolder loop above misses it. It maps mod-table game
+                # names to real romsets (e.g. BEASTIEBOYS,barra_l1); without it an
+                # aliased table can't resolve its ROM. Union-merge so source
+                # aliases accumulate without clobbering ones already present.
+                if [[ -f "$VPM/VPMAlias.txt" ]]; then
+                    _adst="$ROMS/vpinball/pinmame/VPMAlias.txt"
+                    if [[ -f "$_adst" ]]; then
+                        cat "$_adst" "$VPM/VPMAlias.txt" | awk 'NF && !seen[$0]++' > "$_adst.tmp" 2>/dev/null \
+                            && mv "$_adst.tmp" "$_adst" 2>/dev/null || rm -f "$_adst.tmp"
+                    else
+                        cp -n "$VPM/VPMAlias.txt" "$_adst" 2>/dev/null || true
+                    fi
+                    echo "        pinmame/VPMAlias.txt ($(grep -c ',' "$_adst" 2>/dev/null) alias entries)"
+                fi
                 # VPROOT = emulators/vpinball/ — Music/ and Scripts/ sit beside
                 # VPinMAME/. Music is kept in ROMs/vpinball/music for portability;
                 # Emulators/Music is created as a compatibility symlink when safe.
@@ -8656,7 +8711,7 @@ GLFIX
                 fi
                 if [[ -d "$VPROOT/Music" ]]; then
                     echo -n "        ROMs/vpinball/music ..."
-                    cp -rn "$VPROOT/Music/." "$ROMS/vpinball/music/" 2>/dev/null || true
+                    _merge_tree "$VPROOT/Music" "$ROMS/vpinball/music"
                     echo -e " ${GREEN}$(find "$ROMS/vpinball/music" -type f 2>/dev/null | wc -l) files${NC}"
                 fi
                 VPSCR="$VPROOT/Scripts"
@@ -8665,7 +8720,11 @@ GLFIX
                     echo -n "        ROMs/vpinball/ (script library) ..."
                     SCRN=0
                     while IFS= read -r -d '' SVB; do
-                        cp -n "$SVB" "$ROMS/vpinball/" 2>/dev/null && SCRN=$((SCRN + 1)) || true
+                        if [[ "${RETROBAT_MOVE:-no}" == "yes" ]]; then
+                            mv -n "$SVB" "$ROMS/vpinball/" 2>/dev/null && SCRN=$((SCRN + 1)) || true
+                        else
+                            cp -n "$SVB" "$ROMS/vpinball/" 2>/dev/null && SCRN=$((SCRN + 1)) || true
+                        fi
                     done < <(find "$VPSCR" -maxdepth 1 -type f -iname '*.vbs' -print0 2>/dev/null)
                     echo -e " ${GREEN}$SCRN .vbs files${NC}"
                 fi
