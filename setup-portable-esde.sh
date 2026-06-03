@@ -6,7 +6,7 @@
 # |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
 #
 #  All-in-One Portable ES-DE Setup for Linux
-#  https://github.com/flexcrush420/portable-esde-linux
+#  Fail by default is not an option. -flexcrush
 #
 #  Creates a fully self-contained ES-DE retro gaming bundle:
 #    ✓ ES-DE frontend in portable mode
