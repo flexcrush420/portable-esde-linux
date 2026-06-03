@@ -6,7 +6,7 @@
 # |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
 #
 #  All-in-One Portable ES-DE Setup for Linux
-#  Fail by default is not an option. -flexcrush
+#  https://github.com/flexcrush420/portable-esde-linux
 #
 #  Creates a fully self-contained ES-DE retro gaming bundle:
 #    ✓ ES-DE frontend in portable mode
@@ -7957,9 +7957,22 @@ dry_run_report() {
                 local vpscr="$vproot/Scripts"
                 [[ ! -d "$vpscr" ]] && vpscr="$vpm/Scripts"
                 if [[ -d "$vpscr" ]]; then
-                    local sn
+                    local sn bsc xn sk _c
                     sn=$(find "$vpscr" -maxdepth 1 -type f -iname '*.vbs' 2>/dev/null | wc -l)
-                    echo "     Scripts:  $sn .vbs library file(s) → would import to ROMs/vpinball/"
+                    bsc=""
+                    for _c in "$BASE/Emulators/VPinball/scripts" "$BASE/Emulators/VPinball/Scripts"; do
+                        if [[ -d "$_c" ]]; then bsc="$_c"; break; fi
+                    done
+                    if [[ -n "$bsc" ]]; then
+                        sk=$(comm -12 \
+                            <(find "$vpscr" -maxdepth 1 -type f -iname '*.vbs' -printf '%f\n' 2>/dev/null | tr '[:upper:]' '[:lower:]' | sort -u) \
+                            <(find "$bsc"   -maxdepth 1 -type f -iname '*.vbs' -printf '%f\n' 2>/dev/null | tr '[:upper:]' '[:lower:]' | sort -u) \
+                            | wc -l)
+                        xn=$((sn - sk))
+                        echo "     Scripts:  $xn extra .vbs → ROMs/vpinball/ (skipping $sk bundled with the emulator)"
+                    else
+                        echo "     Scripts:  $sn .vbs library file(s) → would import to ROMs/vpinball/ (emulator scripts dir not found)"
+                    fi
                     echo "     Symlinks: .pinmame → ROMs/vpinball/pinmame, Emulators/Music → ROMs/vpinball/music when safe"
                 fi
             else
@@ -8699,9 +8712,6 @@ GLFIX
                 # VPROOT = emulators/vpinball/ — Music/ and Scripts/ sit beside
                 # VPinMAME/. Music is kept in ROMs/vpinball/music for portability;
                 # Emulators/Music is created as a compatibility symlink when safe.
-                # Scripts: the core.vbs / manufacturer .vbs library — tables do
-                # GetTextFile("core.vbs"), resolved relative to the table dir,
-                # so the library belongs in ROMs/vpinball/ alongside the .vpx.
                 VPROOT=$(dirname "$VPM")
                 mkdir -p "$ROMS/vpinball/music" "$ROMS/vpinball/pinmame/ini"
                 if [[ -L "$BASE/Emulators/Music" ]]; then
@@ -8714,19 +8724,49 @@ GLFIX
                     _merge_tree "$VPROOT/Music" "$ROMS/vpinball/music"
                     echo -e " ${GREEN}$(find "$ROMS/vpinball/music" -type f 2>/dev/null | wc -l) files${NC}"
                 fi
+                # Scripts library: tables do GetTextFile("core.vbs"), resolved from the
+                # table dir first, so the .vbs library normally lives beside the .vpx in
+                # ROMs/vpinball/. BUT the VPinball Standalone build ships its OWN copy of
+                # the standard library (core.vbs, controller.vbs, etc.) in
+                # Emulators/VPinball/scripts/, adapted for the plugin-PinMAME/BGFX build
+                # (it carries the UsePdbLeds auto-declare guard + IsPluginPinMAME handling
+                # that RetroBat's Windows-COM copies lack). Harvesting RetroBat's same-
+                # named files into the table dir SHADOWS the build's matched copies
+                # (table-dir wins in GetTextFile) and crashes every ROM-running table with
+                # "ChangedPDLeds not declared". So skip any .vbs the build already ships;
+                # harvest only RetroBat-only extras (genuine table-specific scripts).
                 VPSCR="$VPROOT/Scripts"
                 [[ ! -d "$VPSCR" ]] && VPSCR="$VPM/Scripts"
                 if [[ -d "$VPSCR" ]]; then
+                    BLDSCR=""
+                    for _c in "$BASE/Emulators/VPinball/scripts" "$BASE/Emulators/VPinball/Scripts"; do
+                        if [[ -d "$_c" ]]; then BLDSCR="$_c"; break; fi
+                    done
+                    unset _bundled 2>/dev/null || true
+                    declare -A _bundled=()
+                    if [[ -n "$BLDSCR" ]]; then
+                        while IFS= read -r -d '' _bf; do
+                            _bundled["$(basename "$_bf" | tr '[:upper:]' '[:lower:]')"]=1
+                        done < <(find "$BLDSCR" -maxdepth 1 -type f -iname '*.vbs' -print0 2>/dev/null)
+                    fi
                     echo -n "        ROMs/vpinball/ (script library) ..."
-                    SCRN=0
+                    SCRN=0; SKPN=0
                     while IFS= read -r -d '' SVB; do
+                        _bn="$(basename "$SVB" | tr '[:upper:]' '[:lower:]')"
+                        if [[ -n "${_bundled[$_bn]:-}" ]]; then
+                            SKPN=$((SKPN + 1)); continue   # emulator ships its own — never shadow it
+                        fi
                         if [[ "${RETROBAT_MOVE:-no}" == "yes" ]]; then
                             mv -n "$SVB" "$ROMS/vpinball/" 2>/dev/null && SCRN=$((SCRN + 1)) || true
                         else
                             cp -n "$SVB" "$ROMS/vpinball/" 2>/dev/null && SCRN=$((SCRN + 1)) || true
                         fi
                     done < <(find "$VPSCR" -maxdepth 1 -type f -iname '*.vbs' -print0 2>/dev/null)
-                    echo -e " ${GREEN}$SCRN .vbs files${NC}"
+                    if [[ -n "$BLDSCR" ]]; then
+                        echo -e " ${GREEN}$SCRN extra .vbs${NC} (skipped $SKPN bundled with the emulator)"
+                    else
+                        echo -e " ${GREEN}$SCRN .vbs files${NC} ${YELLOW}(emulator scripts dir not found — harvested all; may shadow emulator copies)${NC}"
+                    fi
                 fi
             else
                 warn "vpinball: no VPinMAME folder in source — PinMAME tables will need ROMs added to ROMs/vpinball/pinmame/roms/ manually"
