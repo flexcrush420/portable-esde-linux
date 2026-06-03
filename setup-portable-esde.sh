@@ -6,7 +6,7 @@
 # |_|   \___/|_|   \__\__,_|_.__/|_|\___| |_____|____/      |____/|_____|
 #
 #  All-in-One Portable ES-DE Setup for Linux
-#  Failure by default is not an option. -flexcrush
+#  https://github.com/flexcrush420/portable-esde-linux
 #
 #  Creates a fully self-contained ES-DE retro gaming bundle:
 #    ✓ ES-DE frontend in portable mode
@@ -8771,6 +8771,33 @@ GLFIX
             else
                 warn "vpinball: no VPinMAME folder in source — PinMAME tables will need ROMs added to ROMs/vpinball/pinmame/roms/ manually"
             fi
+            # Hide the support subfolders (music/, pinmame/) from ES-DE. They live
+            # inside ROMs/vpinball/ for VPinball portability but aren't tables, so
+            # ES-DE would otherwise list them as empty browsable folders. Append a
+            # hidden <folder> entry to the system gamelist — ES-DE's native hide,
+            # same mechanism as the MAME CHD-folder hide. Idempotent.
+            mkdir -p "$ESDE_GAMELIST_DIR"
+            VPGL="$ESDE_GAMELIST_DIR/gamelist.xml"
+            for _hf in music pinmame; do
+                [[ -d "$ROMS/vpinball/$_hf" ]] || continue
+                _ent="  <folder>
+    <path>./$_hf</path>
+    <name>$_hf</name>
+    <hidden>true</hidden>
+  </folder>"
+                if [[ -f "$VPGL" ]]; then
+                    grep -qF "<path>./$_hf</path>" "$VPGL" 2>/dev/null && continue
+                    if grep -q '</gameList>' "$VPGL" 2>/dev/null; then
+                        _tmp=$(mktemp)
+                        awk -v e="$_ent" '/<\/gameList>/{print e} {print}' "$VPGL" > "$_tmp" && mv "$_tmp" "$VPGL"
+                    else
+                        printf '%s\n%s\n' "$_ent" '</gameList>' >> "$VPGL"
+                    fi
+                else
+                    printf '%s\n%s\n%s\n%s\n' '<?xml version="1.0"?>' '<gameList>' "$_ent" '</gameList>' > "$VPGL"
+                fi
+            done
+            echo -e "        ${GREEN}music/ + pinmame/ hidden from ES-DE${NC}"
             # Offer to fetch per-table Linux script patches. Some VPX tables
             # need a patched .vbs sidecar to run under Standalone; the fetcher
             # downloads any whose name exactly matches a patch in the repo.
