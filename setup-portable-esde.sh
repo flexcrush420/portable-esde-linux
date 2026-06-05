@@ -3337,6 +3337,12 @@ PinMAMEPath = $PINMAME_PATH
 [Plugin.PinMAME]
 PinMAMEPath = $PINMAME_PATH
 PinMAMEIniPath = $PINMAME_INI_PATH
+[Player]
+; SyncMode 1 = hardware VSync. The upstream default (0) leaves the framerate
+; pinned to a mis-detected 60Hz on many Linux/SDL setups (VPX logs "Failed to
+; get display refresh rate, defaulting to 60Hz"); VSync locks to the real panel
+; refresh instead. Seeded only on first creation, so deliberate user changes stick.
+SyncMode = 1
 EOF
 else
     ensure_ini_key "Standalone" "VPRegPath" "$VPREG_PATH"
