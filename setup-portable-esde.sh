@@ -3343,6 +3343,17 @@ PinMAMEIniPath = $PINMAME_INI_PATH
 ; get display refresh rate, defaulting to 60Hz"); VSync locks to the real panel
 ; refresh instead. Seeded only on first creation, so deliberate user changes stick.
 SyncMode = 1
+; PBWEnabled 0 = disable analog/accelerometer nudge. PS4/DualShock-class pads
+; (including clones) get misread as an accelerometer, flinging the ball on any
+; left-stick movement. Digital D-pad nudge (JoyL/R/CTiltKey) still works. Seeded
+; on first creation only, so users who want analog nudge can turn it back on.
+PBWEnabled = 0
+; PlungerAxis 0 = disable analog plunger. VPinball 10.8.1's axis-numbering
+; regression (vpinball/vpinball#2435) makes stick axes produce no plunger and
+; slams the triggers, so a DualShock-class right stick ghost-pulls the ball.
+; Digital plunger launch still works. Seeded on first creation only; revisit
+; when a build past Rev 3788 (or a #2435 fix) ships.
+PlungerAxis = 0
 EOF
 else
     ensure_ini_key "Standalone" "VPRegPath" "$VPREG_PATH"
