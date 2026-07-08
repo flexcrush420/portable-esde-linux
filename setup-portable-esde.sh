@@ -4121,11 +4121,23 @@ install_xenia() {
     if [[ -f "$EMUS/xenia_canary" ]]; then
         ok "Xenia Canary already exists, skipping"
     else
-        XENIA_URL="https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_linux.tar.xz"
+        # Resolve the Linux build asset dynamically. Upstream has shipped this as
+        # xenia_canary_linux.tar.xz, .tar_.xz (current), and .tar.gz over time,
+        # so match by pattern rather than hardcoding a name/extension -- a
+        # hardcoded URL is exactly what broke this before.
+        XENIA_REPO="xenia-canary/xenia-canary-releases"
+        XENIA_URL=$(curl -fsSL "https://api.github.com/repos/$XENIA_REPO/releases/latest" 2>/dev/null \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iE 'linux.*\.tar' | grep -viE '\.(sha256|sig|asc)$' | head -1)
+        # Fallback to the current known asset if the API is unreachable/rate-limited.
+        [[ -n "$XENIA_URL" ]] || XENIA_URL="https://github.com/$XENIA_REPO/releases/latest/download/xenia_canary_linux.tar_.xz"
         info "Downloading Xenia Canary (official build) ..."
         XENIA_TMPDIR="$EMUS/xenia_tmp"
         mkdir -p "$XENIA_TMPDIR"
-        if curl -#fL "$XENIA_URL" | tar -xJ -C "$XENIA_TMPDIR" 2>/dev/null; then
+        XENIA_ARCHIVE="$XENIA_TMPDIR/xenia_dl.tar"
+        # Download to a file (not a pipe): tar auto-detects xz/gz/zst from a real
+        # file, but cannot auto-detect compression when reading a pipe.
+        if curl -#fL "$XENIA_URL" -o "$XENIA_ARCHIVE" && tar -xf "$XENIA_ARCHIVE" -C "$XENIA_TMPDIR" 2>/dev/null; then
             # Locate the xenia_canary binary (usually deep inside build/...)
             XENIA_BIN=$(find "$XENIA_TMPDIR" -type f -name xenia_canary -executable 2>/dev/null | head -1)
             if [[ -n "$XENIA_BIN" ]]; then
@@ -5882,11 +5894,23 @@ install_xenia() {
     if [[ -f "$EMUS/xenia_canary" ]]; then
         ok "Xenia Canary already exists, skipping"
     else
-        XENIA_URL="https://github.com/xenia-canary/xenia-canary-releases/releases/latest/download/xenia_canary_linux.tar.xz"
+        # Resolve the Linux build asset dynamically. Upstream has shipped this as
+        # xenia_canary_linux.tar.xz, .tar_.xz (current), and .tar.gz over time,
+        # so match by pattern rather than hardcoding a name/extension -- a
+        # hardcoded URL is exactly what broke this before.
+        XENIA_REPO="xenia-canary/xenia-canary-releases"
+        XENIA_URL=$(curl -fsSL "https://api.github.com/repos/$XENIA_REPO/releases/latest" 2>/dev/null \
+            | grep -oP '"browser_download_url":\s*"\K[^"]*' \
+            | grep -iE 'linux.*\.tar' | grep -viE '\.(sha256|sig|asc)$' | head -1)
+        # Fallback to the current known asset if the API is unreachable/rate-limited.
+        [[ -n "$XENIA_URL" ]] || XENIA_URL="https://github.com/$XENIA_REPO/releases/latest/download/xenia_canary_linux.tar_.xz"
         info "Downloading Xenia Canary (official build) ..."
         XENIA_TMPDIR="$EMUS/xenia_tmp"
         mkdir -p "$XENIA_TMPDIR"
-        if curl -#fL "$XENIA_URL" | tar -xJ -C "$XENIA_TMPDIR" 2>/dev/null; then
+        XENIA_ARCHIVE="$XENIA_TMPDIR/xenia_dl.tar"
+        # Download to a file (not a pipe): tar auto-detects xz/gz/zst from a real
+        # file, but cannot auto-detect compression when reading a pipe.
+        if curl -#fL "$XENIA_URL" -o "$XENIA_ARCHIVE" && tar -xf "$XENIA_ARCHIVE" -C "$XENIA_TMPDIR" 2>/dev/null; then
             # Locate the xenia_canary binary (usually deep inside build/...)
             XENIA_BIN=$(find "$XENIA_TMPDIR" -type f -name xenia_canary -executable 2>/dev/null | head -1)
             if [[ -n "$XENIA_BIN" ]]; then
